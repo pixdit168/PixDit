@@ -873,6 +873,7 @@ const requestHandler = async (request, response) => {
 };
 
 export { requestHandler };
+export default requestHandler;
 
 if (!process.env.VERCEL) {
   const server = http.createServer(requestHandler);
