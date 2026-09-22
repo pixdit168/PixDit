@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { creativeAgents, getBehavioralPrompt } from "./lib/creative-agents.js";
 import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supabase.js";
+import { NineRouterImageProvider } from "./lib/nine-router.js";
 import { ReplicateImageProvider } from "./lib/replicate.js";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -54,7 +55,8 @@ try {
 const accountAuth = useMemoryBackend
   ? new MemoryAuth()
   : new SupabaseAuth({ url: supabaseUrl, publishableKey: supabasePublishableKey, secretKey: supabaseSecretKey });
-const imageProvider = new ReplicateImageProvider();
+const premiumImageProvider = new ReplicateImageProvider();
+const freeImageProvider = new NineRouterImageProvider();
 const activeUserJobs = new Set();
 
 if (isProduction && !publicOrigin) {
@@ -184,6 +186,10 @@ function getPublicUser(user) {
   return { id: user.id, email: user.email, displayName: user.displayName, createdAt: user.createdAt, plan: getPlanCode(user.id) };
 }
 
+function getImageProvider(userId) {
+  return getPlanCode(userId) === "premium" ? premiumImageProvider : freeImageProvider;
+}
+
 function createUserProfile({ id, email, displayName, plan = "free", createdAt = new Date().toISOString() }) {
   return {
     id,
@@ -304,7 +310,8 @@ function getUsageStatus(userId) {
     planLabel: isPremium ? "Layera Pro" : "Paket Gratis",
     isPremium,
     isSubscriber: isPremium,
-    maxAgents: isPremium ? 10 : 1,
+    allowedImageCounts: isPremium ? [1, 10] : [1],
+    maxImagesPerGeneration: isPremium ? 10 : 1,
     allowedQualities: isPremium ? ["1mp", "2mp", "4mp"] : ["1mp"],
     credits: { limit: period.creditLimit, used: creditsUsed, remaining: creditsRemaining, period: period.period, resetAt: period.reset.toISOString() },
     brand: { limit: isPremium ? -1 : 1, used: brand ? 1 : 0, name: brand?.displayName || "" },
@@ -328,6 +335,14 @@ function getUsageStatus(userId) {
 function generationCreditCost(quality, count = 1) {
   const perImage = ({ "2mp": 4, "4mp": 8 })[quality] || 2;
   return perImage * Math.max(1, count);
+}
+
+function getGenerationJobs(imageCount, requestId) {
+  if (imageCount === creativeAgents.length) {
+    return creativeAgents.map((creativeAgent, slot) => ({ slot, agentIndex: slot, creativeAgent }));
+  }
+  const direction = Number.parseInt(sha256(requestId).slice(0, 8), 16) % creativeAgents.length;
+  return [{ slot: 0, agentIndex: direction, creativeAgent: creativeAgents[direction] }];
 }
 
 function creditAllowed(userId, eventType, creditCost) {
@@ -363,7 +378,7 @@ function quotaExceeded(response, userId, eventType, requiredCredits) {
   const resetDate = new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: "Asia/Jakarta" }).format(new Date(usage.credits.resetAt));
   const message = usage.isPremium
     ? `Kredit Layera Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
-    : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, dapat membuat ~100 gambar, bebas memilih behavior agentic, dll.`;
+    : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.`;
   sendJson(response, 429, { ok: false, error: "quota_exhausted", quotaType: eventType, requiredCredits, upgradeRequired: !usage.isPremium, upgradeLabel: "Upgrade ke pro - Rp. 199.999/bln", message, usage });
 }
 
@@ -373,12 +388,15 @@ function convertToVisualBrief(brief) {
   return result || "Create a tasteful commercial key visual based on the supplied business category.";
 }
 
-function newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement = "" }) {
+function newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement = "", imageCount = 1 }) {
   const visualBrief = convertToVisualBrief(brief);
   if (refinement) {
     return `IMAGE EDIT TASK — the attached/source image is the visual source of truth.\nUSER'S REQUIRED CHANGE (highest priority): ${refinement}\n\nMake the requested change clearly visible. Preserve every element the user did not ask to change: subject identity, shape, people, activity, camera angle, crop, composition, lighting direction, background structure, and material details. If the requested change names one of those elements, change that element and preserve the rest. Do not reinterpret the full campaign or introduce an unrelated subject, object, person, industry, or setting.\nOriginal campaign context (use only to disambiguate the edit): ${visualBrief}\nBusiness category: ${category}\nOutput format: ${format}\nVisual continuity: ${style}, polished commercial quality, realistic materials.\nHard constraints: return one edited key visual only. No text, pseudo-text, letters, numbers, labels, logos, watermarks, signatures, borders, or UI. Any surface that could contain writing must remain blank.`;
   }
-  return `IMPORTANT OUTPUT RULE: Generate only a clean advertising key visual. This is NOT a finished poster and must contain no typography.\nUse case: advertising key visual for an Indonesian small business\nBusiness category selected in the UI: ${category}\nPrimary visual brief (highest authority for subject and meaning): ${visualBrief}\nRequested output format: ${format}\nUser-selected visual style: ${style}\nPreferred primary color: ${/^#[0-9a-f]{6}$/i.test(primaryColor) ? primaryColor : "derive a tasteful palette from the brief"}\n\n${getBehavioralPrompt(creativeAgent)}\n\nPriority order: (1) preserve the user's actual business, subject, benefit, and audience; (2) obey this agent's exclusive composition and rendering contract; (3) apply the selected style and brand color without erasing the agent signature.\nDomain fidelity: infer the actual industry and subject from the user's visual brief. The visual brief overrides the UI category whenever they conflict. Represent services, software, education, health, property, fashion, beauty, events, professional work, and other fields through an appropriate audience, action, environment, outcome, or visual metaphor. Never substitute a different business sector or invent any subject, object, person, activity, or setting absent from the brief.\nBrief interpretation: use the brief to understand the subject or service, audience, benefit, mood, colors, materials, action, and setting. Treat any request for a tagline, headline, typography, logo, brand name, campaign name, or written copy only as a request to reserve the exact copy zone required by this agent. Never render or imitate those words.\nSet-wide diversity: this concept belongs to a ten-direction exploration. Make its camera, spatial hierarchy, visual medium, subject scale, and copy-zone geometry unmistakably specific to this agent. Brand consistency may come from palette and subject matter, never from repeating one layout.\nQuality: polished, commercially usable, context-appropriate imagery, realistic materials where relevant, and intentional lighting.\nCultural context: contemporary Indonesia, tasteful and authentic when relevant to the brief.\nHard constraints: visual imagery only. Absolutely no text, pseudo-text, glyphs, letters, words, numbers, captions, labels, logos, brand marks, signatures, UI, border, poster title, or watermark anywhere in the image. Any surface that could contain writing must remain blank. Do not add unrelated objects or people.`;
+  const diversityRule = imageCount === 10
+    ? "Set-wide diversity: this image belongs to a ten-image exploration. Make its camera, spatial hierarchy, visual medium, subject scale, and copy-zone geometry unmistakably specific to this direction. Brand consistency may come from palette and subject matter, never from repeating one layout."
+    : "Standalone strength: deliver one decisive, complete visual direction with a clear hierarchy and intentional copy zone; do not make it look like a fragment of a larger set.";
+  return `IMPORTANT OUTPUT RULE: Generate only a clean advertising key visual. This is NOT a finished poster and must contain no typography.\nUse case: advertising key visual for an Indonesian small business\nBusiness category selected in the UI: ${category}\nPrimary visual brief (highest authority for subject and meaning): ${visualBrief}\nRequested output format: ${format}\nUser-selected visual style: ${style}\nPreferred primary color: ${/^#[0-9a-f]{6}$/i.test(primaryColor) ? primaryColor : "derive a tasteful palette from the brief"}\n\n${getBehavioralPrompt(creativeAgent)}\n\nPriority order: (1) preserve the user's actual business, subject, benefit, and audience; (2) obey this creative direction's exclusive composition and rendering contract; (3) apply the selected style and brand color without erasing its visual signature.\nDomain fidelity: infer the actual industry and subject from the user's visual brief. The visual brief overrides the UI category whenever they conflict. Represent services, software, education, health, property, fashion, beauty, events, professional work, and other fields through an appropriate audience, action, environment, outcome, or visual metaphor. Never substitute a different business sector or invent any subject, object, person, activity, or setting absent from the brief.\nBrief interpretation: use the brief to understand the subject or service, audience, benefit, mood, colors, materials, action, and setting. Treat any request for a tagline, headline, typography, logo, brand name, campaign name, or written copy only as a request to reserve the exact copy zone required by this direction. Never render or imitate those words.\n${diversityRule}\nQuality: polished, commercially usable, context-appropriate imagery, realistic materials where relevant, and intentional lighting.\nCultural context: contemporary Indonesia, tasteful and authentic when relevant to the brief.\nHard constraints: visual imagery only. Absolutely no text, pseudo-text, glyphs, letters, words, numbers, captions, labels, logos, brand marks, signatures, UI, border, poster title, or watermark anywhere in the image. Any surface that could contain writing must remain blank. Do not add unrelated objects or people.`;
 }
 
 function enhancedPrompt(input) {
@@ -408,7 +426,7 @@ function enhancedPrompt(input) {
     else parts.push(`Buat key visual promosi untuk bisnis kategori ${category}`);
     parts.push(`Tujuan visual: ${focusByCategory[category] || focusByCategory.Lainnya}`);
   }
-  parts.push(`Arah gaya: ${style}; format: ${format}; pertahankan fleksibilitas komposisi agar setiap behavioral agent dapat menerjemahkan brief dengan ciri visualnya sendiri`);
+  parts.push(`Arah gaya: ${style}; format: ${format}; pertahankan fleksibilitas komposisi agar setiap variasi visual dapat menerjemahkan brief dengan cirinya sendiri`);
   if (String(input.brand || "").trim()) parts.push(`Identitas brand yang perlu terasa: ${String(input.brand).trim()}`);
   if (String(input.headline || "").trim()) parts.push(`Makna headline yang perlu didukung visual: ${String(input.headline).trim()}`);
   if (String(input.cta || "").trim()) parts.push(`Aksi yang ingin didorong: ${String(input.cta).trim()}`);
@@ -457,11 +475,12 @@ function headlineSuggestion(input) {
 function safeClientError(error) {
   const message = String(error?.message || "Provider gambar gagal memproses permintaan.")
     .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/sk-[A-Za-z0-9_-]{16,}/g, "[redacted]")
     .replace(/r8_[A-Za-z0-9_-]+/g, "[redacted]")
     .replace(/sbp_[A-Za-z0-9_-]+/g, "[redacted]")
     .replace(/sb_(?:secret|publishable)_[A-Za-z0-9_-]+/g, "[redacted]")
     .slice(0, 500);
-  return isProduction && !/REPLICATE_API_TOKEN|batas waktu|Replicate|Flux|kredit|billing|rate/i.test(message)
+  return isProduction && !/REPLICATE_API_TOKEN|NINEROUTER_|batas waktu|Replicate|9Router|Flux|kredit|billing|rate/i.test(message)
     ? "Provider gambar gagal memproses permintaan. Silakan coba kembali."
     : message;
 }
@@ -491,22 +510,30 @@ async function handleGeneration(request, response, input, auth) {
   const brief = String(input.prompt || "").trim();
   if (brief.length < 20) return sendJson(response, 400, { error: "invalid_prompt", message: "Prompt minimal 20 karakter." });
   if (brief.length > 1000) return sendJson(response, 400, { error: "prompt_too_long", message: "Prompt maksimal 1000 karakter." });
-  if (!imageProvider.configured) return sendJson(response, 503, { error: "missing_api_key", message: "REPLICATE_API_TOKEN belum diatur pada environment server Node.js." });
   if (activeUserJobs.has(auth.user.id)) return sendJson(response, 409, { error: "generation_in_progress", message: "Masih ada proses gambar untuk akun ini. Tunggu hingga selesai." });
 
   const usage = getUsageStatus(auth.user.id);
+  const imageProvider = getImageProvider(auth.user.id);
   let quality = String(input.quality || "1mp").toLowerCase();
   if (!["1mp", "2mp", "4mp"].includes(quality)) quality = "1mp";
   if (!usage.allowedQualities.includes(quality)) return sendJson(response, 403, { error: "quality_limit", upgradeRequired: true, message: "Paket Gratis hanya mendukung kualitas 1MP/HD. Upgrade ke Pro untuk membuka 2MP dan 4MP.", usage });
-  const agentIndexes = [...new Set((Array.isArray(input.agentIndexes) ? input.agentIndexes : [0]).map(Number).filter((index) => Number.isInteger(index) && index >= 0 && index < creativeAgents.length))];
-  if (!agentIndexes.length) agentIndexes.push(0);
-  if (agentIndexes.length > usage.maxAgents) return sendJson(response, 403, { error: "agent_limit", upgradeRequired: !usage.isSubscriber, message: `${usage.planLabel} hanya dapat menggunakan ${usage.maxAgents} agent dalam satu generasi.`, usage });
-  const totalCreditCost = generationCreditCost(quality, agentIndexes.length);
+  const requestedImageCount = Number(input.imageCount ?? 1);
+  if (![1, 10].includes(requestedImageCount)) return sendJson(response, 400, { error: "invalid_image_count", message: "Jumlah gambar hanya dapat dipilih 1 atau 10." });
+  const imageCount = requestedImageCount;
+  if (!usage.allowedImageCounts.includes(imageCount)) return sendJson(response, 403, { error: "image_count_limit", upgradeRequired: true, message: "Paket Gratis hanya dapat membuat 1 gambar. Upgrade ke Layera Pro untuk membuat 10 gambar sekaligus.", usage });
+  if (!imageProvider.configured) {
+    const message = usage.isPremium
+      ? "REPLICATE_API_TOKEN belum diatur pada environment server Node.js."
+      : `Provider gambar Paket Gratis belum lengkap: ${imageProvider.missingConfiguration.join(", ")}.`;
+    return sendJson(response, 503, { error: "provider_not_configured", provider: imageProvider.name, message });
+  }
+  const totalCreditCost = generationCreditCost(quality, imageCount);
   if (!creditAllowed(auth.user.id, "generate", totalCreditCost).allowed) return quotaExceeded(response, auth.user.id, "generate", totalCreditCost);
   const brandName = String(input.brandName || input.projectName || "").trim();
   if (!isBrandAllowed(auth.user.id, brandName)) return sendJson(response, 403, { error: "brand_limit", upgradeRequired: true, message: `Paket Gratis hanya berlaku untuk 1 brand. Brand aktif akun ini adalah '${usage.brand.name}'. Upgrade ke Pro untuk menggunakan brand tanpa batas.`, usage });
 
   const requestId = String(input.requestId || randomUUID());
+  const generationJobs = getGenerationJobs(imageCount, requestId);
   const jobId = randomUUID().replace(/-/g, "");
   const format = String(input.format || "Instagram Post · 4:5").trim();
   const style = String(input.style || "Eksploratif").trim();
@@ -523,21 +550,20 @@ async function handleGeneration(request, response, input, auth) {
     "X-Accel-Buffering": "no",
   });
   response.flushHeaders();
-  sendNdjson(response, { type: "start", requestId, promptLength: brief.length, jobId, total: agentIndexes.length, agentIndexes, model: imageProvider.model, provider: "replicate", format, style, quality, creditCost: totalCreditCost });
+  sendNdjson(response, { type: "start", requestId, promptLength: brief.length, jobId, total: imageCount, imageCount, model: imageProvider.model, provider: imageProvider.name, format, style, quality, creditCost: totalCreditCost });
 
   let successCount = 0;
   let brandRecorded = false;
   const failureMessages = [];
   const perImageCreditCost = generationCreditCost(quality, 1);
   try {
-    for (const index of agentIndexes) {
-      const creativeAgent = creativeAgents[index];
+    for (const { slot, agentIndex, creativeAgent } of generationJobs) {
       try {
-        sendNdjson(response, { type: "progress", index, agent: creativeAgent.agent, name: creativeAgent.name });
-        const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor });
+        sendNdjson(response, { type: "progress", index: slot, direction: creativeAgent.name });
+        const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, imageCount });
         const result = await imageProvider.run({ prompt, format, quality, signal: abortController.signal });
         const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
-        const fileName = `concept-${String(index + 1).padStart(2, "0")}.${result.extension}`;
+        const fileName = `concept-${String(slot + 1).padStart(2, "0")}.${result.extension}`;
         const imageId = `${safeJobId}/${fileName}`;
         const url = `/generated/${imageId}`;
         await store.saveImage(imageId, auth.user.id, result.buffer, result.mimeType);
@@ -545,15 +571,15 @@ async function handleGeneration(request, response, input, auth) {
         await addUsageEvent(auth.user.id, "generate", perImageCreditCost);
         if (!brandRecorded) { await addAccountBrand(auth.user.id, brandName); brandRecorded = true; }
         successCount += 1;
-        sendNdjson(response, { type: "image", index, name: creativeAgent.name, agent: creativeAgent.agent, url, displayUrl: url });
+        sendNdjson(response, { type: "image", index: slot, agentIndex, name: creativeAgent.name, url, displayUrl: url });
       } catch (error) {
         const message = safeClientError(error);
         failureMessages.push(message);
-        sendNdjson(response, { type: "image_error", index, name: creativeAgent.name, message });
+        sendNdjson(response, { type: "image_error", index: slot, name: creativeAgent.name, message });
         if (abortController.signal.aborted) break;
       }
     }
-    sendNdjson(response, { type: "done", requestId, jobId, total: agentIndexes.length, success: successCount, failed: failureMessages.length, firstError: failureMessages[0] || "", usage: getUsageStatus(auth.user.id) });
+    sendNdjson(response, { type: "done", requestId, jobId, total: imageCount, success: successCount, failed: failureMessages.length, firstError: failureMessages[0] || "", usage: getUsageStatus(auth.user.id) });
     if (!response.writableEnded) response.end();
   } finally {
     activeUserJobs.delete(auth.user.id);
@@ -565,12 +591,18 @@ async function handleRefinement(request, response, input, auth) {
   const refinement = String(input.refinement || "").trim();
   if (brief.length < 20 || brief.length > 1000) return sendJson(response, 400, { error: "invalid_prompt", message: "Prompt Library harus berisi 20-1000 karakter." });
   if (!refinement || refinement.length > 500) return sendJson(response, 400, { error: "invalid_refinement", message: "Instruksi edit harus berisi 1-500 karakter." });
-  if (!imageProvider.configured) return sendJson(response, 503, { error: "missing_api_key", message: "REPLICATE_API_TOKEN belum diatur pada environment server Node.js." });
+  const imageProvider = getImageProvider(auth.user.id);
+  if (!imageProvider.configured) {
+    const message = getPlanCode(auth.user.id) === "premium"
+      ? "REPLICATE_API_TOKEN belum diatur pada environment server Node.js."
+      : `Provider gambar Paket Gratis belum lengkap: ${imageProvider.missingConfiguration.join(", ")}.`;
+    return sendJson(response, 503, { error: "provider_not_configured", provider: imageProvider.name, message });
+  }
   if (activeUserJobs.has(auth.user.id)) return sendJson(response, 409, { error: "generation_in_progress", message: "Masih ada proses gambar untuk akun ini. Tunggu hingga selesai." });
   if (!creditAllowed(auth.user.id, "refine", 3).allowed) return quotaExceeded(response, auth.user.id, "refine", 3);
   activeUserJobs.add(auth.user.id);
   try {
-    const indexValue = Number(input.conceptIndex);
+    const indexValue = Number(input.agentIndex ?? input.conceptIndex);
     const index = Number.isInteger(indexValue) && indexValue >= 0 && indexValue < creativeAgents.length ? indexValue : 0;
     const creativeAgent = creativeAgents[index];
     const format = String(input.format || "Instagram Post · 4:5").trim();
@@ -819,19 +851,30 @@ async function handleAuthAndAccount(request, response, pathname) {
 
 async function handleApi(request, response, pathname) {
   if (pathname === "/api/health" && request.method === "GET") {
+    const auth = await getAuthenticatedUser(request).catch(() => null);
+    const selectedProvider = auth ? getImageProvider(auth.user.id) : premiumImageProvider;
+    const providerMessage = selectedProvider.configured
+      ? `${selectedProvider.name === "replicate" ? "Replicate Flux 2 Pro" : "9Router"} siap digunakan.`
+      : selectedProvider.name === "replicate"
+        ? "REPLICATE_API_TOKEN belum diatur."
+        : `Provider gambar Paket Gratis menunggu ${selectedProvider.missingConfiguration.join(", ")}.`;
     return sendJson(response, 200, {
       ok: true,
-      configured: imageProvider.configured,
-      provider: imageProvider.name,
+      configured: selectedProvider.configured,
+      provider: selectedProvider.name,
       trustProxy,
       vercelEnv: process.env.VERCEL,
-      model: imageProvider.model,
-      endpoint: imageProvider.endpoint,
+      model: selectedProvider.model,
+      endpoint: selectedProvider.endpoint,
+      providers: {
+        free: { name: freeImageProvider.name, configured: freeImageProvider.configured, model: freeImageProvider.model || null },
+        premium: { name: premiumImageProvider.name, configured: premiumImageProvider.configured, model: premiumImageProvider.model },
+      },
       deploymentMode: "node",
       database: useMemoryBackend ? "memory" : "supabase",
       auth: useMemoryBackend ? "memory" : "supabase",
       publicOrigin,
-      message: imageProvider.configured ? "Replicate Flux 2 Pro siap digunakan." : "REPLICATE_API_TOKEN belum diatur.",
+      message: providerMessage,
     });
   }
   const accountHandled = await handleAuthAndAccount(request, response, pathname);
@@ -874,6 +917,8 @@ const staticFiles = new Map([
   ["/index.html", { file: "index.html", type: "text/html; charset=utf-8" }],
   ["/app.js", { file: "public/app.js", type: "application/javascript; charset=utf-8" }],
   ["/styles.css", { file: "public/styles.css", type: "text/css; charset=utf-8" }],
+  ["/favicon.svg", { file: "favicon.svg", type: "image/svg+xml" }],
+  ["/favicon.ico", { file: "favicon.svg", type: "image/svg+xml" }],
 ]);
 const assetMimeTypes = new Map([[".png", "image/png"], [".jpg", "image/jpeg"], [".jpeg", "image/jpeg"], [".webp", "image/webp"], [".svg", "image/svg+xml"], [".ico", "image/x-icon"]]);
 
@@ -951,8 +996,10 @@ if (!process.env.VERCEL) {
 
   server.listen(port, host, () => {
     console.log(`Layera Node.js berjalan di http://localhost:${port}`);
-    console.log(`Provider gambar: Replicate ${imageProvider.model}`);
-    console.log(imageProvider.configured ? "REPLICATE_API_TOKEN terdeteksi." : "REPLICATE_API_TOKEN belum diatur; UI tetap dapat dibuka.");
+    console.log(`Provider premium: Replicate ${premiumImageProvider.model}`);
+    console.log(premiumImageProvider.configured ? "REPLICATE_API_TOKEN terdeteksi." : "REPLICATE_API_TOKEN belum diatur; UI tetap dapat dibuka.");
+    console.log(`Provider gratis: 9Router ${freeImageProvider.model || "(model belum dipilih)"}`);
+    console.log(freeImageProvider.configured ? "Konfigurasi 9Router lengkap." : `Konfigurasi 9Router belum lengkap: ${freeImageProvider.missingConfiguration.join(", ")}.`);
     console.log(`Penyimpanan akun: ${useMemoryBackend ? "memory test" : "Supabase"}`);
     if (isProduction) console.log(`Mode production aktif untuk ${publicOrigin}.`);
   });

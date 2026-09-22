@@ -348,7 +348,7 @@ let accountPreferences = null;
 let accountMenuTrigger = null;
 let apiHealth = { online: false, configured: false, model: null };
 let usageState = null;
-let selectedAgentIndexes = [0];
+let selectedGenerationCount = 1;
 let pendingDeleteProjectId = null;
 let csrfToken = "";
 function cloneInspirationProjects() {
@@ -485,25 +485,25 @@ function updatePlanInterface() {
   $("#sidebar-plan-usage").textContent = `${credits?.remaining ?? (subscriber ? 200 : 11)} dari ${credits?.limit ?? (subscriber ? 200 : 11)} kredit tersisa`;
   const progress = $("#plan-card .plan-progress i");
   if (progress) progress.style.width = `${Math.max(0, Math.min(100, ((credits?.remaining ?? 0) / (credits?.limit || 1)) * 100))}%`;
-  if (!subscriber && selectedAgentIndexes.length > 1) selectedAgentIndexes = [selectedAgentIndexes[0]];
+  if (!subscriber && selectedGenerationCount === 10) selectedGenerationCount = 1;
   const qualitySelect = $("#quality-select");
   if (qualitySelect) {
     $$("option", qualitySelect).forEach((option) => { option.disabled = !subscriber && option.value !== "1mp"; });
     if (!subscriber && qualitySelect.value !== "1mp") qualitySelect.value = "1mp";
     $("#quality-plan-note").textContent = subscriber ? "Layera Pro mendukung 1MP, 2MP, dan 4MP." : "Paket Gratis mendukung hingga 1MP / HD.";
   }
-  renderAgentSelector();
+  renderGenerationCountSelector();
   updateGenerationControls();
 }
 
 function updateGenerationControls() {
-  const count = Math.max(1, selectedAgentIndexes.length);
+  const count = selectedGenerationCount === 10 ? 10 : 1;
   const subscriber = isSubscriber();
   const quality = $("#quality-select")?.value || "1mp";
   const unitCost = { "1mp": 2, "2mp": 4, "4mp": 8 }[quality] || 2;
   const totalCost = count * unitCost;
   $("#generate-button-label").textContent = `Buat ${count} gambar`;
-  $("#agent-plan-note").textContent = subscriber ? `Layera Pro: ${count} dari 10 agent dipilih` : "Paket gratis: pilih 1 agent";
+  $("#generation-count-plan-note").textContent = subscriber ? `Layera Pro: ${count} gambar dipilih` : "Paket gratis: 1 gambar";
   const note = $("#generation-cost-note");
   if (!note) return;
   const remaining = usageState?.credits?.remaining;
@@ -542,7 +542,7 @@ async function checkApiHealth() {
       status.innerHTML = `<span>●</span> Aktif · ${escapeHtml(data.model || "Flux 2 Pro")}`;
     } else {
       status.className = "private-note api-status offline";
-      const message = data.message || "REPLICATE_API_TOKEN belum diatur.";
+      const message = data.message || "Provider gambar belum dikonfigurasi.";
       status.innerHTML = `<span>●</span> Server aktif · ${escapeHtml(message)}`;
     }
   } catch {
@@ -596,7 +596,7 @@ function showAuthScreen(message = "") {
   accountPreferences = null;
   usageState = null;
   csrfToken = "";
-  selectedAgentIndexes = [0];
+  selectedGenerationCount = 1;
   projects = [];
   libraryItems = [];
   activeProject = null;
@@ -750,7 +750,7 @@ function createProjectFromInspiration(inspirationId) {
   saveProjects();
   renderProjects();
   openProject(project.id);
-  showToast("Inspirasi siap dikembangkan", "Ubah brief, teks poster, dan agent agar sesuai dengan brand-mu.", "✦");
+  showToast("Inspirasi siap dikembangkan", "Ubah brief, teks poster, dan arah visual agar sesuai dengan brand-mu.", "✦");
 }
 
 const promptSuggestionSets = {
@@ -818,32 +818,28 @@ function renderPromptSuggestions() {
   }));
 }
 
-function renderAgentSelector() {
-  const selector = $("#agent-selector");
+function renderGenerationCountSelector() {
+  const selector = $("#generation-count-selector");
   if (!selector) return;
-  selector.innerHTML = concepts.map((concept, index) => `
-    <button class="agent-option ${selectedAgentIndexes.includes(index) ? "selected" : ""}" type="button" data-agent-index="${index}" aria-pressed="${selectedAgentIndexes.includes(index)}" ${generationInProgress ? "disabled" : ""}>
-      <b>${String(index + 1).padStart(2, "0")}</b><span><strong>${escapeHtml(concept.agent)}</strong><small>${escapeHtml(concept.name)}</small></span>
-    </button>`).join("");
-  $$(".agent-option", selector).forEach((button) => button.addEventListener("click", () => toggleAgentSelection(Number(button.dataset.agentIndex))));
+  $$(".generation-count-option", selector).forEach((button) => {
+    const count = Number(button.dataset.imageCount) === 10 ? 10 : 1;
+    const selected = selectedGenerationCount === count;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+    button.disabled = generationInProgress;
+  });
 }
 
-function toggleAgentSelection(index) {
+function selectGenerationCount(value) {
   if (generationInProgress) return;
-  if (!Number.isInteger(index) || index < 0 || index >= concepts.length) return;
-  if (!isSubscriber()) {
-    selectedAgentIndexes = [index];
-  } else if (selectedAgentIndexes.includes(index)) {
-    if (selectedAgentIndexes.length === 1) {
-      showToast("Pilih minimal satu agent", "Satu agent diperlukan untuk membuat gambar.", "!");
-      return;
-    }
-    selectedAgentIndexes = selectedAgentIndexes.filter((candidate) => candidate !== index);
-  } else {
-    selectedAgentIndexes = [...selectedAgentIndexes, index].sort((a, b) => a - b);
+  const count = Number(value) === 10 ? 10 : 1;
+  if (count === 10 && !isSubscriber()) {
+    openUpgradeModal("Pembuatan 10 gambar sekaligus tersedia pada Layera Pro. Paket Gratis tetap dapat membuat 1 gambar.");
+    return;
   }
-  if (activeProject) activeProject.agentIndexes = [...selectedAgentIndexes];
-  renderAgentSelector();
+  selectedGenerationCount = count;
+  if (activeProject) activeProject.generationCount = count;
+  renderGenerationCountSelector();
   updateGenerationControls();
   markSaving();
 }
@@ -855,7 +851,7 @@ function openUpgradeModal(message = "") {
     const resetDate = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(new Date(usageState.credits.resetAt));
     $("#upgrade-modal-message").textContent = isSubscriber()
       ? `Kredit Layera Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
-      : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, dapat membuat ~100 gambar, bebas memilih behavior agentic, dll.`;
+      : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.`;
   }
   $("#upgrade-modal").classList.remove("is-hidden");
   $("#upgrade-modal").setAttribute("aria-hidden", "false");
@@ -1304,11 +1300,9 @@ function openProject(id) {
   $("#headline-input").value = posterCopy.headline;
   $("#cta-input").value = posterCopy.cta;
   setHeadlineMode(activeProject.headlineMode || "manual", { persist: false });
-  const storedAgents = Array.isArray(activeProject.agentIndexes)
-    ? activeProject.agentIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < concepts.length)
-    : [];
-  selectedAgentIndexes = storedAgents.length ? [...new Set(storedAgents)] : [0];
-  if (!isSubscriber()) selectedAgentIndexes = [selectedAgentIndexes[0]];
+  const legacyAgentCount = Array.isArray(activeProject.agentIndexes) ? activeProject.agentIndexes.length : 0;
+  selectedGenerationCount = Number(activeProject.generationCount) === 10 || legacyAgentCount === 10 ? 10 : 1;
+  if (!isSubscriber()) selectedGenerationCount = 1;
   $("#color-control").value = activeProject.primaryColor || accountPreferences?.primaryColor || "#5a3529";
   $("#color-value").textContent = $("#color-control").value.toUpperCase();
   $("#format-select").value = activeProject.format || accountPreferences?.defaultFormat || "Instagram Post · 4:5";
@@ -1319,7 +1313,7 @@ function openProject(id) {
   generatedImages = Array.isArray(activeProject.generatedImages) ? [...activeProject.generatedImages] : [];
   updateCharacterCount();
   renderPromptSuggestions();
-  renderAgentSelector();
+  renderGenerationCountSelector();
   updateGenerationControls();
   renderBrandLogoPreview();
   clearSelection();
@@ -1329,7 +1323,7 @@ function openProject(id) {
     $("#empty-results").classList.add("is-hidden");
     renderConcepts(false, generatedImages);
     const resultCount = generatedImages.filter((image) => image?.url).length;
-    $("#results-subtitle").textContent = `${resultCount || selectedAgentIndexes.length} gambar dibuat dari brief-mu.`;
+    $("#results-subtitle").textContent = `${resultCount || selectedGenerationCount} gambar dibuat dari brief-mu.`;
   } else {
     $("#results-grid").innerHTML = "";
     $("#empty-results").classList.remove("is-hidden");
@@ -1392,23 +1386,26 @@ function closeHelpModal({ restoreFocus = false } = {}) {
 function renderConcepts(loading = false, images = generatedImages) {
   const formatClass = getPosterFormatClass($("#format-select")?.value || activeProject?.format);
   const completedIndexes = concepts.map((_, index) => index).filter((index) => images[index]);
-  const visibleIndexes = loading ? selectedAgentIndexes : (completedIndexes.length ? completedIndexes : selectedAgentIndexes);
+  const requestedIndexes = Array.from({ length: selectedGenerationCount }, (_, index) => index);
+  const visibleIndexes = loading ? requestedIndexes : (completedIndexes.length ? completedIndexes : requestedIndexes);
   $("#results-grid").innerHTML = visibleIndexes
     .map((index) => {
-      const concept = concepts[index];
       const image = images[index];
+      const directionIndex = Number.isInteger(image?.agentIndex) ? image.agentIndex : index;
+      const concept = concepts[directionIndex] || concepts[index] || concepts[0];
+      const conceptName = image?.name || concept.name;
       const imageSource = image && (image.displayUrl || image.url);
       const isLoading = loading && !imageSource && !(image && image.error);
       const hasApiImage = Boolean(imageSource);
       const posterCopy = getWorkspacePosterCopy(index);
       return `
-        <article class="concept-card ${selectedConcept === index ? "selected" : ""} ${isLoading ? "loading" : ""} ${image && image.error ? "generation-error" : ""}" data-concept="${index}" tabindex="${isLoading ? -1 : 0}" role="button" aria-label="Pilih konsep ${index + 1}: ${concept.name}">
+        <article class="concept-card ${selectedConcept === index ? "selected" : ""} ${isLoading ? "loading" : ""} ${image && image.error ? "generation-error" : ""}" data-concept="${index}" tabindex="${isLoading ? -1 : 0}" role="button" aria-label="Pilih variasi ${index + 1}: ${escapeHtml(conceptName)}">
           <span class="concept-check">✓</span>
           <div class="poster poster-${index + 1} ${formatClass} ${hasApiImage ? "api-poster" : ""}">
-            ${hasApiImage ? `<img class="generated-image" src="${escapeHtml(imageSource)}" alt="Hasil visual ${escapeHtml(concept.name)}" />` : ""}
+            ${hasApiImage ? `<img class="generated-image" src="${escapeHtml(imageSource)}" alt="Hasil visual ${escapeHtml(conceptName)}" />` : ""}
             <div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy, { draggableLogo: hasApiImage && !isLoading, logoScope: "project", logoKey: index })}</div>
           </div>
-          <div class="concept-meta"><span>${String(index + 1).padStart(2, "0")} · ${concept.name}</span><small>${image && image.error ? "Gagal · coba lagi" : concept.agent}</small></div>
+          <div class="concept-meta"><span>${String(index + 1).padStart(2, "0")} · ${escapeHtml(conceptName)}</span><small>${image && image.error ? "Gagal · coba lagi" : "Variasi visual"}</small></div>
         </article>`;
     })
     .join("");
@@ -1582,7 +1579,8 @@ function saveSelectedToLibrary() {
     showToast("Belum ada key visual AI", "Buat gambar terlebih dahulu sebelum menyimpan desain ke Library.", "!");
     return;
   }
-  const concept = concepts[selectedConcept];
+  const directionIndex = Number.isInteger(image.agentIndex) ? image.agentIndex : selectedConcept;
+  const concept = concepts[directionIndex] || concepts[selectedConcept] || concepts[0];
   const createdAt = new Date().toISOString();
   const itemId = `library-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const originalVersionId = `${itemId}-v1`;
@@ -1599,7 +1597,8 @@ function saveSelectedToLibrary() {
     quality: $("#quality-select").value,
     posterCopy: getWorkspacePosterCopy(selectedConcept),
     conceptIndex: selectedConcept,
-    conceptName: concept.name,
+    agentIndex: directionIndex,
+    conceptName: image.name || concept.name,
     agent: concept.agent,
     sourceUrl,
     createdAt,
@@ -1625,14 +1624,15 @@ async function startGeneration() {
   if (activeProject?.headlineMode === "ai") await suggestHeadline({ silent: true });
 
   const requestedQuality = $("#quality-select").value;
-  const requestedCreditCost = selectedAgentIndexes.length * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
+  const requestedCount = selectedGenerationCount === 10 ? 10 : 1;
+  const requestedCreditCost = requestedCount * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
   if (usageState?.generation?.exhausted || (usageState?.credits && usageState.credits.remaining < requestedCreditCost)) {
     openUpgradeModal();
     return;
   }
   if (activeProject?.brandLogo) {
     const storedPositions = activeProject.logoPositions && typeof activeProject.logoPositions === "object" ? activeProject.logoPositions : {};
-    selectedAgentIndexes.forEach((index) => {
+    Array.from({ length: requestedCount }, (_, index) => index).forEach((index) => {
       if (!Object.prototype.hasOwnProperty.call(storedPositions, String(index))) {
         setProjectLogoPosition(activeProject, index, inferLogoPositionFromPrompt(prompt, getProjectLogoPosition(activeProject, index)));
       }
@@ -1645,11 +1645,9 @@ async function startGeneration() {
   }
 
   const previousImages = [...generatedImages];
-  const requestedAgentIndexes = [...selectedAgentIndexes];
-  const requestedCount = requestedAgentIndexes.length;
-  const imageModelLabel = "Flux 2 Pro";
+  const imageModelLabel = apiHealth.model || (isSubscriber() ? "Flux 2 Pro" : "AI gratis");
   generationInProgress = true;
-  generatedImages = Array(10).fill(null);
+  generatedImages = Array(requestedCount).fill(null);
   clearSelection();
   $("#empty-results").classList.add("is-hidden");
   $("#generation-progress").classList.remove("is-hidden");
@@ -1658,7 +1656,7 @@ async function startGeneration() {
   $("#results-subtitle").textContent = `${imageModelLabel} mengeksplorasi ${requestedCount} arah visual.`;
   const progressTitle = $("#progress-title");
   if (progressTitle) progressTitle.textContent = `${imageModelLabel} sedang membuat key visual...`;
-  setGenerationProgress(3, `Menyiapkan ${imageModelLabel} dan ${requestedCount} agent kreatif`);
+  setGenerationProgress(3, `Menyiapkan ${imageModelLabel} untuk ${requestedCount} gambar`);
 
   try {
     const selectedStyle = $(".style-option.selected strong")?.textContent || "Eksploratif";
@@ -1673,7 +1671,7 @@ async function startGeneration() {
         format: $("#format-select").value,
         style: selectedStyle,
         primaryColor: $("#color-control").value,
-        agentIndexes: requestedAgentIndexes,
+        imageCount: requestedCount,
         quality: requestedQuality,
         brandName: $("#brand-input").value.trim() || activeProject?.name || "",
       }),
@@ -1722,14 +1720,14 @@ async function startGeneration() {
         }
         if (event.type === "progress") {
           const percent = Math.min(92, 8 + (completedImages / requestedCount) * 82);
-          setGenerationProgress(percent, `${imageModelLabel} mengeksplorasi arah ${event.name}`);
+          setGenerationProgress(percent, `${event.direction || imageModelLabel} sedang membuat variasi visual`);
         }
         if (event.type === "image") {
           generatedImages[event.index] = {
             url: event.url,
             displayUrl: event.displayUrl,
             name: event.name,
-            agent: event.agent,
+            agentIndex: event.agentIndex,
           };
           renderConcepts(true, generatedImages);
           completedImages += 1;
@@ -1749,7 +1747,7 @@ async function startGeneration() {
     }
 
     if (!completed) {
-      throw new Error("Koneksi terputus sebelum semua agent selesai.");
+      throw new Error("Koneksi terputus sebelum semua gambar selesai.");
     }
   } catch (error) {
     if (error.data?.usage) {
@@ -1763,11 +1761,11 @@ async function startGeneration() {
     $("#generation-progress").classList.add("is-hidden");
     $("#generate-button").disabled = false;
     $("#results-subtitle").textContent = "Generasi belum selesai. Brief-mu tetap tersimpan.";
-    const fallback = "Periksa REPLICATE_API_TOKEN, saldo Replicate, atau status prediction Flux 2 Pro.";
+    const fallback = "Periksa konfigurasi provider gambar, saldo, atau status layanan AI.";
     showToast("Generasi AI gagal", error.message || fallback, "!");
   } finally {
     generationInProgress = false;
-    renderAgentSelector();
+    renderGenerationCountSelector();
   }
 }
 
@@ -1803,8 +1801,14 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
     activeProject.primaryColor = $("#color-control").value;
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogo = sanitizeLogoDataUrl(activeProject.brandLogo || "");
-    activeProject.agentIndexes = [...selectedAgentIndexes];
-    activeProject.generatedImages = generatedImages.map((image) => (image && image.url ? { url: image.url } : null));
+    activeProject.generationCount = selectedGenerationCount;
+    delete activeProject.agentIndexes;
+    activeProject.generatedImages = generatedImages.map((image) => (image && image.url ? {
+      url: image.url,
+      displayUrl: image.displayUrl || image.url,
+      name: image.name || "",
+      agentIndex: Number.isInteger(image.agentIndex) ? image.agentIndex : undefined,
+    } : null));
     saveProjects();
   }
   if (successCount > 0) {
@@ -1813,7 +1817,7 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
   } else {
     const cardError = generatedImages.find((image) => image?.error)?.message || "";
     const conciseError = String(firstError || cardError).split("\n")[0].slice(0, 220);
-    const providerMessage = "Periksa API token, billing, rate limit, atau halaman prediction pada akun Replicate.";
+    const providerMessage = "Periksa API token, model, billing, atau rate limit provider gambar.";
     showToast("Belum ada gambar yang selesai", conciseError || providerMessage, "!");
   }
 }
@@ -1888,7 +1892,8 @@ function markSaving() {
     activeProject.primaryColor = $("#color-control").value;
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogo = sanitizeLogoDataUrl(activeProject.brandLogo || "");
-    activeProject.agentIndexes = [...selectedAgentIndexes];
+    activeProject.generationCount = selectedGenerationCount;
+    delete activeProject.agentIndexes;
     saveProjects();
     $("#save-status").innerHTML = "<i></i> Tersimpan";
   }, 700);
@@ -1959,6 +1964,7 @@ async function regenerateSelected() {
         prompt: libraryItem.prompt,
         refinement: input.value.trim(),
         conceptIndex: libraryItem.conceptIndex,
+        agentIndex: libraryItem.agentIndex,
         projectName: libraryItem.projectName || "Proyek Kanvas",
         category: libraryItem.category || "Bisnis lokal",
         format: libraryItem.format || "Instagram Post · 4:5",
@@ -2520,7 +2526,7 @@ function bindEvents() {
       logoPositions: {},
       headlineMode: "manual",
       quality: "1mp",
-      agentIndexes: [0],
+      generationCount: 1,
     };
     projects.unshift(project);
     saveProjects();
@@ -2641,6 +2647,9 @@ function bindEvents() {
     }
     updateGenerationControls();
     markSaving();
+  });
+  $$(".generation-count-option").forEach((button) => {
+    button.addEventListener("click", () => selectGenerationCount(button.dataset.imageCount));
   });
   $("#reset-controls").addEventListener("click", () => {
     const preferredStyle = accountPreferences?.defaultStyle || "Eksploratif";
