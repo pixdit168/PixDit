@@ -61,6 +61,9 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(pageResponse.status, 200);
   assert.match(pageHtml, /data-image-count="1"/);
   assert.match(pageHtml, /data-image-count="10"/);
+  assert.match(pageHtml, /id="ai-provider-trigger"/);
+  assert.match(pageHtml, /data-provider-tier="free"/);
+  assert.match(pageHtml, /data-provider-tier="premium"/);
   const faviconResponse = await fetch(`${baseUrl}/favicon.ico`);
   assert.equal(faviconResponse.status, 200);
 
@@ -170,6 +173,19 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(usage.response.status, 200);
   assert.equal(usage.payload.usage.plan, "free");
   assert.equal(usage.payload.usage.credits.remaining, 11);
+
+  const premiumProviderGeneration = await request("/api/generate", {
+    method: "POST",
+    csrf: true,
+    body: {
+      prompt: "Poster sepatu lari ringan untuk pelari pemula",
+      imageCount: 1,
+      quality: "1mp",
+      providerTier: "premium",
+    },
+  });
+  assert.equal(premiumProviderGeneration.response.status, 403);
+  assert.equal(premiumProviderGeneration.payload.error, "provider_tier_limit");
 
   const generation = await request("/api/generate", {
     method: "POST",

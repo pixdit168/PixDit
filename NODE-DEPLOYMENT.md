@@ -4,8 +4,8 @@ Backend aktif Layera adalah `app-backend.js`. Backend menyajikan frontend, akun,
 
 Provider dipilih oleh server berdasarkan plan akun:
 
-- Paket Gratis: 9Router, 1 gambar per permintaan, kualitas 1MP.
-- Layera Pro: Replicate Flux 2 Pro, pilihan 1 atau 10 gambar, kualitas 1MP/2MP/4MP.
+- Paket Gratis: AI Gratis melalui 9Router, 1 gambar per permintaan, kualitas 1MP.
+- Layera Pro: dapat memilih AI Gratis (9Router) atau AI Premium (Replicate Flux 2 Pro), pilihan 1 atau 10 gambar, kualitas 1MP/2MP/4MP.
 
 Strategi visual tetap dibuat beragam di backend. Pengguna tidak lagi memilih agent satu per satu.
 
@@ -61,4 +61,4 @@ npm run check
 npm test
 ```
 
-`GET /api/health` menampilkan provider yang berlaku untuk akun aktif dan status kedua provider tanpa membocorkan token.
+`GET /api/health` menampilkan provider default untuk akun aktif dan status kedua provider tanpa membocorkan token. Pilihan dropdown dikirim sebagai `providerTier` (`free` atau `premium`) pada permintaan generate/refine; backend selalu memverifikasi plan sebelum memakai AI Premium.

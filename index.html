@@ -345,6 +345,25 @@
                 </div>
               </div>
 
+              <div class="ai-provider-section">
+                <div class="control-title"><span>Pilih AI</span><small id="ai-provider-plan-note">AI Gratis tersedia</small></div>
+                <div id="ai-provider-dropdown" class="ai-provider-dropdown">
+                  <button id="ai-provider-trigger" class="ai-provider-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="ai-provider-icon">✦</span>
+                    <span><strong id="ai-provider-label">AI Gratis</strong><small id="ai-provider-description">9Router · Paket Gratis &amp; Pro</small></span>
+                    <b aria-hidden="true">⌄</b>
+                  </button>
+                  <div id="ai-provider-menu" class="ai-provider-menu is-hidden" role="listbox" aria-label="Pilih provider AI">
+                    <button class="ai-provider-option selected" type="button" role="option" data-provider-tier="free" aria-selected="true">
+                      <span>✦</span><span><strong>AI Gratis</strong><small>9Router · untuk semua plan</small></span><b>✓</b>
+                    </button>
+                    <button class="ai-provider-option" type="button" role="option" data-provider-tier="premium" aria-selected="false">
+                      <span>◆</span><span><strong>AI Premium</strong><small>Flux 2 Pro · khusus Layera Pro</small></span><i>PRO</i><b>✓</b>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div class="control-section">
                 <div class="control-title"><span><svg viewBox="0 0 24 24"><path d="M4 7h16M7 7V4M17 7v3M4 17h16M9 17v3M15 17v-3"/></svg> Arah Visual</span><button id="reset-controls" type="button">Atur Ulang</button></div>
                 <div id="style-options" class="style-options">

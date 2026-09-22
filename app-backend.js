@@ -186,8 +186,13 @@ function getPublicUser(user) {
   return { id: user.id, email: user.email, displayName: user.displayName, createdAt: user.createdAt, plan: getPlanCode(user.id) };
 }
 
-function getImageProvider(userId) {
-  return getPlanCode(userId) === "premium" ? premiumImageProvider : freeImageProvider;
+function getProviderTier(userId, requestedTier = "") {
+  if (requestedTier === "free" || requestedTier === "premium") return requestedTier;
+  return getPlanCode(userId) === "premium" ? "premium" : "free";
+}
+
+function getImageProvider(userId, requestedTier = "") {
+  return getProviderTier(userId, requestedTier) === "premium" ? premiumImageProvider : freeImageProvider;
 }
 
 function createUserProfile({ id, email, displayName, plan = "free", createdAt = new Date().toISOString() }) {
@@ -513,7 +518,11 @@ async function handleGeneration(request, response, input, auth) {
   if (activeUserJobs.has(auth.user.id)) return sendJson(response, 409, { error: "generation_in_progress", message: "Masih ada proses gambar untuk akun ini. Tunggu hingga selesai." });
 
   const usage = getUsageStatus(auth.user.id);
-  const imageProvider = getImageProvider(auth.user.id);
+  const rawProviderTier = String(input.providerTier || "").trim().toLowerCase();
+  if (rawProviderTier && !["free", "premium"].includes(rawProviderTier)) return sendJson(response, 400, { error: "invalid_provider_tier", message: "Pilihan AI hanya dapat berupa free atau premium." });
+  const providerTier = getProviderTier(auth.user.id, rawProviderTier);
+  if (providerTier === "premium" && !usage.isPremium) return sendJson(response, 403, { error: "provider_tier_limit", upgradeRequired: true, message: "AI Premium hanya tersedia untuk pelanggan Layera Pro.", usage });
+  const imageProvider = getImageProvider(auth.user.id, providerTier);
   let quality = String(input.quality || "1mp").toLowerCase();
   if (!["1mp", "2mp", "4mp"].includes(quality)) quality = "1mp";
   if (!usage.allowedQualities.includes(quality)) return sendJson(response, 403, { error: "quality_limit", upgradeRequired: true, message: "Paket Gratis hanya mendukung kualitas 1MP/HD. Upgrade ke Pro untuk membuka 2MP dan 4MP.", usage });
@@ -522,7 +531,7 @@ async function handleGeneration(request, response, input, auth) {
   const imageCount = requestedImageCount;
   if (!usage.allowedImageCounts.includes(imageCount)) return sendJson(response, 403, { error: "image_count_limit", upgradeRequired: true, message: "Paket Gratis hanya dapat membuat 1 gambar. Upgrade ke Layera Pro untuk membuat 10 gambar sekaligus.", usage });
   if (!imageProvider.configured) {
-    const message = usage.isPremium
+    const message = imageProvider.name === "replicate"
       ? "REPLICATE_API_TOKEN belum diatur pada environment server Node.js."
       : `Provider gambar Paket Gratis belum lengkap: ${imageProvider.missingConfiguration.join(", ")}.`;
     return sendJson(response, 503, { error: "provider_not_configured", provider: imageProvider.name, message });
@@ -550,7 +559,7 @@ async function handleGeneration(request, response, input, auth) {
     "X-Accel-Buffering": "no",
   });
   response.flushHeaders();
-  sendNdjson(response, { type: "start", requestId, promptLength: brief.length, jobId, total: imageCount, imageCount, model: imageProvider.model, provider: imageProvider.name, format, style, quality, creditCost: totalCreditCost });
+  sendNdjson(response, { type: "start", requestId, promptLength: brief.length, jobId, total: imageCount, imageCount, model: imageProvider.model, provider: imageProvider.name, providerTier, format, style, quality, creditCost: totalCreditCost });
 
   let successCount = 0;
   let brandRecorded = false;
@@ -571,7 +580,7 @@ async function handleGeneration(request, response, input, auth) {
         await addUsageEvent(auth.user.id, "generate", perImageCreditCost);
         if (!brandRecorded) { await addAccountBrand(auth.user.id, brandName); brandRecorded = true; }
         successCount += 1;
-        sendNdjson(response, { type: "image", index: slot, agentIndex, name: creativeAgent.name, url, displayUrl: url });
+        sendNdjson(response, { type: "image", index: slot, agentIndex, name: creativeAgent.name, provider: imageProvider.name, providerTier, url, displayUrl: url });
       } catch (error) {
         const message = safeClientError(error);
         failureMessages.push(message);
@@ -591,9 +600,14 @@ async function handleRefinement(request, response, input, auth) {
   const refinement = String(input.refinement || "").trim();
   if (brief.length < 20 || brief.length > 1000) return sendJson(response, 400, { error: "invalid_prompt", message: "Prompt Library harus berisi 20-1000 karakter." });
   if (!refinement || refinement.length > 500) return sendJson(response, 400, { error: "invalid_refinement", message: "Instruksi edit harus berisi 1-500 karakter." });
-  const imageProvider = getImageProvider(auth.user.id);
+  const usage = getUsageStatus(auth.user.id);
+  const rawProviderTier = String(input.providerTier || "").trim().toLowerCase();
+  if (rawProviderTier && !["free", "premium"].includes(rawProviderTier)) return sendJson(response, 400, { error: "invalid_provider_tier", message: "Pilihan AI hanya dapat berupa free atau premium." });
+  const providerTier = getProviderTier(auth.user.id, rawProviderTier);
+  if (providerTier === "premium" && !usage.isPremium) return sendJson(response, 403, { error: "provider_tier_limit", upgradeRequired: true, message: "AI Premium hanya tersedia untuk pelanggan Layera Pro.", usage });
+  const imageProvider = getImageProvider(auth.user.id, providerTier);
   if (!imageProvider.configured) {
-    const message = getPlanCode(auth.user.id) === "premium"
+    const message = imageProvider.name === "replicate"
       ? "REPLICATE_API_TOKEN belum diatur pada environment server Node.js."
       : `Provider gambar Paket Gratis belum lengkap: ${imageProvider.missingConfiguration.join(", ")}.`;
     return sendJson(response, 503, { error: "provider_not_configured", provider: imageProvider.name, message });
@@ -610,7 +624,6 @@ async function handleRefinement(request, response, input, auth) {
     const category = String(input.category || "Bisnis lokal").trim();
     const primaryColor = /^#[0-9a-f]{6}$/i.test(input.primaryColor || "") ? input.primaryColor : "";
     let quality = String(input.quality || "1mp").toLowerCase();
-    const usage = getUsageStatus(auth.user.id);
     if (!usage.allowedQualities.includes(quality)) quality = "1mp";
     const sourcePath = await resolveGeneratedSource(input.sourceUrl, auth.user.id);
     const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement });
@@ -623,7 +636,7 @@ async function handleRefinement(request, response, input, auth) {
     await store.saveImage(imageId, auth.user.id, result.buffer, result.mimeType);
     await recordGeneratedFile(auth.user.id, url);
     await addUsageEvent(auth.user.id, "refine", 3);
-    return sendJson(response, 200, { ok: true, index, url, displayUrl: url, usage: getUsageStatus(auth.user.id) });
+    return sendJson(response, 200, { ok: true, index, provider: imageProvider.name, providerTier, url, displayUrl: url, usage: getUsageStatus(auth.user.id) });
   } catch (error) {
     return sendJson(response, 502, { error: "generation_failed", message: safeClientError(error) });
   } finally {

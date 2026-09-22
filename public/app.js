@@ -346,9 +346,10 @@ let accountStateReady = false;
 let currentUser = null;
 let accountPreferences = null;
 let accountMenuTrigger = null;
-let apiHealth = { online: false, configured: false, model: null };
+let apiHealth = { online: false, configured: false, model: null, providers: {} };
 let usageState = null;
 let selectedGenerationCount = 1;
+let selectedProviderTier = "free";
 let pendingDeleteProjectId = null;
 let csrfToken = "";
 function cloneInspirationProjects() {
@@ -486,6 +487,7 @@ function updatePlanInterface() {
   const progress = $("#plan-card .plan-progress i");
   if (progress) progress.style.width = `${Math.max(0, Math.min(100, ((credits?.remaining ?? 0) / (credits?.limit || 1)) * 100))}%`;
   if (!subscriber && selectedGenerationCount === 10) selectedGenerationCount = 1;
+  if (!subscriber && selectedProviderTier === "premium") selectedProviderTier = "free";
   const qualitySelect = $("#quality-select");
   if (qualitySelect) {
     $$("option", qualitySelect).forEach((option) => { option.disabled = !subscriber && option.value !== "1mp"; });
@@ -493,6 +495,7 @@ function updatePlanInterface() {
     $("#quality-plan-note").textContent = subscriber ? "Layera Pro mendukung 1MP, 2MP, dan 4MP." : "Paket Gratis mendukung hingga 1MP / HD.";
   }
   renderGenerationCountSelector();
+  renderAiProviderSelector();
   updateGenerationControls();
 }
 
@@ -525,7 +528,7 @@ async function checkApiHealth() {
   if (!status) return;
 
   if (window.location.protocol === "file:") {
-    apiHealth = { online: false, configured: false, model: null };
+    apiHealth = { online: false, configured: false, model: null, providers: {} };
     status.className = "private-note api-status offline";
     status.innerHTML = "<span>●</span> Jalankan npm start untuk mengaktifkan AI.";
     return;
@@ -535,20 +538,18 @@ async function checkApiHealth() {
     const response = await fetch("/api/health", { cache: "no-store" });
     if (!response.ok) throw new Error("Health check gagal");
     const data = await response.json();
-    apiHealth = { online: true, configured: Boolean(data.configured), model: data.model };
+    apiHealth = {
+      online: true,
+      configured: Boolean(data.configured),
+      model: data.model,
+      provider: data.provider,
+      providers: data.providers || {},
+    };
     updateGenerationControls();
-    if (data.configured) {
-      status.className = "private-note api-status connected";
-      status.innerHTML = `<span>●</span> Aktif · ${escapeHtml(data.model || "Flux 2 Pro")}`;
-    } else {
-      status.className = "private-note api-status offline";
-      const message = data.message || "Provider gambar belum dikonfigurasi.";
-      status.innerHTML = `<span>●</span> Server aktif · ${escapeHtml(message)}`;
-    }
+    renderAiProviderSelector();
   } catch {
-    apiHealth = { online: false, configured: false, model: null };
-    status.className = "private-note api-status offline";
-    status.innerHTML = "<span>●</span> Server AI tidak terhubung.";
+    apiHealth = { online: false, configured: false, model: null, providers: {} };
+    renderApiStatus("Server AI tidak terhubung.");
   }
 }
 
@@ -597,11 +598,13 @@ function showAuthScreen(message = "") {
   usageState = null;
   csrfToken = "";
   selectedGenerationCount = 1;
+  selectedProviderTier = "free";
   projects = [];
   libraryItems = [];
   activeProject = null;
   generatedImages = [];
   closeAccountMenu();
+  closeAiProviderMenu();
   closeAllProjectsModal();
   closeHelpModal();
   closeAccountModal();
@@ -841,6 +844,88 @@ function selectGenerationCount(value) {
   if (activeProject) activeProject.generationCount = count;
   renderGenerationCountSelector();
   updateGenerationControls();
+  markSaving();
+}
+
+function getSelectedProviderHealth() {
+  return apiHealth.providers?.[selectedProviderTier] || null;
+}
+
+function closeAiProviderMenu({ restoreFocus = false } = {}) {
+  const menu = $("#ai-provider-menu");
+  const trigger = $("#ai-provider-trigger");
+  if (!menu || !trigger) return;
+  const wasOpen = !menu.classList.contains("is-hidden");
+  menu.classList.add("is-hidden");
+  trigger.setAttribute("aria-expanded", "false");
+  if (restoreFocus && wasOpen) trigger.focus();
+}
+
+function toggleAiProviderMenu() {
+  if (generationInProgress) return;
+  const menu = $("#ai-provider-menu");
+  const trigger = $("#ai-provider-trigger");
+  if (!menu || !trigger) return;
+  const shouldOpen = menu.classList.contains("is-hidden");
+  menu.classList.toggle("is-hidden", !shouldOpen);
+  trigger.setAttribute("aria-expanded", String(shouldOpen));
+  if (shouldOpen) $(".ai-provider-option.selected", menu)?.focus();
+}
+
+function renderApiStatus(offlineMessage = "") {
+  const status = $("#api-status");
+  if (!status) return;
+  if (!apiHealth.online) {
+    status.className = "private-note api-status offline";
+    status.innerHTML = `<span>●</span> ${escapeHtml(offlineMessage || "Server AI tidak terhubung.")}`;
+    return;
+  }
+  const provider = getSelectedProviderHealth();
+  const providerLabel = selectedProviderTier === "premium" ? "AI Premium" : "AI Gratis";
+  if (provider?.configured) {
+    status.className = "private-note api-status connected";
+    status.innerHTML = `<span>●</span> ${providerLabel} aktif · ${escapeHtml(provider.model || provider.name || "Provider siap")}`;
+    return;
+  }
+  status.className = "private-note api-status offline";
+  const message = selectedProviderTier === "premium"
+    ? "Replicate belum dikonfigurasi."
+    : "Model AI Gratis belum dikonfigurasi.";
+  status.innerHTML = `<span>●</span> Server aktif · ${message}`;
+}
+
+function renderAiProviderSelector() {
+  if (!isSubscriber() && selectedProviderTier === "premium") selectedProviderTier = "free";
+  const premiumSelected = selectedProviderTier === "premium";
+  const trigger = $("#ai-provider-trigger");
+  if (!trigger) return;
+  $("#ai-provider-label").textContent = premiumSelected ? "AI Premium" : "AI Gratis";
+  $("#ai-provider-description").textContent = premiumSelected ? "Flux 2 Pro · Layera Pro" : "9Router · Paket Gratis & Pro";
+  $("#ai-provider-plan-note").textContent = isSubscriber() ? "Pilih AI Gratis atau Premium" : "AI Premium khusus Layera Pro";
+  trigger.disabled = generationInProgress;
+  $$(".ai-provider-option").forEach((button) => {
+    const selected = button.dataset.providerTier === selectedProviderTier;
+    const locked = button.dataset.providerTier === "premium" && !isSubscriber();
+    button.classList.toggle("selected", selected);
+    button.classList.toggle("locked", locked);
+    button.setAttribute("aria-selected", String(selected));
+    button.disabled = generationInProgress;
+  });
+  renderApiStatus();
+}
+
+function selectProviderTier(value) {
+  if (generationInProgress) return;
+  const tier = value === "premium" ? "premium" : "free";
+  if (tier === "premium" && !isSubscriber()) {
+    closeAiProviderMenu();
+    openUpgradeModal("AI Premium dengan Flux 2 Pro tersedia pada Layera Pro. Kamu tetap dapat memakai AI Gratis pada Paket Gratis.");
+    return;
+  }
+  selectedProviderTier = tier;
+  if (activeProject) activeProject.providerTier = tier;
+  closeAiProviderMenu();
+  renderAiProviderSelector();
   markSaving();
 }
 
@@ -1303,6 +1388,9 @@ function openProject(id) {
   const legacyAgentCount = Array.isArray(activeProject.agentIndexes) ? activeProject.agentIndexes.length : 0;
   selectedGenerationCount = Number(activeProject.generationCount) === 10 || legacyAgentCount === 10 ? 10 : 1;
   if (!isSubscriber()) selectedGenerationCount = 1;
+  selectedProviderTier = activeProject.providerTier === "free"
+    ? "free"
+    : (isSubscriber() ? "premium" : "free");
   $("#color-control").value = activeProject.primaryColor || accountPreferences?.primaryColor || "#5a3529";
   $("#color-value").textContent = $("#color-control").value.toUpperCase();
   $("#format-select").value = activeProject.format || accountPreferences?.defaultFormat || "Instagram Post · 4:5";
@@ -1314,6 +1402,7 @@ function openProject(id) {
   updateCharacterCount();
   renderPromptSuggestions();
   renderGenerationCountSelector();
+  renderAiProviderSelector();
   updateGenerationControls();
   renderBrandLogoPreview();
   clearSelection();
@@ -1600,6 +1689,8 @@ function saveSelectedToLibrary() {
     agentIndex: directionIndex,
     conceptName: image.name || concept.name,
     agent: concept.agent,
+    provider: image.provider || "",
+    providerTier: image.providerTier || selectedProviderTier,
     sourceUrl,
     createdAt,
     currentVersionId: originalVersionId,
@@ -1625,6 +1716,7 @@ async function startGeneration() {
 
   const requestedQuality = $("#quality-select").value;
   const requestedCount = selectedGenerationCount === 10 ? 10 : 1;
+  const requestedProviderTier = selectedProviderTier;
   const requestedCreditCost = requestedCount * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
   if (usageState?.generation?.exhausted || (usageState?.credits && usageState.credits.remaining < requestedCreditCost)) {
     openUpgradeModal();
@@ -1645,8 +1737,11 @@ async function startGeneration() {
   }
 
   const previousImages = [...generatedImages];
-  const imageModelLabel = apiHealth.model || (isSubscriber() ? "Flux 2 Pro" : "AI gratis");
+  const selectedProviderHealth = getSelectedProviderHealth();
+  const imageModelLabel = selectedProviderHealth?.model || (requestedProviderTier === "premium" ? "Flux 2 Pro" : "AI Gratis");
   generationInProgress = true;
+  closeAiProviderMenu();
+  renderAiProviderSelector();
   generatedImages = Array(requestedCount).fill(null);
   clearSelection();
   $("#empty-results").classList.add("is-hidden");
@@ -1673,6 +1768,7 @@ async function startGeneration() {
         primaryColor: $("#color-control").value,
         imageCount: requestedCount,
         quality: requestedQuality,
+        providerTier: requestedProviderTier,
         brandName: $("#brand-input").value.trim() || activeProject?.name || "",
       }),
     });
@@ -1716,6 +1812,15 @@ async function startGeneration() {
             throw new Error("Backend menerima brief yang tidak cocok. Muat ulang halaman lalu coba lagi.");
           }
           apiHealth.model = event.model;
+          apiHealth.provider = event.provider;
+          if (event.providerTier && apiHealth.providers) {
+            apiHealth.providers[event.providerTier] = {
+              ...(apiHealth.providers[event.providerTier] || {}),
+              configured: true,
+              model: event.model,
+              name: event.provider,
+            };
+          }
           setGenerationProgress(5, `Brief diterima utuh (${event.promptLength} karakter) · ${event.model}`);
         }
         if (event.type === "progress") {
@@ -1728,6 +1833,8 @@ async function startGeneration() {
             displayUrl: event.displayUrl,
             name: event.name,
             agentIndex: event.agentIndex,
+            provider: event.provider,
+            providerTier: event.providerTier || requestedProviderTier,
           };
           renderConcepts(true, generatedImages);
           completedImages += 1;
@@ -1766,6 +1873,7 @@ async function startGeneration() {
   } finally {
     generationInProgress = false;
     renderGenerationCountSelector();
+    renderAiProviderSelector();
   }
 }
 
@@ -1802,12 +1910,15 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogo = sanitizeLogoDataUrl(activeProject.brandLogo || "");
     activeProject.generationCount = selectedGenerationCount;
+    activeProject.providerTier = selectedProviderTier;
     delete activeProject.agentIndexes;
     activeProject.generatedImages = generatedImages.map((image) => (image && image.url ? {
       url: image.url,
       displayUrl: image.displayUrl || image.url,
       name: image.name || "",
       agentIndex: Number.isInteger(image.agentIndex) ? image.agentIndex : undefined,
+      provider: image.provider || "",
+      providerTier: image.providerTier || selectedProviderTier,
     } : null));
     saveProjects();
   }
@@ -1893,6 +2004,7 @@ function markSaving() {
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogo = sanitizeLogoDataUrl(activeProject.brandLogo || "");
     activeProject.generationCount = selectedGenerationCount;
+    activeProject.providerTier = selectedProviderTier;
     delete activeProject.agentIndexes;
     saveProjects();
     $("#save-status").innerHTML = "<i></i> Tersimpan";
@@ -1971,6 +2083,7 @@ async function regenerateSelected() {
         style: libraryItem.style || "Eksploratif",
         primaryColor: libraryItem.primaryColor || "",
         quality: libraryItem.quality || "1mp",
+        providerTier: libraryItem.providerTier || (isSubscriber() ? "premium" : "free"),
         sourceUrl: getCurrentLibraryVersion(libraryItem)?.url || libraryItem.sourceUrl,
       }),
     });
@@ -2000,6 +2113,8 @@ async function regenerateSelected() {
       colorGrade: normalizeColorGrade(getCurrentLibraryVersion(libraryItem)?.colorGrade),
     });
     libraryItem.currentVersionId = versionId;
+    libraryItem.provider = data.provider || libraryItem.provider || "";
+    libraryItem.providerTier = data.providerTier || libraryItem.providerTier || (isSubscriber() ? "premium" : "free");
     saveLibrary();
     renderLibrary();
     closeRefineDrawer();
@@ -2463,7 +2578,13 @@ function bindEvents() {
     $$(".project-action-menu").forEach((menu) => menu.classList.add("is-hidden"));
     $$(".project-options-button").forEach((button) => button.setAttribute("aria-expanded", "false"));
   });
-  window.addEventListener("resize", closeAccountMenu);
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#ai-provider-dropdown")) closeAiProviderMenu();
+  });
+  window.addEventListener("resize", () => {
+    closeAccountMenu();
+    closeAiProviderMenu();
+  });
 
   ["#new-project-side", "#new-project-main", "#quick-create"].forEach((selector) => $(selector)?.addEventListener("click", openProjectModal));
   $$('[data-close-modal]').forEach((button) => button.addEventListener("click", closeProjectModal));
@@ -2527,6 +2648,7 @@ function bindEvents() {
       headlineMode: "manual",
       quality: "1mp",
       generationCount: 1,
+      providerTier: isSubscriber() ? "premium" : "free",
     };
     projects.unshift(project);
     saveProjects();
@@ -2651,6 +2773,10 @@ function bindEvents() {
   $$(".generation-count-option").forEach((button) => {
     button.addEventListener("click", () => selectGenerationCount(button.dataset.imageCount));
   });
+  $("#ai-provider-trigger").addEventListener("click", toggleAiProviderMenu);
+  $$(".ai-provider-option").forEach((button) => {
+    button.addEventListener("click", () => selectProviderTier(button.dataset.providerTier));
+  });
   $("#reset-controls").addEventListener("click", () => {
     const preferredStyle = accountPreferences?.defaultStyle || "Eksploratif";
     $$(".style-option").forEach((option) => option.classList.toggle("selected", option.dataset.style === preferredStyle));
@@ -2705,6 +2831,7 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     closeAccountMenu({ restoreFocus: true });
+    closeAiProviderMenu({ restoreFocus: true });
     closeProjectModal();
     closeAllProjectsModal({ restoreFocus: true });
     closeHelpModal({ restoreFocus: true });
