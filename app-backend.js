@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { creativeAgents, getBehavioralPrompt } from "./lib/creative-agents.js";
 import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supabase.js";
-import { ReplicateImageProvider, saveGeneratedImage } from "./lib/replicate.js";
+import { ReplicateImageProvider } from "./lib/replicate.js";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -33,7 +33,7 @@ const isProduction = process.env.NODE_ENV === "production";
 const port = Math.min(65_535, Math.max(1, Number.parseInt(process.env.PORT || "8000", 10) || 8000));
 const host = process.env.HOST || "0.0.0.0";
 const publicOrigin = String(process.env.PUBLIC_ORIGIN || "").replace(/\/+$/, "");
-const trustProxy = /^(?:1|true|yes)$/i.test(process.env.TRUST_PROXY || "");
+const trustProxy = Boolean(process.env.VERCEL) || /^(?:1|true|yes)$/i.test(process.env.TRUST_PROXY || "");
 const cookieSecure = publicOrigin.startsWith("https://") || /^(?:1|true|yes)$/i.test(process.env.COOKIE_SECURE || "");
 const sessionCookieName = cookieSecure ? "__Host-layera_session" : "layera_session";
 const generatedRoot = path.resolve(projectRoot, process.env.GENERATED_DIR || (process.env.VERCEL ? "/tmp/layera-generated" : "generated"));
@@ -43,9 +43,14 @@ const supabasePublishableKey = String(process.env.SUPABASE_PUBLISHABLE_KEY || ""
 const supabaseSecretKey = String(process.env.SUPABASE_SECRET_KEY || "");
 const useMemoryBackend = process.env.NODE_ENV === "test";
 if (!useMemoryBackend && (!supabaseUrl || !supabasePublishableKey || !supabaseSecretKey)) {
-  throw new Error("SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, dan SUPABASE_SECRET_KEY wajib diatur.");
+  console.warn("PERINGATAN: SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, dan SUPABASE_SECRET_KEY belum diatur. API akan gagal diakses.");
 }
-const store = useMemoryBackend ? new MemoryStore() : await SupabaseStore.connect({ url: supabaseUrl, secretKey: supabaseSecretKey });
+let store;
+try {
+  store = useMemoryBackend ? new MemoryStore() : await SupabaseStore.connect({ url: supabaseUrl, secretKey: supabaseSecretKey });
+} catch (err) {
+  console.warn("Gagal terhubung ke Supabase saat inisialisasi:", err.message);
+}
 const accountAuth = useMemoryBackend
   ? new MemoryAuth()
   : new SupabaseAuth({ url: supabaseUrl, publishableKey: supabasePublishableKey, secretKey: supabaseSecretKey });
@@ -53,9 +58,13 @@ const imageProvider = new ReplicateImageProvider();
 const activeUserJobs = new Set();
 
 if (isProduction && !publicOrigin) {
-  throw new Error("PUBLIC_ORIGIN wajib diatur saat NODE_ENV=production, contoh https://app.example.com.");
+  console.warn("PERINGATAN: PUBLIC_ORIGIN wajib diatur saat NODE_ENV=production, contoh https://app.example.com. CORS mungkin tidak berfungsi.");
 }
-await fsp.mkdir(generatedRoot, { recursive: true });
+try {
+  await fsp.mkdir(generatedRoot, { recursive: true });
+} catch (err) {
+  // Ignored in serverless environment
+}
 
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'none'; font-src 'self'; manifest-src 'self'",
@@ -248,11 +257,11 @@ async function allowSecurityEvent(key, eventType, limit, windowMinutes) {
   const cutoff = Date.now() - windowMinutes * 60 * 1000;
   const count = store.data.securityEvents.filter((event) => event.key === key && event.eventType === eventType && Date.parse(event.createdAt) >= cutoff).length;
   if (count >= limit) return false;
-  await store.mutate((data) => {
-    data.securityEvents.push({ id: randomUUID(), key, eventType, createdAt: new Date().toISOString() });
-    const oldest = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    data.securityEvents = data.securityEvents.filter((event) => Date.parse(event.createdAt) >= oldest);
-  });
+  
+  store.data.securityEvents.push({ id: randomUUID(), key, eventType, createdAt: new Date().toISOString() });
+  const oldest = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  store.data.securityEvents = store.data.securityEvents.filter((event) => Date.parse(event.createdAt) >= oldest);
+  
   return true;
 }
 
@@ -527,7 +536,11 @@ async function handleGeneration(request, response, input, auth) {
         sendNdjson(response, { type: "progress", index, agent: creativeAgent.agent, name: creativeAgent.name });
         const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor });
         const result = await imageProvider.run({ prompt, format, quality, signal: abortController.signal });
-        const url = await saveGeneratedImage({ generatedRoot, jobId, index, result });
+        const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
+        const fileName = `concept-${String(index + 1).padStart(2, "0")}.${result.extension}`;
+        const imageId = `${safeJobId}/${fileName}`;
+        const url = `/generated/${imageId}`;
+        await store.saveImage(imageId, auth.user.id, result.buffer, result.mimeType);
         await recordGeneratedFile(auth.user.id, url);
         await addUsageEvent(auth.user.id, "generate", perImageCreditCost);
         if (!brandRecorded) { await addAccountBrand(auth.user.id, brandName); brandRecorded = true; }
@@ -571,7 +584,11 @@ async function handleRefinement(request, response, input, auth) {
     const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement });
     const result = await imageProvider.run({ prompt, format, quality, sourcePath });
     const jobId = `refine-${randomUUID().replace(/-/g, "")}`;
-    const url = await saveGeneratedImage({ generatedRoot, jobId, index, result });
+    const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
+    const fileName = `concept-${String(index + 1).padStart(2, "0")}.${result.extension}`;
+    const imageId = `${safeJobId}/${fileName}`;
+    const url = `/generated/${imageId}`;
+    await store.saveImage(imageId, auth.user.id, result.buffer, result.mimeType);
     await recordGeneratedFile(auth.user.id, url);
     await addUsageEvent(auth.user.id, "refine", 3);
     return sendJson(response, 200, { ok: true, index, url, displayUrl: url, usage: getUsageStatus(auth.user.id) });
@@ -602,24 +619,42 @@ async function handleAuthAndAccount(request, response, pathname) {
     try {
       authUser = await accountAuth.createUser({ email, password, displayName });
     } catch (error) {
+      await store.persist();
       if (/already|registered|exists/i.test(String(error.message)) || /exists/i.test(String(error.code))) {
         return sendJson(response, 409, { error: "email_exists", message: "Email tersebut sudah terdaftar." });
       }
       throw error;
     }
     const user = createUserProfile({ id: authUser.id, email, displayName, createdAt: now });
+    let sessionObj;
     try {
       await store.mutate((data) => {
         if (Object.values(data.users).some((existing) => existing.email === email)) throw new Error("Email tersebut sudah terdaftar.");
         data.users[user.id] = user;
         data.signupSignals.push({ id: randomUUID(), userId: user.id, ...signal, createdAt: now });
+        
+        const token = randomBytes(32).toString("base64");
+        const tokenHash = sha256(token);
+        const csrfToken = randomBytes(32).toString("base64");
+        sessionObj = {
+          userId: user.id,
+          csrfToken,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + (Boolean(input.remember) ? 30 : 1) * 24 * 60 * 60 * 1000).toISOString(),
+          token
+        };
+        data.sessions[tokenHash] = {
+          userId: sessionObj.userId,
+          csrfToken: sessionObj.csrfToken,
+          createdAt: sessionObj.createdAt,
+          expiresAt: sessionObj.expiresAt
+        };
       });
     } catch (error) {
       await accountAuth.deleteUser(user.id).catch(() => {});
       throw error;
     }
-    const session = await createSession(user.id, Boolean(input.remember));
-    return sendJson(response, 201, { ok: true, authenticated: true, csrfToken: session.csrfToken, user: getPublicUser(user), preferences: user.preferences }, { "Set-Cookie": getSessionCookie(session) });
+    return sendJson(response, 201, { ok: true, authenticated: true, csrfToken: sessionObj.csrfToken, user: getPublicUser(user), preferences: user.preferences || defaultPreferences() }, { "Set-Cookie": getSessionCookie(sessionObj) });
   }
 
   if (request.method === "POST" && pathname === "/api/auth/login") {
@@ -634,12 +669,15 @@ async function handleAuthAndAccount(request, response, pathname) {
     try {
       authUser = await accountAuth.signIn(email, String(input.password || ""));
     } catch {
+      await store.persist();
       return sendJson(response, 401, { error: "invalid_credentials", message: "Email atau kata sandi tidak cocok." });
     }
-    let user = store.data.users[authUser.id] || findUserByEmail(email);
-    if (user && user.id !== authUser.id) {
-      const previousId = user.id;
-      await store.mutate((data) => {
+    let user;
+    let sessionObj;
+    await store.mutate((data) => {
+      user = data.users[authUser.id] || Object.values(data.users).find((u) => u.email === email);
+      if (user && user.id !== authUser.id) {
+        const previousId = user.id;
         delete data.users[previousId];
         user.id = authUser.id;
         data.users[authUser.id] = user;
@@ -651,18 +689,34 @@ async function handleAuthAndAccount(request, response, pathname) {
           data.accountBrands[authUser.id] = data.accountBrands[previousId];
           delete data.accountBrands[previousId];
         }
-      });
-    }
-    if (!user) {
-      user = createUserProfile({
-        id: authUser.id,
-        email,
-        displayName: authUser.user_metadata?.display_name || email.split("@")[0],
-      });
-      await store.mutate((data) => { data.users[user.id] = user; });
-    }
-    const session = await createSession(user.id, Boolean(input.remember));
-    return sendJson(response, 200, { ok: true, authenticated: true, csrfToken: session.csrfToken, user: getPublicUser(user), preferences: user.preferences || defaultPreferences() }, { "Set-Cookie": getSessionCookie(session) });
+      }
+      if (!user) {
+        user = createUserProfile({
+          id: authUser.id,
+          email,
+          displayName: authUser.user_metadata?.display_name || email.split("@")[0],
+        });
+        data.users[user.id] = user;
+      }
+      
+      const token = randomBytes(32).toString("base64");
+      const tokenHash = sha256(token);
+      const csrfToken = randomBytes(32).toString("base64");
+      sessionObj = {
+        userId: user.id,
+        csrfToken,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + (Boolean(input.remember) ? 30 : 1) * 24 * 60 * 60 * 1000).toISOString(),
+        token
+      };
+      data.sessions[tokenHash] = {
+        userId: sessionObj.userId,
+        csrfToken: sessionObj.csrfToken,
+        createdAt: sessionObj.createdAt,
+        expiresAt: sessionObj.expiresAt
+      };
+    });
+    return sendJson(response, 200, { ok: true, authenticated: true, csrfToken: sessionObj.csrfToken, user: getPublicUser(user), preferences: user.preferences || defaultPreferences() }, { "Set-Cookie": getSessionCookie(sessionObj) });
   }
 
   const auth = await getAuthenticatedUser(request);
@@ -768,7 +822,9 @@ async function handleApi(request, response, pathname) {
     return sendJson(response, 200, {
       ok: true,
       configured: imageProvider.configured,
-      provider: "replicate",
+      provider: imageProvider.name,
+      trustProxy,
+      vercelEnv: process.env.VERCEL,
       model: imageProvider.model,
       endpoint: imageProvider.endpoint,
       deploymentMode: "node",
@@ -838,12 +894,20 @@ async function sendFile(request, response, pathname) {
   } else if (pathname.startsWith("/generated/")) {
     const auth = await getAuthenticatedUser(request);
     if (!auth) return sendUnauthorized(response);
-    if (store.data.generatedFiles[pathname]?.userId !== auth.user.id) return sendJson(response, 404, { error: "not_found" });
-    const relative = decodeURIComponent(pathname.slice("/generated/".length));
-    filePath = path.resolve(generatedRoot, relative);
-    if (!filePath.startsWith(`${generatedRoot}${path.sep}`)) return sendJson(response, 403, { error: "forbidden" });
-    contentType = assetMimeTypes.get(path.extname(filePath).toLowerCase());
-    cacheControl = "private, max-age=31536000, immutable";
+    
+    const imageId = decodeURIComponent(pathname.slice("/generated/".length));
+    const image = await store.getImage(imageId);
+    
+    if (!image || image.userId !== auth.user.id) return sendJson(response, 404, { error: "not_found" });
+    
+    response.writeHead(200, { 
+      ...securityHeaders, 
+      "Cache-Control": "private, max-age=31536000, immutable", 
+      "Content-Type": image.mimeType, 
+      "Content-Length": image.buffer.length 
+    });
+    if (request.method === "HEAD") return response.end();
+    return response.end(image.buffer);
   } else {
     return sendJson(response, 404, { error: "not_found" });
   }
