@@ -346,10 +346,9 @@ let accountStateReady = false;
 let currentUser = null;
 let accountPreferences = null;
 let accountMenuTrigger = null;
-let apiHealth = { online: false, configured: false, model: null, providers: {} };
+let apiHealth = { online: false, configured: false, model: null };
 let usageState = null;
-let selectedGenerationCount = 1;
-let selectedProviderTier = "free";
+let selectedAgentIndexes = [0];
 let pendingDeleteProjectId = null;
 let csrfToken = "";
 function cloneInspirationProjects() {
@@ -486,27 +485,25 @@ function updatePlanInterface() {
   $("#sidebar-plan-usage").textContent = `${credits?.remaining ?? (subscriber ? 200 : 11)} dari ${credits?.limit ?? (subscriber ? 200 : 11)} kredit tersisa`;
   const progress = $("#plan-card .plan-progress i");
   if (progress) progress.style.width = `${Math.max(0, Math.min(100, ((credits?.remaining ?? 0) / (credits?.limit || 1)) * 100))}%`;
-  if (!subscriber && selectedGenerationCount === 10) selectedGenerationCount = 1;
-  if (!subscriber && selectedProviderTier === "premium") selectedProviderTier = "free";
+  if (!subscriber && selectedAgentIndexes.length > 1) selectedAgentIndexes = [selectedAgentIndexes[0]];
   const qualitySelect = $("#quality-select");
   if (qualitySelect) {
     $$("option", qualitySelect).forEach((option) => { option.disabled = !subscriber && option.value !== "1mp"; });
     if (!subscriber && qualitySelect.value !== "1mp") qualitySelect.value = "1mp";
     $("#quality-plan-note").textContent = subscriber ? "Layera Pro mendukung 1MP, 2MP, dan 4MP." : "Paket Gratis mendukung hingga 1MP / HD.";
   }
-  renderGenerationCountSelector();
-  renderAiProviderSelector();
+  renderAgentSelector();
   updateGenerationControls();
 }
 
 function updateGenerationControls() {
-  const count = selectedGenerationCount === 10 ? 10 : 1;
+  const count = Math.max(1, selectedAgentIndexes.length);
   const subscriber = isSubscriber();
   const quality = $("#quality-select")?.value || "1mp";
   const unitCost = { "1mp": 2, "2mp": 4, "4mp": 8 }[quality] || 2;
   const totalCost = count * unitCost;
   $("#generate-button-label").textContent = `Buat ${count} gambar`;
-  $("#generation-count-plan-note").textContent = subscriber ? `Layera Pro: ${count} gambar dipilih` : "Paket gratis: 1 gambar";
+  $("#agent-plan-note").textContent = subscriber ? `Layera Pro: ${count} dari 10 agent dipilih` : "Paket gratis: pilih 1 agent";
   const note = $("#generation-cost-note");
   if (!note) return;
   const remaining = usageState?.credits?.remaining;
@@ -528,7 +525,7 @@ async function checkApiHealth() {
   if (!status) return;
 
   if (window.location.protocol === "file:") {
-    apiHealth = { online: false, configured: false, model: null, providers: {} };
+    apiHealth = { online: false, configured: false, model: null };
     status.className = "private-note api-status offline";
     status.innerHTML = "<span>●</span> Jalankan npm start untuk mengaktifkan AI.";
     return;
@@ -538,18 +535,20 @@ async function checkApiHealth() {
     const response = await fetch("/api/health", { cache: "no-store" });
     if (!response.ok) throw new Error("Health check gagal");
     const data = await response.json();
-    apiHealth = {
-      online: true,
-      configured: Boolean(data.configured),
-      model: data.model,
-      provider: data.provider,
-      providers: data.providers || {},
-    };
+    apiHealth = { online: true, configured: Boolean(data.configured), model: data.model };
     updateGenerationControls();
-    renderAiProviderSelector();
+    if (data.configured) {
+      status.className = "private-note api-status connected";
+      status.innerHTML = `<span>●</span> Aktif · ${escapeHtml(data.model || "Flux 2 Pro")}`;
+    } else {
+      status.className = "private-note api-status offline";
+      const message = data.message || "REPLICATE_API_TOKEN belum diatur.";
+      status.innerHTML = `<span>●</span> Server aktif · ${escapeHtml(message)}`;
+    }
   } catch {
-    apiHealth = { online: false, configured: false, model: null, providers: {} };
-    renderApiStatus("Server AI tidak terhubung.");
+    apiHealth = { online: false, configured: false, model: null };
+    status.className = "private-note api-status offline";
+    status.innerHTML = "<span>●</span> Server AI tidak terhubung.";
   }
 }
 
@@ -597,14 +596,12 @@ function showAuthScreen(message = "") {
   accountPreferences = null;
   usageState = null;
   csrfToken = "";
-  selectedGenerationCount = 1;
-  selectedProviderTier = "free";
+  selectedAgentIndexes = [0];
   projects = [];
   libraryItems = [];
   activeProject = null;
   generatedImages = [];
   closeAccountMenu();
-  closeAiProviderMenu();
   closeAllProjectsModal();
   closeHelpModal();
   closeAccountModal();
@@ -753,7 +750,7 @@ function createProjectFromInspiration(inspirationId) {
   saveProjects();
   renderProjects();
   openProject(project.id);
-  showToast("Inspirasi siap dikembangkan", "Ubah brief, teks poster, dan arah visual agar sesuai dengan brand-mu.", "✦");
+  showToast("Inspirasi siap dikembangkan", "Ubah brief, teks poster, dan agent agar sesuai dengan brand-mu.", "✦");
 }
 
 const promptSuggestionSets = {
@@ -821,111 +818,33 @@ function renderPromptSuggestions() {
   }));
 }
 
-function renderGenerationCountSelector() {
-  const selector = $("#generation-count-selector");
+function renderAgentSelector() {
+  const selector = $("#agent-selector");
   if (!selector) return;
-  $$(".generation-count-option", selector).forEach((button) => {
-    const count = Number(button.dataset.imageCount) === 10 ? 10 : 1;
-    const selected = selectedGenerationCount === count;
-    button.classList.toggle("selected", selected);
-    button.setAttribute("aria-pressed", String(selected));
-    button.disabled = generationInProgress;
-  });
+  selector.innerHTML = concepts.map((concept, index) => `
+    <button class="agent-option ${selectedAgentIndexes.includes(index) ? "selected" : ""}" type="button" data-agent-index="${index}" aria-pressed="${selectedAgentIndexes.includes(index)}" ${generationInProgress ? "disabled" : ""}>
+      <b>${String(index + 1).padStart(2, "0")}</b><span><strong>${escapeHtml(concept.agent)}</strong><small>${escapeHtml(concept.name)}</small></span>
+    </button>`).join("");
+  $$(".agent-option", selector).forEach((button) => button.addEventListener("click", () => toggleAgentSelection(Number(button.dataset.agentIndex))));
 }
 
-function selectGenerationCount(value) {
+function toggleAgentSelection(index) {
   if (generationInProgress) return;
-  const count = Number(value) === 10 ? 10 : 1;
-  if (count === 10 && !isSubscriber()) {
-    openUpgradeModal("Pembuatan 10 gambar sekaligus tersedia pada Layera Pro. Paket Gratis tetap dapat membuat 1 gambar.");
-    return;
+  if (!Number.isInteger(index) || index < 0 || index >= concepts.length) return;
+  if (!isSubscriber()) {
+    selectedAgentIndexes = [index];
+  } else if (selectedAgentIndexes.includes(index)) {
+    if (selectedAgentIndexes.length === 1) {
+      showToast("Pilih minimal satu agent", "Satu agent diperlukan untuk membuat gambar.", "!");
+      return;
+    }
+    selectedAgentIndexes = selectedAgentIndexes.filter((candidate) => candidate !== index);
+  } else {
+    selectedAgentIndexes = [...selectedAgentIndexes, index].sort((a, b) => a - b);
   }
-  selectedGenerationCount = count;
-  if (activeProject) activeProject.generationCount = count;
-  renderGenerationCountSelector();
+  if (activeProject) activeProject.agentIndexes = [...selectedAgentIndexes];
+  renderAgentSelector();
   updateGenerationControls();
-  markSaving();
-}
-
-function getSelectedProviderHealth() {
-  return apiHealth.providers?.[selectedProviderTier] || null;
-}
-
-function closeAiProviderMenu({ restoreFocus = false } = {}) {
-  const menu = $("#ai-provider-menu");
-  const trigger = $("#ai-provider-trigger");
-  if (!menu || !trigger) return;
-  const wasOpen = !menu.classList.contains("is-hidden");
-  menu.classList.add("is-hidden");
-  trigger.setAttribute("aria-expanded", "false");
-  if (restoreFocus && wasOpen) trigger.focus();
-}
-
-function toggleAiProviderMenu() {
-  if (generationInProgress) return;
-  const menu = $("#ai-provider-menu");
-  const trigger = $("#ai-provider-trigger");
-  if (!menu || !trigger) return;
-  const shouldOpen = menu.classList.contains("is-hidden");
-  menu.classList.toggle("is-hidden", !shouldOpen);
-  trigger.setAttribute("aria-expanded", String(shouldOpen));
-  if (shouldOpen) $(".ai-provider-option.selected", menu)?.focus();
-}
-
-function renderApiStatus(offlineMessage = "") {
-  const status = $("#api-status");
-  if (!status) return;
-  if (!apiHealth.online) {
-    status.className = "private-note api-status offline";
-    status.innerHTML = `<span>●</span> ${escapeHtml(offlineMessage || "Server AI tidak terhubung.")}`;
-    return;
-  }
-  const provider = getSelectedProviderHealth();
-  const providerLabel = selectedProviderTier === "premium" ? "AI Premium" : "AI Gratis";
-  if (provider?.configured) {
-    status.className = "private-note api-status connected";
-    status.innerHTML = `<span>●</span> ${providerLabel} aktif · ${escapeHtml(provider.model || provider.name || "Provider siap")}`;
-    return;
-  }
-  status.className = "private-note api-status offline";
-  const message = selectedProviderTier === "premium"
-    ? "Replicate belum dikonfigurasi."
-    : "Model AI Gratis belum dikonfigurasi.";
-  status.innerHTML = `<span>●</span> Server aktif · ${message}`;
-}
-
-function renderAiProviderSelector() {
-  if (!isSubscriber() && selectedProviderTier === "premium") selectedProviderTier = "free";
-  const premiumSelected = selectedProviderTier === "premium";
-  const trigger = $("#ai-provider-trigger");
-  if (!trigger) return;
-  $("#ai-provider-label").textContent = premiumSelected ? "AI Premium" : "AI Gratis";
-  $("#ai-provider-description").textContent = premiumSelected ? "Flux 2 Pro · Layera Pro" : "9Router · Paket Gratis & Pro";
-  $("#ai-provider-plan-note").textContent = isSubscriber() ? "Pilih AI Gratis atau Premium" : "AI Premium khusus Layera Pro";
-  trigger.disabled = generationInProgress;
-  $$(".ai-provider-option").forEach((button) => {
-    const selected = button.dataset.providerTier === selectedProviderTier;
-    const locked = button.dataset.providerTier === "premium" && !isSubscriber();
-    button.classList.toggle("selected", selected);
-    button.classList.toggle("locked", locked);
-    button.setAttribute("aria-selected", String(selected));
-    button.disabled = generationInProgress;
-  });
-  renderApiStatus();
-}
-
-function selectProviderTier(value) {
-  if (generationInProgress) return;
-  const tier = value === "premium" ? "premium" : "free";
-  if (tier === "premium" && !isSubscriber()) {
-    closeAiProviderMenu();
-    openUpgradeModal("AI Premium dengan Flux 2 Pro tersedia pada Layera Pro. Kamu tetap dapat memakai AI Gratis pada Paket Gratis.");
-    return;
-  }
-  selectedProviderTier = tier;
-  if (activeProject) activeProject.providerTier = tier;
-  closeAiProviderMenu();
-  renderAiProviderSelector();
   markSaving();
 }
 
@@ -936,7 +855,7 @@ function openUpgradeModal(message = "") {
     const resetDate = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(new Date(usageState.credits.resetAt));
     $("#upgrade-modal-message").textContent = isSubscriber()
       ? `Kredit Layera Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
-      : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.`;
+      : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, dapat membuat ~100 gambar, bebas memilih behavior agentic, dll.`;
   }
   $("#upgrade-modal").classList.remove("is-hidden");
   $("#upgrade-modal").setAttribute("aria-hidden", "false");
@@ -1385,12 +1304,11 @@ function openProject(id) {
   $("#headline-input").value = posterCopy.headline;
   $("#cta-input").value = posterCopy.cta;
   setHeadlineMode(activeProject.headlineMode || "manual", { persist: false });
-  const legacyAgentCount = Array.isArray(activeProject.agentIndexes) ? activeProject.agentIndexes.length : 0;
-  selectedGenerationCount = Number(activeProject.generationCount) === 10 || legacyAgentCount === 10 ? 10 : 1;
-  if (!isSubscriber()) selectedGenerationCount = 1;
-  selectedProviderTier = activeProject.providerTier === "free"
-    ? "free"
-    : (isSubscriber() ? "premium" : "free");
+  const storedAgents = Array.isArray(activeProject.agentIndexes)
+    ? activeProject.agentIndexes.filter((index) => Number.isInteger(index) && index >= 0 && index < concepts.length)
+    : [];
+  selectedAgentIndexes = storedAgents.length ? [...new Set(storedAgents)] : [0];
+  if (!isSubscriber()) selectedAgentIndexes = [selectedAgentIndexes[0]];
   $("#color-control").value = activeProject.primaryColor || accountPreferences?.primaryColor || "#5a3529";
   $("#color-value").textContent = $("#color-control").value.toUpperCase();
   $("#format-select").value = activeProject.format || accountPreferences?.defaultFormat || "Instagram Post · 4:5";
@@ -1401,8 +1319,7 @@ function openProject(id) {
   generatedImages = Array.isArray(activeProject.generatedImages) ? [...activeProject.generatedImages] : [];
   updateCharacterCount();
   renderPromptSuggestions();
-  renderGenerationCountSelector();
-  renderAiProviderSelector();
+  renderAgentSelector();
   updateGenerationControls();
   renderBrandLogoPreview();
   clearSelection();
@@ -1412,7 +1329,7 @@ function openProject(id) {
     $("#empty-results").classList.add("is-hidden");
     renderConcepts(false, generatedImages);
     const resultCount = generatedImages.filter((image) => image?.url).length;
-    $("#results-subtitle").textContent = `${resultCount || selectedGenerationCount} gambar dibuat dari brief-mu.`;
+    $("#results-subtitle").textContent = `${resultCount || selectedAgentIndexes.length} gambar dibuat dari brief-mu.`;
   } else {
     $("#results-grid").innerHTML = "";
     $("#empty-results").classList.remove("is-hidden");
@@ -1475,26 +1392,23 @@ function closeHelpModal({ restoreFocus = false } = {}) {
 function renderConcepts(loading = false, images = generatedImages) {
   const formatClass = getPosterFormatClass($("#format-select")?.value || activeProject?.format);
   const completedIndexes = concepts.map((_, index) => index).filter((index) => images[index]);
-  const requestedIndexes = Array.from({ length: selectedGenerationCount }, (_, index) => index);
-  const visibleIndexes = loading ? requestedIndexes : (completedIndexes.length ? completedIndexes : requestedIndexes);
+  const visibleIndexes = loading ? selectedAgentIndexes : (completedIndexes.length ? completedIndexes : selectedAgentIndexes);
   $("#results-grid").innerHTML = visibleIndexes
     .map((index) => {
+      const concept = concepts[index];
       const image = images[index];
-      const directionIndex = Number.isInteger(image?.agentIndex) ? image.agentIndex : index;
-      const concept = concepts[directionIndex] || concepts[index] || concepts[0];
-      const conceptName = image?.name || concept.name;
       const imageSource = image && (image.displayUrl || image.url);
       const isLoading = loading && !imageSource && !(image && image.error);
       const hasApiImage = Boolean(imageSource);
       const posterCopy = getWorkspacePosterCopy(index);
       return `
-        <article class="concept-card ${selectedConcept === index ? "selected" : ""} ${isLoading ? "loading" : ""} ${image && image.error ? "generation-error" : ""}" data-concept="${index}" tabindex="${isLoading ? -1 : 0}" role="button" aria-label="Pilih variasi ${index + 1}: ${escapeHtml(conceptName)}">
+        <article class="concept-card ${selectedConcept === index ? "selected" : ""} ${isLoading ? "loading" : ""} ${image && image.error ? "generation-error" : ""}" data-concept="${index}" tabindex="${isLoading ? -1 : 0}" role="button" aria-label="Pilih konsep ${index + 1}: ${concept.name}">
           <span class="concept-check">✓</span>
           <div class="poster poster-${index + 1} ${formatClass} ${hasApiImage ? "api-poster" : ""}">
-            ${hasApiImage ? `<img class="generated-image" src="${escapeHtml(imageSource)}" alt="Hasil visual ${escapeHtml(conceptName)}" />` : ""}
+            ${hasApiImage ? `<img class="generated-image" src="${escapeHtml(imageSource)}" alt="Hasil visual ${escapeHtml(concept.name)}" />` : ""}
             <div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy, { draggableLogo: hasApiImage && !isLoading, logoScope: "project", logoKey: index })}</div>
           </div>
-          <div class="concept-meta"><span>${String(index + 1).padStart(2, "0")} · ${escapeHtml(conceptName)}</span><small>${image && image.error ? "Gagal · coba lagi" : "Variasi visual"}</small></div>
+          <div class="concept-meta"><span>${String(index + 1).padStart(2, "0")} · ${concept.name}</span><small>${image && image.error ? "Gagal · coba lagi" : concept.agent}</small></div>
         </article>`;
     })
     .join("");
@@ -1668,8 +1582,7 @@ function saveSelectedToLibrary() {
     showToast("Belum ada key visual AI", "Buat gambar terlebih dahulu sebelum menyimpan desain ke Library.", "!");
     return;
   }
-  const directionIndex = Number.isInteger(image.agentIndex) ? image.agentIndex : selectedConcept;
-  const concept = concepts[directionIndex] || concepts[selectedConcept] || concepts[0];
+  const concept = concepts[selectedConcept];
   const createdAt = new Date().toISOString();
   const itemId = `library-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const originalVersionId = `${itemId}-v1`;
@@ -1686,11 +1599,8 @@ function saveSelectedToLibrary() {
     quality: $("#quality-select").value,
     posterCopy: getWorkspacePosterCopy(selectedConcept),
     conceptIndex: selectedConcept,
-    agentIndex: directionIndex,
-    conceptName: image.name || concept.name,
+    conceptName: concept.name,
     agent: concept.agent,
-    provider: image.provider || "",
-    providerTier: image.providerTier || selectedProviderTier,
     sourceUrl,
     createdAt,
     currentVersionId: originalVersionId,
@@ -1715,16 +1625,14 @@ async function startGeneration() {
   if (activeProject?.headlineMode === "ai") await suggestHeadline({ silent: true });
 
   const requestedQuality = $("#quality-select").value;
-  const requestedCount = selectedGenerationCount === 10 ? 10 : 1;
-  const requestedProviderTier = selectedProviderTier;
-  const requestedCreditCost = requestedCount * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
+  const requestedCreditCost = selectedAgentIndexes.length * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
   if (usageState?.generation?.exhausted || (usageState?.credits && usageState.credits.remaining < requestedCreditCost)) {
     openUpgradeModal();
     return;
   }
   if (activeProject?.brandLogo) {
     const storedPositions = activeProject.logoPositions && typeof activeProject.logoPositions === "object" ? activeProject.logoPositions : {};
-    Array.from({ length: requestedCount }, (_, index) => index).forEach((index) => {
+    selectedAgentIndexes.forEach((index) => {
       if (!Object.prototype.hasOwnProperty.call(storedPositions, String(index))) {
         setProjectLogoPosition(activeProject, index, inferLogoPositionFromPrompt(prompt, getProjectLogoPosition(activeProject, index)));
       }
@@ -1737,12 +1645,11 @@ async function startGeneration() {
   }
 
   const previousImages = [...generatedImages];
-  const selectedProviderHealth = getSelectedProviderHealth();
-  const imageModelLabel = selectedProviderHealth?.model || (requestedProviderTier === "premium" ? "Flux 2 Pro" : "AI Gratis");
+  const requestedAgentIndexes = [...selectedAgentIndexes];
+  const requestedCount = requestedAgentIndexes.length;
+  const imageModelLabel = "Flux 2 Pro";
   generationInProgress = true;
-  closeAiProviderMenu();
-  renderAiProviderSelector();
-  generatedImages = Array(requestedCount).fill(null);
+  generatedImages = Array(10).fill(null);
   clearSelection();
   $("#empty-results").classList.add("is-hidden");
   $("#generation-progress").classList.remove("is-hidden");
@@ -1751,7 +1658,7 @@ async function startGeneration() {
   $("#results-subtitle").textContent = `${imageModelLabel} mengeksplorasi ${requestedCount} arah visual.`;
   const progressTitle = $("#progress-title");
   if (progressTitle) progressTitle.textContent = `${imageModelLabel} sedang membuat key visual...`;
-  setGenerationProgress(3, `Menyiapkan ${imageModelLabel} untuk ${requestedCount} gambar`);
+  setGenerationProgress(3, `Menyiapkan ${imageModelLabel} dan ${requestedCount} agent kreatif`);
 
   try {
     const selectedStyle = $(".style-option.selected strong")?.textContent || "Eksploratif";
@@ -1766,9 +1673,8 @@ async function startGeneration() {
         format: $("#format-select").value,
         style: selectedStyle,
         primaryColor: $("#color-control").value,
-        imageCount: requestedCount,
+        agentIndexes: requestedAgentIndexes,
         quality: requestedQuality,
-        providerTier: requestedProviderTier,
         brandName: $("#brand-input").value.trim() || activeProject?.name || "",
       }),
     });
@@ -1812,29 +1718,18 @@ async function startGeneration() {
             throw new Error("Backend menerima brief yang tidak cocok. Muat ulang halaman lalu coba lagi.");
           }
           apiHealth.model = event.model;
-          apiHealth.provider = event.provider;
-          if (event.providerTier && apiHealth.providers) {
-            apiHealth.providers[event.providerTier] = {
-              ...(apiHealth.providers[event.providerTier] || {}),
-              configured: true,
-              model: event.model,
-              name: event.provider,
-            };
-          }
           setGenerationProgress(5, `Brief diterima utuh (${event.promptLength} karakter) · ${event.model}`);
         }
         if (event.type === "progress") {
           const percent = Math.min(92, 8 + (completedImages / requestedCount) * 82);
-          setGenerationProgress(percent, `${event.direction || imageModelLabel} sedang membuat variasi visual`);
+          setGenerationProgress(percent, `${imageModelLabel} mengeksplorasi arah ${event.name}`);
         }
         if (event.type === "image") {
           generatedImages[event.index] = {
             url: event.url,
             displayUrl: event.displayUrl,
             name: event.name,
-            agentIndex: event.agentIndex,
-            provider: event.provider,
-            providerTier: event.providerTier || requestedProviderTier,
+            agent: event.agent,
           };
           renderConcepts(true, generatedImages);
           completedImages += 1;
@@ -1854,7 +1749,7 @@ async function startGeneration() {
     }
 
     if (!completed) {
-      throw new Error("Koneksi terputus sebelum semua gambar selesai.");
+      throw new Error("Koneksi terputus sebelum semua agent selesai.");
     }
   } catch (error) {
     if (error.data?.usage) {
@@ -1868,12 +1763,11 @@ async function startGeneration() {
     $("#generation-progress").classList.add("is-hidden");
     $("#generate-button").disabled = false;
     $("#results-subtitle").textContent = "Generasi belum selesai. Brief-mu tetap tersimpan.";
-    const fallback = "Periksa konfigurasi provider gambar, saldo, atau status layanan AI.";
+    const fallback = "Periksa REPLICATE_API_TOKEN, saldo Replicate, atau status prediction Flux 2 Pro.";
     showToast("Generasi AI gagal", error.message || fallback, "!");
   } finally {
     generationInProgress = false;
-    renderGenerationCountSelector();
-    renderAiProviderSelector();
+    renderAgentSelector();
   }
 }
 
@@ -1909,17 +1803,8 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
     activeProject.primaryColor = $("#color-control").value;
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogo = sanitizeLogoDataUrl(activeProject.brandLogo || "");
-    activeProject.generationCount = selectedGenerationCount;
-    activeProject.providerTier = selectedProviderTier;
-    delete activeProject.agentIndexes;
-    activeProject.generatedImages = generatedImages.map((image) => (image && image.url ? {
-      url: image.url,
-      displayUrl: image.displayUrl || image.url,
-      name: image.name || "",
-      agentIndex: Number.isInteger(image.agentIndex) ? image.agentIndex : undefined,
-      provider: image.provider || "",
-      providerTier: image.providerTier || selectedProviderTier,
-    } : null));
+    activeProject.agentIndexes = [...selectedAgentIndexes];
+    activeProject.generatedImages = generatedImages.map((image) => (image && image.url ? { url: image.url } : null));
     saveProjects();
   }
   if (successCount > 0) {
@@ -1928,7 +1813,7 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
   } else {
     const cardError = generatedImages.find((image) => image?.error)?.message || "";
     const conciseError = String(firstError || cardError).split("\n")[0].slice(0, 220);
-    const providerMessage = "Periksa API token, model, billing, atau rate limit provider gambar.";
+    const providerMessage = "Periksa API token, billing, rate limit, atau halaman prediction pada akun Replicate.";
     showToast("Belum ada gambar yang selesai", conciseError || providerMessage, "!");
   }
 }
@@ -2003,9 +1888,7 @@ function markSaving() {
     activeProject.primaryColor = $("#color-control").value;
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogo = sanitizeLogoDataUrl(activeProject.brandLogo || "");
-    activeProject.generationCount = selectedGenerationCount;
-    activeProject.providerTier = selectedProviderTier;
-    delete activeProject.agentIndexes;
+    activeProject.agentIndexes = [...selectedAgentIndexes];
     saveProjects();
     $("#save-status").innerHTML = "<i></i> Tersimpan";
   }, 700);
@@ -2076,14 +1959,12 @@ async function regenerateSelected() {
         prompt: libraryItem.prompt,
         refinement: input.value.trim(),
         conceptIndex: libraryItem.conceptIndex,
-        agentIndex: libraryItem.agentIndex,
         projectName: libraryItem.projectName || "Proyek Kanvas",
         category: libraryItem.category || "Bisnis lokal",
         format: libraryItem.format || "Instagram Post · 4:5",
         style: libraryItem.style || "Eksploratif",
         primaryColor: libraryItem.primaryColor || "",
         quality: libraryItem.quality || "1mp",
-        providerTier: libraryItem.providerTier || (isSubscriber() ? "premium" : "free"),
         sourceUrl: getCurrentLibraryVersion(libraryItem)?.url || libraryItem.sourceUrl,
       }),
     });
@@ -2113,8 +1994,6 @@ async function regenerateSelected() {
       colorGrade: normalizeColorGrade(getCurrentLibraryVersion(libraryItem)?.colorGrade),
     });
     libraryItem.currentVersionId = versionId;
-    libraryItem.provider = data.provider || libraryItem.provider || "";
-    libraryItem.providerTier = data.providerTier || libraryItem.providerTier || (isSubscriber() ? "premium" : "free");
     saveLibrary();
     renderLibrary();
     closeRefineDrawer();
@@ -2578,13 +2457,7 @@ function bindEvents() {
     $$(".project-action-menu").forEach((menu) => menu.classList.add("is-hidden"));
     $$(".project-options-button").forEach((button) => button.setAttribute("aria-expanded", "false"));
   });
-  document.addEventListener("click", (event) => {
-    if (!event.target.closest("#ai-provider-dropdown")) closeAiProviderMenu();
-  });
-  window.addEventListener("resize", () => {
-    closeAccountMenu();
-    closeAiProviderMenu();
-  });
+  window.addEventListener("resize", closeAccountMenu);
 
   ["#new-project-side", "#new-project-main", "#quick-create"].forEach((selector) => $(selector)?.addEventListener("click", openProjectModal));
   $$('[data-close-modal]').forEach((button) => button.addEventListener("click", closeProjectModal));
@@ -2647,8 +2520,7 @@ function bindEvents() {
       logoPositions: {},
       headlineMode: "manual",
       quality: "1mp",
-      generationCount: 1,
-      providerTier: isSubscriber() ? "premium" : "free",
+      agentIndexes: [0],
     };
     projects.unshift(project);
     saveProjects();
@@ -2770,13 +2642,6 @@ function bindEvents() {
     updateGenerationControls();
     markSaving();
   });
-  $$(".generation-count-option").forEach((button) => {
-    button.addEventListener("click", () => selectGenerationCount(button.dataset.imageCount));
-  });
-  $("#ai-provider-trigger").addEventListener("click", toggleAiProviderMenu);
-  $$(".ai-provider-option").forEach((button) => {
-    button.addEventListener("click", () => selectProviderTier(button.dataset.providerTier));
-  });
   $("#reset-controls").addEventListener("click", () => {
     const preferredStyle = accountPreferences?.defaultStyle || "Eksploratif";
     $$(".style-option").forEach((option) => option.classList.toggle("selected", option.dataset.style === preferredStyle));
@@ -2831,7 +2696,6 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     closeAccountMenu({ restoreFocus: true });
-    closeAiProviderMenu({ restoreFocus: true });
     closeProjectModal();
     closeAllProjectsModal({ restoreFocus: true });
     closeHelpModal({ restoreFocus: true });
