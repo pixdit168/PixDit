@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "main": "api/index.js",
-  "description": "Layera image campaign generator with a Node.js backend and Replicate FLUX 2 Pro.",
+  "description": "Layera image campaign generator with plan-based 9Router and Replicate providers.",
   "engines": {
     "node": ">=20.9.0"
   },
   "scripts": {
+    "start": "node app-backend.js",
     "dev": "node --watch app-backend.js",
-    "check": "node --check app-backend.js && node --check lib/supabase.js && node --check lib/replicate.js && node --check lib/creative-agents.js && node --check scripts/configure-supabase.mjs && node --check scripts/migrate-to-supabase.mjs && node --check public/app.js",
+    "check": "node --check app-backend.js && node --check lib/supabase.js && node --check lib/replicate.js && node --check lib/nine-router.js && node --check lib/creative-agents.js && node --check scripts/configure-supabase.mjs && node --check scripts/migrate-to-supabase.mjs && node --check public/app.js",
     "configure:supabase": "node scripts/configure-supabase.mjs",
     "migrate:supabase": "node scripts/migrate-to-supabase.mjs",
     "test": "node --test"

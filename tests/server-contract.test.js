@@ -25,7 +25,7 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   const port = 19_000 + Math.floor(Math.random() * 2_000);
   const baseUrl = `http://127.0.0.1:${port}`;
   let output = "";
-  const child = spawn(process.execPath, ["server.js"], {
+  const child = spawn(process.execPath, ["app-backend.js"], {
     cwd: projectRoot,
     env: {
       ...process.env,
@@ -34,6 +34,8 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
       NODE_ENV: "test",
       PUBLIC_ORIGIN: "",
       REPLICATE_API_TOKEN: "",
+      NINEROUTER_API_KEY: "",
+      NINEROUTER_IMAGE_MODEL: "",
       GENERATED_DIR: path.join(temporaryRoot, "generated"),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -53,6 +55,14 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(health.deploymentMode, "node");
   assert.equal(health.database, "memory");
   assert.equal(health.auth, "memory");
+
+  const pageResponse = await fetch(`${baseUrl}/`);
+  const pageHtml = await pageResponse.text();
+  assert.equal(pageResponse.status, 200);
+  assert.match(pageHtml, /data-image-count="1"/);
+  assert.match(pageHtml, /data-image-count="10"/);
+  const faviconResponse = await fetch(`${baseUrl}/favicon.ico`);
+  assert.equal(faviconResponse.status, 200);
 
   let cookie = "";
   let csrfToken = "";
@@ -86,6 +96,13 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(registration.payload.user.displayName, "Ayu Pratama");
   assert.ok(cookie.startsWith("layera_session="));
   assert.ok(csrfToken.length >= 32);
+
+  const freeHealth = await request("/api/health");
+  assert.equal(freeHealth.response.status, 200);
+  assert.equal(freeHealth.payload.provider, "9router");
+  assert.equal(freeHealth.payload.configured, false);
+  assert.equal(freeHealth.payload.providers.premium.name, "replicate");
+  assert.equal(freeHealth.payload.providers.free.name, "9router");
 
   const initialState = await request("/api/state");
   assert.equal(initialState.response.status, 200);
@@ -159,12 +176,25 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
     csrf: true,
     body: {
       prompt: "Poster sepatu lari ringan untuk pelari pemula",
-      agentIndexes: [0],
+      imageCount: 1,
       quality: "1mp",
     },
   });
   assert.equal(generation.response.status, 503);
-  assert.equal(generation.payload.error, "missing_api_key");
+  assert.equal(generation.payload.error, "provider_not_configured");
+  assert.equal(generation.payload.provider, "9router");
+
+  const tenImageGeneration = await request("/api/generate", {
+    method: "POST",
+    csrf: true,
+    body: {
+      prompt: "Poster sepatu lari ringan untuk pelari pemula",
+      imageCount: 10,
+      quality: "1mp",
+    },
+  });
+  assert.equal(tenImageGeneration.response.status, 403);
+  assert.equal(tenImageGeneration.payload.error, "image_count_limit");
 
   const password = await request("/api/account/password", {
     method: "PUT",

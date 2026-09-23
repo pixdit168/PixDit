@@ -32,7 +32,7 @@
         </div>
 
         <div class="auth-art" aria-hidden="true">
-          <div class="float-tag tag-one">10 agent <span>✦</span></div>
+          <div class="float-tag tag-one">10 variasi <span>✦</span></div>
           <div class="auth-poster poster-photo">
             <div class="mini-kicker">RUMAH SEDUH</div>
             <div class="mini-title">Rasa pulang,<br />di setiap tegukan.</div>
@@ -336,16 +336,19 @@
                 <p>AI membuat key visual tanpa tulisan. Kosongkan kolom yang tidak ingin ditampilkan. Logo diperkecil dan latarnya dihapus otomatis; posisinya dapat kamu atur langsung dengan drag pada hasil gambar.</p>
               </div>
 
-              <div class="agent-section">
-                <div class="control-title"><span>Tim Agent Kreatif</span><small id="agent-plan-note">Paket gratis: pilih 1 agent</small></div>
-                <p>Pilih arah kreatif yang ingin digunakan. Klik agent lain untuk mengganti pilihanmu.</p>
-                <div id="agent-selector" class="agent-selector" role="group" aria-label="Pilih agent kreatif"></div>
+              <div class="generation-count-section">
+                <div class="control-title"><span>Jumlah Gambar</span><small id="generation-count-plan-note">Paket gratis: 1 gambar</small></div>
+                <p>Pilih satu hasil cepat atau sepuluh variasi visual sekaligus.</p>
+                <div id="generation-count-selector" class="generation-count-selector" role="group" aria-label="Pilih jumlah gambar">
+                  <button class="generation-count-option selected" type="button" data-image-count="1" aria-pressed="true"><b>1</b><span><strong>1 gambar</strong><small>Free &amp; Pro</small></span></button>
+                  <button class="generation-count-option" type="button" data-image-count="10" aria-pressed="false"><b>10</b><span><strong>10 gambar</strong><small>Khusus Layera Pro</small></span><i>PRO</i></button>
+                </div>
               </div>
 
               <div class="control-section">
                 <div class="control-title"><span><svg viewBox="0 0 24 24"><path d="M4 7h16M7 7V4M17 7v3M4 17h16M9 17v3M15 17v-3"/></svg> Arah Visual</span><button id="reset-controls" type="button">Atur Ulang</button></div>
                 <div id="style-options" class="style-options">
-                  <button class="style-option selected" data-style="Eksploratif" type="button"><i class="swatch swatch-one"></i><span><strong>Eksploratif</strong><small>10 Gaya Yang Beragam</small></span><b>✓</b></button>
+                  <button class="style-option selected" data-style="Eksploratif" type="button"><i class="swatch swatch-one"></i><span><strong>Eksploratif</strong><small>Variasi kreatif dinamis</small></span><b>✓</b></button>
                   <button class="style-option" data-style="Minimal" type="button"><i class="swatch swatch-two"></i><span><strong>Minimal</strong><small>Bersih dan Elegan</small></span><b>✓</b></button>
                   <button class="style-option" data-style="Berani" type="button"><i class="swatch swatch-three"></i><span><strong>Berani</strong><small>Kontras dan Ekspresif</small></span><b>✓</b></button>
                 </div>
@@ -368,14 +371,14 @@
 
             <main class="results-panel">
               <div class="results-head">
-                <div><span class="step-count">02</span><div><h2>Pilih yang paling kamu suka</h2><p id="results-subtitle">Pilih agent lalu buat key visual dari brief-mu.</p></div></div>
+                <div><span class="step-count">02</span><div><h2>Pilih yang paling kamu suka</h2><p id="results-subtitle">Pilih jumlah gambar lalu buat key visual dari brief-mu.</p></div></div>
                 <div class="view-toggles"><button class="active" type="button" data-cols="3" aria-label="Tampilan grid">▦</button><button type="button" data-cols="2" aria-label="Tampilan besar">▥</button></div>
               </div>
 
               <div id="empty-results" class="empty-results is-hidden">
                 <div class="empty-orbit"><span>✦</span><i></i><i></i></div>
                 <h3>Ide hebatmu dimulai di sini.</h3>
-                <p>Tulis brief di sebelah kiri, pilih agent kreatif, lalu buat key visual pertamamu.</p>
+                <p>Tulis brief di sebelah kiri, pilih jumlah gambar, lalu buat key visual pertamamu.</p>
               </div>
 
               <div id="generation-progress" class="generation-progress is-hidden">
@@ -562,10 +565,10 @@
 
 Token gratis selanjutnya akan hadir pada tanggal reset akunmu.
 
-Ayo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, dapat membuat ~100 gambar, bebas memilih behavior agentic, dll.</p>
+Ayo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.</p>
         <div class="upgrade-comparison">
           <div><small>PAKET GRATIS</small><strong>11 kredit / minggu</strong><span>1 gambar 1MP / HD</span><span>Hingga 3 edit</span><span>Untuk 1 brand</span></div>
-          <div class="featured"><small>LAYERA PRO</small><strong>200 kredit / bulan</strong><span>Hingga ~100 gambar 1MP</span><span>Kualitas 1MP, 2MP, dan 4MP</span><span>10 agent dan brand tanpa batas</span></div>
+          <div class="featured"><small>LAYERA PRO</small><strong>200 kredit / bulan</strong><span>Hingga ~100 gambar 1MP</span><span>Kualitas 1MP, 2MP, dan 4MP</span><span>Buat 1 atau 10 gambar · brand tanpa batas</span></div>
         </div>
         <p class="field-note">Sistem paket sudah siap. Integrasi pembayaran belum diaktifkan pada versi lokal ini.</p>
         <div class="modal-actions"><button id="upgrade-contact-button" class="primary-button" type="button">Upgrade ke pro - Rp. 199.999/bln</button></div>
