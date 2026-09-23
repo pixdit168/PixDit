@@ -3,8 +3,8 @@
 ## Arsitektur
 
 ```text
-Browser -> HTTPS hosting -> app-backend.js -> 9Router (Paket Gratis)
-                                      |----> Replicate Flux 2 Pro (Layera Pro)
+Browser -> HTTPS hosting -> app-backend.js -> Replicate Agent Free
+                                      |----> Replicate Agent Pro (Layera Pro)
                                       |----> Supabase Auth + Postgres
                                       `----> persistent generated images
 ```
@@ -22,10 +22,10 @@ npm start
 
 - Domain memakai HTTPS dan `PUBLIC_ORIGIN` sama persis dengan domain tersebut.
 - `TRUST_PROXY=true` hanya bila forwarded headers dikelola reverse proxy tepercaya.
-- `REPLICATE_API_TOKEN`, `NINEROUTER_API_KEY`, dan `SUPABASE_SECRET_KEY` hanya berada di environment server.
-- `NINEROUTER_IMAGE_MODEL` sudah diisi dengan model gambar yang dipilih untuk akun gratis.
+- `REPLICATE_API_TOKEN` dan `SUPABASE_SECRET_KEY` hanya berada di environment server.
+- `REPLICATE_FREE_MODEL` dan `REPLICATE_PRO_MODEL` menunjuk ke model yang benar.
 - `GENERATED_DIR` berada di persistent disk atau hasil dipindahkan ke object storage.
-- `GET /api/health` menampilkan provider sesuai plan akun dan `configured: true`.
+- `GET /api/health` menampilkan Agent Free dan Agent Pro dengan `configured: true`.
 - Backup Supabase dan hasil gambar dijalankan secara berkala.
 - CAPTCHA atau verifikasi email dipasang kembali sebelum peluncuran komersial.
 

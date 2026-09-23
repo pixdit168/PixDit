@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { creativeAgents, getBehavioralPrompt } from "./lib/creative-agents.js";
 import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supabase.js";
-import { NineRouterImageProvider } from "./lib/nine-router.js";
 import { ReplicateImageProvider } from "./lib/replicate.js";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -55,8 +54,8 @@ try {
 const accountAuth = useMemoryBackend
   ? new MemoryAuth()
   : new SupabaseAuth({ url: supabaseUrl, publishableKey: supabasePublishableKey, secretKey: supabaseSecretKey });
-const premiumImageProvider = new ReplicateImageProvider();
-const freeImageProvider = new NineRouterImageProvider();
+const freeImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_FREE_MODEL || process.env.REPLICATE_MODEL || "black-forest-labs/flux-2-pro" });
+const premiumImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_PRO_MODEL || "sourceful/riverflow-2.0-pro" });
 const activeUserJobs = new Set();
 
 if (isProduction && !publicOrigin) {
@@ -186,8 +185,17 @@ function getPublicUser(user) {
   return { id: user.id, email: user.email, displayName: user.displayName, createdAt: user.createdAt, plan: getPlanCode(user.id) };
 }
 
-function getImageProvider(userId) {
-  return getPlanCode(userId) === "premium" ? premiumImageProvider : freeImageProvider;
+function getAgentTier(userId, requestedTier = "") {
+  if (requestedTier === "free" || requestedTier === "pro") return requestedTier;
+  return getPlanCode(userId) === "premium" ? "pro" : "free";
+}
+
+function getImageProvider(userId, requestedTier = "") {
+  return getAgentTier(userId, requestedTier) === "pro" ? premiumImageProvider : freeImageProvider;
+}
+
+function getAgentLabel(tier) {
+  return tier === "pro" ? "Agent Pro" : "Agent Free";
 }
 
 function createUserProfile({ id, email, displayName, plan = "free", createdAt = new Date().toISOString() }) {
@@ -388,7 +396,7 @@ function convertToVisualBrief(brief) {
   return result || "Create a tasteful commercial key visual based on the supplied business category.";
 }
 
-function newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement = "", imageCount = 1 }) {
+function newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement = "", imageCount = 1, hasProductReference = false }) {
   const visualBrief = convertToVisualBrief(brief);
   if (refinement) {
     return `IMAGE EDIT TASK — the attached/source image is the visual source of truth.\nUSER'S REQUIRED CHANGE (highest priority): ${refinement}\n\nMake the requested change clearly visible. Preserve every element the user did not ask to change: subject identity, shape, people, activity, camera angle, crop, composition, lighting direction, background structure, and material details. If the requested change names one of those elements, change that element and preserve the rest. Do not reinterpret the full campaign or introduce an unrelated subject, object, person, industry, or setting.\nOriginal campaign context (use only to disambiguate the edit): ${visualBrief}\nBusiness category: ${category}\nOutput format: ${format}\nVisual continuity: ${style}, polished commercial quality, realistic materials.\nHard constraints: return one edited key visual only. No text, pseudo-text, letters, numbers, labels, logos, watermarks, signatures, borders, or UI. Any surface that could contain writing must remain blank.`;
@@ -396,7 +404,10 @@ function newImagePrompt({ brief, category, creativeAgent, format, style, primary
   const diversityRule = imageCount === 10
     ? "Set-wide diversity: this image belongs to a ten-image exploration. Make its camera, spatial hierarchy, visual medium, subject scale, and copy-zone geometry unmistakably specific to this direction. Brand consistency may come from palette and subject matter, never from repeating one layout."
     : "Standalone strength: deliver one decisive, complete visual direction with a clear hierarchy and intentional copy zone; do not make it look like a fragment of a larger set.";
-  return `IMPORTANT OUTPUT RULE: Generate only a clean advertising key visual. This is NOT a finished poster and must contain no typography.\nUse case: advertising key visual for an Indonesian small business\nBusiness category selected in the UI: ${category}\nPrimary visual brief (highest authority for subject and meaning): ${visualBrief}\nRequested output format: ${format}\nUser-selected visual style: ${style}\nPreferred primary color: ${/^#[0-9a-f]{6}$/i.test(primaryColor) ? primaryColor : "derive a tasteful palette from the brief"}\n\n${getBehavioralPrompt(creativeAgent)}\n\nPriority order: (1) preserve the user's actual business, subject, benefit, and audience; (2) obey this creative direction's exclusive composition and rendering contract; (3) apply the selected style and brand color without erasing its visual signature.\nDomain fidelity: infer the actual industry and subject from the user's visual brief. The visual brief overrides the UI category whenever they conflict. Represent services, software, education, health, property, fashion, beauty, events, professional work, and other fields through an appropriate audience, action, environment, outcome, or visual metaphor. Never substitute a different business sector or invent any subject, object, person, activity, or setting absent from the brief.\nBrief interpretation: use the brief to understand the subject or service, audience, benefit, mood, colors, materials, action, and setting. Treat any request for a tagline, headline, typography, logo, brand name, campaign name, or written copy only as a request to reserve the exact copy zone required by this direction. Never render or imitate those words.\n${diversityRule}\nQuality: polished, commercially usable, context-appropriate imagery, realistic materials where relevant, and intentional lighting.\nCultural context: contemporary Indonesia, tasteful and authentic when relevant to the brief.\nHard constraints: visual imagery only. Absolutely no text, pseudo-text, glyphs, letters, words, numbers, captions, labels, logos, brand marks, signatures, UI, border, poster title, or watermark anywhere in the image. Any surface that could contain writing must remain blank. Do not add unrelated objects or people.`;
+  const productReferenceRule = hasProductReference
+    ? "Product reference fidelity: the attached image is the user's actual product and is the visual source of truth. Preserve its recognizable silhouette, proportions, material, color, packaging, and distinctive details. Improve the presentation through art direction, lighting, environment, styling, and composition; do not replace it with a generic or different product."
+    : "No initial image is supplied. Build the complete visual direction from the written brief without assuming a pre-existing design.";
+  return `IMPORTANT OUTPUT RULE: Generate only a clean advertising key visual. This is NOT a finished poster and must contain no typography.\nUse case: advertising key visual for an Indonesian small business\nBusiness category selected in the UI: ${category}\nPrimary visual brief (highest authority for subject and meaning): ${visualBrief}\nRequested output format: ${format}\nUser-selected visual style: ${style}\nPreferred primary color: ${/^#[0-9a-f]{6}$/i.test(primaryColor) ? primaryColor : "derive a tasteful palette from the brief"}\n\n${getBehavioralPrompt(creativeAgent)}\n\n${productReferenceRule}\nPriority order: (1) preserve the user's actual business, subject, benefit, and audience; (2) obey this creative direction's exclusive composition and rendering contract; (3) apply the selected style and brand color without erasing its visual signature.\nDomain fidelity: infer the actual industry and subject from the user's visual brief. The visual brief overrides the UI category whenever they conflict. Represent services, software, education, health, property, fashion, beauty, events, professional work, and other fields through an appropriate audience, action, environment, outcome, or visual metaphor. Never substitute a different business sector or invent any subject, object, person, activity, or setting absent from the brief.\nBrief interpretation: use the brief to understand the subject or service, audience, benefit, mood, colors, materials, action, and setting. Treat any request for a tagline, headline, typography, logo, brand name, campaign name, or written copy only as a request to reserve the exact copy zone required by this direction. Never render or imitate those words.\n${diversityRule}\nQuality: polished, commercially usable, context-appropriate imagery, realistic materials where relevant, and intentional lighting.\nCultural context: contemporary Indonesia, tasteful and authentic when relevant to the brief.\nHard constraints: visual imagery only. Absolutely no text, pseudo-text, glyphs, letters, words, numbers, captions, labels, logos, brand marks, signatures, UI, border, poster title, or watermark anywhere in the image. Any surface that could contain writing must remain blank. Do not add unrelated objects or people.`;
 }
 
 function enhancedPrompt(input) {
@@ -480,7 +491,7 @@ function safeClientError(error) {
     .replace(/sbp_[A-Za-z0-9_-]+/g, "[redacted]")
     .replace(/sb_(?:secret|publishable)_[A-Za-z0-9_-]+/g, "[redacted]")
     .slice(0, 500);
-  return isProduction && !/REPLICATE_API_TOKEN|NINEROUTER_|batas waktu|Replicate|9Router|Flux|kredit|billing|rate/i.test(message)
+  return isProduction && !/REPLICATE_API_TOKEN|batas waktu|Replicate|Flux|Riverflow|kredit|billing|rate/i.test(message)
     ? "Provider gambar gagal memproses permintaan. Silakan coba kembali."
     : message;
 }
@@ -513,7 +524,14 @@ async function handleGeneration(request, response, input, auth) {
   if (activeUserJobs.has(auth.user.id)) return sendJson(response, 409, { error: "generation_in_progress", message: "Masih ada proses gambar untuk akun ini. Tunggu hingga selesai." });
 
   const usage = getUsageStatus(auth.user.id);
-  const imageProvider = getImageProvider(auth.user.id);
+  const requestedAgentTier = String(input.agentTier || "").trim().toLowerCase();
+  if (requestedAgentTier && !["free", "pro"].includes(requestedAgentTier)) return sendJson(response, 400, { error: "invalid_agent_tier", message: "Pilihan agent hanya dapat berupa free atau pro." });
+  const agentTier = getAgentTier(auth.user.id, requestedAgentTier);
+  if (agentTier === "pro" && !usage.isPremium) return sendJson(response, 403, { error: "agent_tier_limit", upgradeRequired: true, message: "Agent Pro hanya tersedia untuk pelanggan Layera Pro.", usage });
+  const imageProvider = getImageProvider(auth.user.id, agentTier);
+  const creationMode = input.creationMode === "product" ? "product" : "prompt";
+  const productImage = creationMode === "product" ? String(input.productImage || "") : "";
+  if (creationMode === "product" && !productImage) return sendJson(response, 400, { error: "product_image_required", message: "Upload gambar produk atau pilih opsi mulai dari prompt." });
   let quality = String(input.quality || "1mp").toLowerCase();
   if (!["1mp", "2mp", "4mp"].includes(quality)) quality = "1mp";
   if (!usage.allowedQualities.includes(quality)) return sendJson(response, 403, { error: "quality_limit", upgradeRequired: true, message: "Paket Gratis hanya mendukung kualitas 1MP/HD. Upgrade ke Pro untuk membuka 2MP dan 4MP.", usage });
@@ -522,9 +540,7 @@ async function handleGeneration(request, response, input, auth) {
   const imageCount = requestedImageCount;
   if (!usage.allowedImageCounts.includes(imageCount)) return sendJson(response, 403, { error: "image_count_limit", upgradeRequired: true, message: "Paket Gratis hanya dapat membuat 1 gambar. Upgrade ke Layera Pro untuk membuat 10 gambar sekaligus.", usage });
   if (!imageProvider.configured) {
-    const message = usage.isPremium
-      ? "REPLICATE_API_TOKEN belum diatur pada environment server Node.js."
-      : `Provider gambar Paket Gratis belum lengkap: ${imageProvider.missingConfiguration.join(", ")}.`;
+    const message = "REPLICATE_API_TOKEN belum diatur pada environment server Node.js.";
     return sendJson(response, 503, { error: "provider_not_configured", provider: imageProvider.name, message });
   }
   const totalCreditCost = generationCreditCost(quality, imageCount);
@@ -539,6 +555,14 @@ async function handleGeneration(request, response, input, auth) {
   const style = String(input.style || "Eksploratif").trim();
   const category = String(input.category || "Bisnis lokal").trim();
   const primaryColor = /^#[0-9a-f]{6}$/i.test(input.primaryColor || "") ? input.primaryColor : "";
+  let preparedReferenceImage = "";
+  if (productImage) {
+    try {
+      preparedReferenceImage = await imageProvider.prepareReferenceImage(productImage);
+    } catch (error) {
+      return sendJson(response, 400, { error: "invalid_product_image", message: safeClientError(error) });
+    }
+  }
   const abortController = new AbortController();
   response.on("close", () => { if (!response.writableEnded) abortController.abort(new Error("Koneksi browser terputus.")); });
   activeUserJobs.add(auth.user.id);
@@ -550,7 +574,7 @@ async function handleGeneration(request, response, input, auth) {
     "X-Accel-Buffering": "no",
   });
   response.flushHeaders();
-  sendNdjson(response, { type: "start", requestId, promptLength: brief.length, jobId, total: imageCount, imageCount, model: imageProvider.model, provider: imageProvider.name, format, style, quality, creditCost: totalCreditCost });
+  sendNdjson(response, { type: "start", requestId, promptLength: brief.length, jobId, total: imageCount, imageCount, model: imageProvider.model, provider: imageProvider.name, agentTier, agentLabel: getAgentLabel(agentTier), creationMode, format, style, quality, creditCost: totalCreditCost });
 
   let successCount = 0;
   let brandRecorded = false;
@@ -560,8 +584,8 @@ async function handleGeneration(request, response, input, auth) {
     for (const { slot, agentIndex, creativeAgent } of generationJobs) {
       try {
         sendNdjson(response, { type: "progress", index: slot, direction: creativeAgent.name });
-        const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, imageCount });
-        const result = await imageProvider.run({ prompt, format, quality, signal: abortController.signal });
+        const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, imageCount, hasProductReference: Boolean(preparedReferenceImage) });
+        const result = await imageProvider.run({ prompt, format, quality, preparedReferenceImage, signal: abortController.signal });
         const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
         const fileName = `concept-${String(slot + 1).padStart(2, "0")}.${result.extension}`;
         const imageId = `${safeJobId}/${fileName}`;
@@ -571,7 +595,7 @@ async function handleGeneration(request, response, input, auth) {
         await addUsageEvent(auth.user.id, "generate", perImageCreditCost);
         if (!brandRecorded) { await addAccountBrand(auth.user.id, brandName); brandRecorded = true; }
         successCount += 1;
-        sendNdjson(response, { type: "image", index: slot, agentIndex, name: creativeAgent.name, url, displayUrl: url });
+        sendNdjson(response, { type: "image", index: slot, agentIndex, name: creativeAgent.name, agentTier, agentLabel: getAgentLabel(agentTier), url, displayUrl: url });
       } catch (error) {
         const message = safeClientError(error);
         failureMessages.push(message);
@@ -591,11 +615,14 @@ async function handleRefinement(request, response, input, auth) {
   const refinement = String(input.refinement || "").trim();
   if (brief.length < 20 || brief.length > 1000) return sendJson(response, 400, { error: "invalid_prompt", message: "Prompt Library harus berisi 20-1000 karakter." });
   if (!refinement || refinement.length > 500) return sendJson(response, 400, { error: "invalid_refinement", message: "Instruksi edit harus berisi 1-500 karakter." });
-  const imageProvider = getImageProvider(auth.user.id);
+  const usage = getUsageStatus(auth.user.id);
+  const requestedAgentTier = String(input.agentTier || "").trim().toLowerCase();
+  if (requestedAgentTier && !["free", "pro"].includes(requestedAgentTier)) return sendJson(response, 400, { error: "invalid_agent_tier", message: "Pilihan agent hanya dapat berupa free atau pro." });
+  const agentTier = getAgentTier(auth.user.id, requestedAgentTier);
+  if (agentTier === "pro" && !usage.isPremium) return sendJson(response, 403, { error: "agent_tier_limit", upgradeRequired: true, message: "Agent Pro hanya tersedia untuk pelanggan Layera Pro.", usage });
+  const imageProvider = getImageProvider(auth.user.id, agentTier);
   if (!imageProvider.configured) {
-    const message = getPlanCode(auth.user.id) === "premium"
-      ? "REPLICATE_API_TOKEN belum diatur pada environment server Node.js."
-      : `Provider gambar Paket Gratis belum lengkap: ${imageProvider.missingConfiguration.join(", ")}.`;
+    const message = "REPLICATE_API_TOKEN belum diatur pada environment server Node.js.";
     return sendJson(response, 503, { error: "provider_not_configured", provider: imageProvider.name, message });
   }
   if (activeUserJobs.has(auth.user.id)) return sendJson(response, 409, { error: "generation_in_progress", message: "Masih ada proses gambar untuk akun ini. Tunggu hingga selesai." });
@@ -610,7 +637,6 @@ async function handleRefinement(request, response, input, auth) {
     const category = String(input.category || "Bisnis lokal").trim();
     const primaryColor = /^#[0-9a-f]{6}$/i.test(input.primaryColor || "") ? input.primaryColor : "";
     let quality = String(input.quality || "1mp").toLowerCase();
-    const usage = getUsageStatus(auth.user.id);
     if (!usage.allowedQualities.includes(quality)) quality = "1mp";
     const sourcePath = await resolveGeneratedSource(input.sourceUrl, auth.user.id);
     const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement });
@@ -623,7 +649,7 @@ async function handleRefinement(request, response, input, auth) {
     await store.saveImage(imageId, auth.user.id, result.buffer, result.mimeType);
     await recordGeneratedFile(auth.user.id, url);
     await addUsageEvent(auth.user.id, "refine", 3);
-    return sendJson(response, 200, { ok: true, index, url, displayUrl: url, usage: getUsageStatus(auth.user.id) });
+    return sendJson(response, 200, { ok: true, index, agentTier, agentLabel: getAgentLabel(agentTier), url, displayUrl: url, usage: getUsageStatus(auth.user.id) });
   } catch (error) {
     return sendJson(response, 502, { error: "generation_failed", message: safeClientError(error) });
   } finally {
@@ -852,23 +878,24 @@ async function handleAuthAndAccount(request, response, pathname) {
 async function handleApi(request, response, pathname) {
   if (pathname === "/api/health" && request.method === "GET") {
     const auth = await getAuthenticatedUser(request).catch(() => null);
-    const selectedProvider = auth ? getImageProvider(auth.user.id) : premiumImageProvider;
+    const selectedTier = auth ? getAgentTier(auth.user.id) : "pro";
+    const selectedProvider = auth ? getImageProvider(auth.user.id, selectedTier) : premiumImageProvider;
     const providerMessage = selectedProvider.configured
-      ? `${selectedProvider.name === "replicate" ? "Replicate Flux 2 Pro" : "9Router"} siap digunakan.`
-      : selectedProvider.name === "replicate"
-        ? "REPLICATE_API_TOKEN belum diatur."
-        : `Provider gambar Paket Gratis menunggu ${selectedProvider.missingConfiguration.join(", ")}.`;
+      ? `${getAgentLabel(selectedTier)} siap digunakan.`
+      : "REPLICATE_API_TOKEN belum diatur.";
     return sendJson(response, 200, {
       ok: true,
       configured: selectedProvider.configured,
       provider: selectedProvider.name,
+      agentTier: selectedTier,
+      agentLabel: getAgentLabel(selectedTier),
       trustProxy,
       vercelEnv: process.env.VERCEL,
       model: selectedProvider.model,
       endpoint: selectedProvider.endpoint,
-      providers: {
-        free: { name: freeImageProvider.name, configured: freeImageProvider.configured, model: freeImageProvider.model || null },
-        premium: { name: premiumImageProvider.name, configured: premiumImageProvider.configured, model: premiumImageProvider.model },
+      agents: {
+        free: { label: "Agent Free", configured: freeImageProvider.configured, model: freeImageProvider.model },
+        pro: { label: "Agent Pro", configured: premiumImageProvider.configured, model: premiumImageProvider.model },
       },
       deploymentMode: "node",
       database: useMemoryBackend ? "memory" : "supabase",
@@ -986,7 +1013,7 @@ export default requestHandler;
 
 if (!process.env.VERCEL) {
   const server = http.createServer(requestHandler);
-  server.requestTimeout = 7 * 60 * 1000;
+  server.requestTimeout = 11 * 60 * 1000;
   server.headersTimeout = 20_000;
   server.keepAliveTimeout = 5_000;
   server.maxHeadersCount = 100;
@@ -996,10 +1023,9 @@ if (!process.env.VERCEL) {
 
   server.listen(port, host, () => {
     console.log(`Layera Node.js berjalan di http://localhost:${port}`);
-    console.log(`Provider premium: Replicate ${premiumImageProvider.model}`);
+    console.log(`Agent Pro: Replicate ${premiumImageProvider.model}`);
     console.log(premiumImageProvider.configured ? "REPLICATE_API_TOKEN terdeteksi." : "REPLICATE_API_TOKEN belum diatur; UI tetap dapat dibuka.");
-    console.log(`Provider gratis: 9Router ${freeImageProvider.model || "(model belum dipilih)"}`);
-    console.log(freeImageProvider.configured ? "Konfigurasi 9Router lengkap." : `Konfigurasi 9Router belum lengkap: ${freeImageProvider.missingConfiguration.join(", ")}.`);
+    console.log(`Agent Free: Replicate ${freeImageProvider.model}`);
     console.log(`Penyimpanan akun: ${useMemoryBackend ? "memory test" : "Supabase"}`);
     if (isProduction) console.log(`Mode production aktif untuk ${publicOrigin}.`);
   });

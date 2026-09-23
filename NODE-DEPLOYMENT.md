@@ -1,20 +1,22 @@
-# Layera Node.js — Replicate + 9Router
+# Layera Node.js — Replicate Agents
 
 Backend aktif Layera adalah `app-backend.js`. Backend menyajikan frontend, akun, sesi, proyek, kredit, file hasil, image generation, dan image editing.
 
-Provider dipilih oleh server berdasarkan plan akun:
+Kedua agent berjalan melalui Replicate dan dipilih dari workspace:
 
-- Paket Gratis: 9Router, 1 gambar per permintaan, kualitas 1MP.
-- Layera Pro: Replicate Flux 2 Pro, pilihan 1 atau 10 gambar, kualitas 1MP/2MP/4MP.
+- Agent Free: `black-forest-labs/flux-2-pro`, tersedia untuk semua plan.
+- Agent Pro: `sourceful/riverflow-2.0-pro`, khusus Layera Pro.
+- Paket Gratis: 1 gambar per permintaan dan kualitas 1MP.
+- Layera Pro: Agent Free atau Agent Pro, pilihan 1 atau 10 gambar, kualitas 1MP/2MP/4MP.
 
-Strategi visual tetap dibuat beragam di backend. Pengguna tidak lagi memilih agent satu per satu.
+Pengguna juga dapat memulai sepenuhnya dari prompt atau mengunggah gambar produk. Gambar produk di-resize di browser dan dinormalisasi ulang oleh server sebelum dikirim ke Replicate.
 
 ## Menjalankan secara lokal
 
 Gunakan Node.js 20.9 atau lebih baru.
 
 1. Salin `.env.example` menjadi `.env` dan isi secret yang diperlukan.
-2. Untuk provider gratis, isi `NINEROUTER_IMAGE_MODEL` setelah model ditentukan. API key saja belum cukup karena endpoint 9Router mewajibkan nama model.
+2. Isi `REPLICATE_API_TOKEN`. Nama model mempunyai default dan dapat diubah melalui `REPLICATE_FREE_MODEL` serta `REPLICATE_PRO_MODEL`.
 3. Jalankan:
 
    ```text
@@ -39,11 +41,9 @@ TRUST_PROXY=true
 GENERATED_DIR=/data/generated
 
 REPLICATE_API_TOKEN=secret_replicate
-REPLICATE_MODEL=black-forest-labs/flux-2-pro
-
-NINEROUTER_API_KEY=secret_9router
-NINEROUTER_URL=https://api.9router.com
-NINEROUTER_IMAGE_MODEL=provider/nama-model-gambar
+REPLICATE_FREE_MODEL=black-forest-labs/flux-2-pro
+REPLICATE_PRO_MODEL=sourceful/riverflow-2.0-pro
+REPLICATE_TIMEOUT_MS=600000
 
 SUPABASE_URL=https://project-ref-anda.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_key_anda
@@ -52,8 +52,6 @@ SUPABASE_SECRET_KEY=secret_server_supabase
 
 `PUBLIC_ORIGIN` wajib pada production dan harus sama persis dengan origin browser. `TRUST_PROXY=true` hanya digunakan di belakang reverse proxy tepercaya. `GENERATED_DIR` harus menunjuk ke persistent disk/volume.
 
-Model 9Router dapat ditemukan melalui `GET $NINEROUTER_URL/v1/models/image`. Layera mengirim generasi ke endpoint OpenAI-compatible `/v1/images/generations`; nama model sengaja tidak diberi default agar tidak memilih provider yang salah.
-
 ## Pemeriksaan
 
 ```text
@@ -61,4 +59,4 @@ npm run check
 npm test
 ```
 
-`GET /api/health` menampilkan provider yang berlaku untuk akun aktif dan status kedua provider tanpa membocorkan token.
+`GET /api/health` menampilkan status Agent Free dan Agent Pro tanpa membocorkan token. Backend tetap memvalidasi plan meskipun request API dimodifikasi secara manual.

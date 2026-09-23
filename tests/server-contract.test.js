@@ -34,8 +34,8 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
       NODE_ENV: "test",
       PUBLIC_ORIGIN: "",
       REPLICATE_API_TOKEN: "",
-      NINEROUTER_API_KEY: "",
-      NINEROUTER_IMAGE_MODEL: "",
+      REPLICATE_FREE_MODEL: "black-forest-labs/flux-2-pro",
+      REPLICATE_PRO_MODEL: "sourceful/riverflow-2.0-pro",
       GENERATED_DIR: path.join(temporaryRoot, "generated"),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -50,7 +50,8 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
 
   const health = await waitForServer(baseUrl, () => output);
   assert.equal(health.provider, "replicate");
-  assert.equal(health.model, "black-forest-labs/flux-2-pro");
+  assert.equal(health.model, "sourceful/riverflow-2.0-pro");
+  assert.equal(health.agentLabel, "Agent Pro");
   assert.equal(health.configured, false);
   assert.equal(health.deploymentMode, "node");
   assert.equal(health.database, "memory");
@@ -61,6 +62,10 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(pageResponse.status, 200);
   assert.match(pageHtml, /data-image-count="1"/);
   assert.match(pageHtml, /data-image-count="10"/);
+  assert.match(pageHtml, /data-creation-mode="product"/);
+  assert.match(pageHtml, /id="product-image-input"/);
+  assert.match(pageHtml, /data-agent-tier="free"/);
+  assert.match(pageHtml, /data-agent-tier="pro"/);
   const faviconResponse = await fetch(`${baseUrl}/favicon.ico`);
   assert.equal(faviconResponse.status, 200);
 
@@ -99,10 +104,11 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
 
   const freeHealth = await request("/api/health");
   assert.equal(freeHealth.response.status, 200);
-  assert.equal(freeHealth.payload.provider, "9router");
+  assert.equal(freeHealth.payload.provider, "replicate");
+  assert.equal(freeHealth.payload.agentLabel, "Agent Free");
   assert.equal(freeHealth.payload.configured, false);
-  assert.equal(freeHealth.payload.providers.premium.name, "replicate");
-  assert.equal(freeHealth.payload.providers.free.name, "9router");
+  assert.equal(freeHealth.payload.agents.pro.model, "sourceful/riverflow-2.0-pro");
+  assert.equal(freeHealth.payload.agents.free.model, "black-forest-labs/flux-2-pro");
 
   const initialState = await request("/api/state");
   assert.equal(initialState.response.status, 200);
@@ -171,6 +177,33 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(usage.payload.usage.plan, "free");
   assert.equal(usage.payload.usage.credits.remaining, 11);
 
+  const proAgentGeneration = await request("/api/generate", {
+    method: "POST",
+    csrf: true,
+    body: {
+      prompt: "Poster sepatu lari ringan untuk pelari pemula",
+      imageCount: 1,
+      quality: "1mp",
+      agentTier: "pro",
+    },
+  });
+  assert.equal(proAgentGeneration.response.status, 403);
+  assert.equal(proAgentGeneration.payload.error, "agent_tier_limit");
+
+  const missingProductImage = await request("/api/generate", {
+    method: "POST",
+    csrf: true,
+    body: {
+      prompt: "Kembangkan produk ini menjadi visual promosi premium",
+      imageCount: 1,
+      quality: "1mp",
+      agentTier: "free",
+      creationMode: "product",
+    },
+  });
+  assert.equal(missingProductImage.response.status, 400);
+  assert.equal(missingProductImage.payload.error, "product_image_required");
+
   const generation = await request("/api/generate", {
     method: "POST",
     csrf: true,
@@ -182,7 +215,7 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   });
   assert.equal(generation.response.status, 503);
   assert.equal(generation.payload.error, "provider_not_configured");
-  assert.equal(generation.payload.provider, "9router");
+  assert.equal(generation.payload.provider, "replicate");
 
   const tenImageGeneration = await request("/api/generate", {
     method: "POST",

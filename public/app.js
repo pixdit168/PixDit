@@ -145,6 +145,11 @@ function sanitizeLogoDataUrl(value = "") {
   return /^data:image\/(?:png|jpeg);base64,[a-z0-9+/=]+$/i.test(logo) ? logo : "";
 }
 
+function sanitizeProductImageDataUrl(value = "") {
+  const image = String(value);
+  return /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(image) && image.length <= 1_400_000 ? image : "";
+}
+
 function normalizeLogoPosition(value) {
   const x = Number(value?.x);
   const y = Number(value?.y);
@@ -346,9 +351,10 @@ let accountStateReady = false;
 let currentUser = null;
 let accountPreferences = null;
 let accountMenuTrigger = null;
-let apiHealth = { online: false, configured: false, model: null };
+let apiHealth = { online: false, configured: false, model: null, agents: {} };
 let usageState = null;
 let selectedGenerationCount = 1;
+let selectedAgentTier = "free";
 let pendingDeleteProjectId = null;
 let csrfToken = "";
 function cloneInspirationProjects() {
@@ -486,6 +492,7 @@ function updatePlanInterface() {
   const progress = $("#plan-card .plan-progress i");
   if (progress) progress.style.width = `${Math.max(0, Math.min(100, ((credits?.remaining ?? 0) / (credits?.limit || 1)) * 100))}%`;
   if (!subscriber && selectedGenerationCount === 10) selectedGenerationCount = 1;
+  if (!subscriber && selectedAgentTier === "pro") selectedAgentTier = "free";
   const qualitySelect = $("#quality-select");
   if (qualitySelect) {
     $$("option", qualitySelect).forEach((option) => { option.disabled = !subscriber && option.value !== "1mp"; });
@@ -493,6 +500,7 @@ function updatePlanInterface() {
     $("#quality-plan-note").textContent = subscriber ? "Layera Pro mendukung 1MP, 2MP, dan 4MP." : "Paket Gratis mendukung hingga 1MP / HD.";
   }
   renderGenerationCountSelector();
+  renderAgentSelector();
   updateGenerationControls();
 }
 
@@ -525,7 +533,7 @@ async function checkApiHealth() {
   if (!status) return;
 
   if (window.location.protocol === "file:") {
-    apiHealth = { online: false, configured: false, model: null };
+    apiHealth = { online: false, configured: false, model: null, agents: {} };
     status.className = "private-note api-status offline";
     status.innerHTML = "<span>●</span> Jalankan npm start untuk mengaktifkan AI.";
     return;
@@ -535,18 +543,11 @@ async function checkApiHealth() {
     const response = await fetch("/api/health", { cache: "no-store" });
     if (!response.ok) throw new Error("Health check gagal");
     const data = await response.json();
-    apiHealth = { online: true, configured: Boolean(data.configured), model: data.model };
+    apiHealth = { online: true, configured: Boolean(data.configured), model: data.model, agents: data.agents || {} };
     updateGenerationControls();
-    if (data.configured) {
-      status.className = "private-note api-status connected";
-      status.innerHTML = `<span>●</span> Aktif · ${escapeHtml(data.model || "Flux 2 Pro")}`;
-    } else {
-      status.className = "private-note api-status offline";
-      const message = data.message || "Provider gambar belum dikonfigurasi.";
-      status.innerHTML = `<span>●</span> Server aktif · ${escapeHtml(message)}`;
-    }
+    renderAgentSelector();
   } catch {
-    apiHealth = { online: false, configured: false, model: null };
+    apiHealth = { online: false, configured: false, model: null, agents: {} };
     status.className = "private-note api-status offline";
     status.innerHTML = "<span>●</span> Server AI tidak terhubung.";
   }
@@ -597,11 +598,13 @@ function showAuthScreen(message = "") {
   usageState = null;
   csrfToken = "";
   selectedGenerationCount = 1;
+  selectedAgentTier = "free";
   projects = [];
   libraryItems = [];
   activeProject = null;
   generatedImages = [];
   closeAccountMenu();
+  closeAgentMenu();
   closeAllProjectsModal();
   closeHelpModal();
   closeAccountModal();
@@ -842,6 +845,139 @@ function selectGenerationCount(value) {
   renderGenerationCountSelector();
   updateGenerationControls();
   markSaving();
+}
+
+function getSelectedAgentHealth() {
+  return apiHealth.agents?.[selectedAgentTier] || null;
+}
+
+function closeAgentMenu({ restoreFocus = false } = {}) {
+  const menu = $("#agent-menu");
+  const trigger = $("#agent-trigger");
+  if (!menu || !trigger) return;
+  const wasOpen = !menu.classList.contains("is-hidden");
+  menu.classList.add("is-hidden");
+  trigger.setAttribute("aria-expanded", "false");
+  if (restoreFocus && wasOpen) trigger.focus();
+}
+
+function toggleAgentMenu() {
+  if (generationInProgress) return;
+  const menu = $("#agent-menu");
+  const trigger = $("#agent-trigger");
+  if (!menu || !trigger) return;
+  const shouldOpen = menu.classList.contains("is-hidden");
+  menu.classList.toggle("is-hidden", !shouldOpen);
+  trigger.setAttribute("aria-expanded", String(shouldOpen));
+  if (shouldOpen) $(".agent-option.selected", menu)?.focus();
+}
+
+function renderAgentStatus() {
+  const status = $("#api-status");
+  if (!status) return;
+  if (!apiHealth.online) return;
+  const health = getSelectedAgentHealth();
+  const label = selectedAgentTier === "pro" ? "Agent Pro" : "Agent Free";
+  status.className = `private-note api-status ${health?.configured ? "connected" : "offline"}`;
+  status.innerHTML = health?.configured
+    ? `<span>●</span> ${label} aktif`
+    : `<span>●</span> Server aktif · ${label} belum dikonfigurasi`;
+}
+
+function renderAgentSelector() {
+  if (!isSubscriber() && selectedAgentTier === "pro") selectedAgentTier = "free";
+  const proSelected = selectedAgentTier === "pro";
+  const trigger = $("#agent-trigger");
+  if (!trigger) return;
+  $("#agent-label").textContent = proSelected ? "Agent Pro" : "Agent Free";
+  $("#agent-description").textContent = proSelected ? "Reasoning dan presisi lebih tinggi" : "Eksplorasi cepat untuk semua plan";
+  $("#agent-plan-note").textContent = isSubscriber() ? "Pilih Agent Free atau Agent Pro" : "Agent Pro khusus Layera Pro";
+  trigger.disabled = generationInProgress;
+  $$(".agent-option").forEach((button) => {
+    const selected = button.dataset.agentTier === selectedAgentTier;
+    button.classList.toggle("selected", selected);
+    button.classList.toggle("locked", button.dataset.agentTier === "pro" && !isSubscriber());
+    button.setAttribute("aria-selected", String(selected));
+    button.disabled = generationInProgress;
+  });
+  renderAgentStatus();
+}
+
+function selectAgentTier(value) {
+  if (generationInProgress) return;
+  const tier = value === "pro" ? "pro" : "free";
+  if (tier === "pro" && !isSubscriber()) {
+    closeAgentMenu();
+    openUpgradeModal("Agent Pro tersedia pada Layera Pro. Kamu tetap dapat memakai Agent Free untuk membuat satu gambar.");
+    return;
+  }
+  selectedAgentTier = tier;
+  if (activeProject) activeProject.agentTier = tier;
+  closeAgentMenu();
+  renderAgentSelector();
+  markSaving();
+}
+
+function renderCreationMode() {
+  if (!activeProject) return;
+  const mode = activeProject.creationMode === "product" ? "product" : "prompt";
+  $$(".creation-mode-option").forEach((button) => {
+    const selected = button.dataset.creationMode === mode;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  $("#product-upload-panel").classList.toggle("is-hidden", mode !== "product");
+  $("#creation-mode-note").textContent = mode === "product" ? "Kembangkan gambar produk yang diupload" : "Buat visual sepenuhnya dari brief";
+  $("label[for='prompt-input']").textContent = mode === "product" ? "Bagaimana produk ini ingin dikembangkan?" : "Apa yang ingin kamu buat?";
+  $("#prompt-input").placeholder = mode === "product"
+    ? "Jelaskan suasana, audiens, penempatan produk, pencahayaan, dan tujuan promosinya..."
+    : "Ceritakan produk atau layanan, audiens, suasana, dan tujuan promosimu...";
+  renderProductImagePreview();
+}
+
+function selectCreationMode(value) {
+  if (!activeProject || generationInProgress) return;
+  activeProject.creationMode = value === "product" ? "product" : "prompt";
+  renderCreationMode();
+  markSaving();
+}
+
+function renderProductImagePreview() {
+  const image = sanitizeProductImageDataUrl(activeProject?.productImage || "");
+  const preview = $("#product-image-preview");
+  if (!preview) return;
+  preview.classList.toggle("is-hidden", !image);
+  $("img", preview).src = image || "";
+  $("#product-upload-label").textContent = image ? "Ganti gambar produk" : "Pilih gambar produk";
+}
+
+async function optimizeProductImage(file) {
+  const supportedType = ["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file?.type);
+  const supportedName = /\.(?:png|jpe?g|webp)$/i.test(file?.name || "");
+  if (!file || !supportedType || !supportedName) throw new Error("Gunakan file PNG, JPG, JPEG, atau WEBP.");
+  if (file.size > 12 * 1024 * 1024) throw new Error("Ukuran gambar produk maksimal 12 MB.");
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadPosterImage(sourceUrl);
+    if (!image.naturalWidth || !image.naturalHeight) throw new Error("Dimensi gambar produk tidak dapat dibaca.");
+    if (image.naturalWidth * image.naturalHeight > 40_000_000) throw new Error("Dimensi gambar produk terlalu besar.");
+    const targetPixels = 1_000_000;
+    const scale = Math.min(1, Math.sqrt(targetPixels / (image.naturalWidth * image.naturalHeight)));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.86, 0.76, 0.66, 0.56]) {
+      const result = canvas.toDataURL("image/jpeg", quality);
+      if (result.length <= 1_200_000) return result;
+    }
+    throw new Error("Gambar produk tidak dapat diperkecil ke ukuran aman.");
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
 }
 
 function openUpgradeModal(message = "") {
@@ -1303,6 +1439,9 @@ function openProject(id) {
   const legacyAgentCount = Array.isArray(activeProject.agentIndexes) ? activeProject.agentIndexes.length : 0;
   selectedGenerationCount = Number(activeProject.generationCount) === 10 || legacyAgentCount === 10 ? 10 : 1;
   if (!isSubscriber()) selectedGenerationCount = 1;
+  selectedAgentTier = activeProject.agentTier === "free" ? "free" : (isSubscriber() ? "pro" : "free");
+  activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
+  activeProject.productImage = sanitizeProductImageDataUrl(activeProject.productImage || "");
   $("#color-control").value = activeProject.primaryColor || accountPreferences?.primaryColor || "#5a3529";
   $("#color-value").textContent = $("#color-control").value.toUpperCase();
   $("#format-select").value = activeProject.format || accountPreferences?.defaultFormat || "Instagram Post · 4:5";
@@ -1314,6 +1453,8 @@ function openProject(id) {
   updateCharacterCount();
   renderPromptSuggestions();
   renderGenerationCountSelector();
+  renderAgentSelector();
+  renderCreationMode();
   updateGenerationControls();
   renderBrandLogoPreview();
   clearSelection();
@@ -1600,6 +1741,7 @@ function saveSelectedToLibrary() {
     agentIndex: directionIndex,
     conceptName: image.name || concept.name,
     agent: concept.agent,
+    agentTier: image.agentTier || selectedAgentTier,
     sourceUrl,
     createdAt,
     currentVersionId: originalVersionId,
@@ -1625,6 +1767,14 @@ async function startGeneration() {
 
   const requestedQuality = $("#quality-select").value;
   const requestedCount = selectedGenerationCount === 10 ? 10 : 1;
+  const requestedAgentTier = selectedAgentTier;
+  const creationMode = activeProject?.creationMode === "product" ? "product" : "prompt";
+  const productImage = creationMode === "product" ? sanitizeProductImageDataUrl(activeProject?.productImage || "") : "";
+  if (creationMode === "product" && !productImage) {
+    showToast("Gambar produk belum dipilih", "Upload gambar produk atau pilih opsi Prompt dari awal.", "!");
+    $("#product-image-input").focus();
+    return;
+  }
   const requestedCreditCost = requestedCount * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
   if (usageState?.generation?.exhausted || (usageState?.credits && usageState.credits.remaining < requestedCreditCost)) {
     openUpgradeModal();
@@ -1645,8 +1795,10 @@ async function startGeneration() {
   }
 
   const previousImages = [...generatedImages];
-  const imageModelLabel = apiHealth.model || (isSubscriber() ? "Flux 2 Pro" : "AI gratis");
+  const imageModelLabel = requestedAgentTier === "pro" ? "Agent Pro" : "Agent Free";
   generationInProgress = true;
+  closeAgentMenu();
+  renderAgentSelector();
   generatedImages = Array(requestedCount).fill(null);
   clearSelection();
   $("#empty-results").classList.add("is-hidden");
@@ -1673,6 +1825,9 @@ async function startGeneration() {
         primaryColor: $("#color-control").value,
         imageCount: requestedCount,
         quality: requestedQuality,
+        agentTier: requestedAgentTier,
+        creationMode,
+        productImage,
         brandName: $("#brand-input").value.trim() || activeProject?.name || "",
       }),
     });
@@ -1716,7 +1871,7 @@ async function startGeneration() {
             throw new Error("Backend menerima brief yang tidak cocok. Muat ulang halaman lalu coba lagi.");
           }
           apiHealth.model = event.model;
-          setGenerationProgress(5, `Brief diterima utuh (${event.promptLength} karakter) · ${event.model}`);
+          setGenerationProgress(5, `Brief diterima utuh (${event.promptLength} karakter) · ${event.agentLabel || imageModelLabel}`);
         }
         if (event.type === "progress") {
           const percent = Math.min(92, 8 + (completedImages / requestedCount) * 82);
@@ -1728,6 +1883,7 @@ async function startGeneration() {
             displayUrl: event.displayUrl,
             name: event.name,
             agentIndex: event.agentIndex,
+            agentTier: event.agentTier || requestedAgentTier,
           };
           renderConcepts(true, generatedImages);
           completedImages += 1;
@@ -1761,11 +1917,12 @@ async function startGeneration() {
     $("#generation-progress").classList.add("is-hidden");
     $("#generate-button").disabled = false;
     $("#results-subtitle").textContent = "Generasi belum selesai. Brief-mu tetap tersimpan.";
-    const fallback = "Periksa konfigurasi provider gambar, saldo, atau status layanan AI.";
+    const fallback = "Periksa konfigurasi agent, saldo, atau status layanan AI.";
     showToast("Generasi AI gagal", error.message || fallback, "!");
   } finally {
     generationInProgress = false;
     renderGenerationCountSelector();
+    renderAgentSelector();
   }
 }
 
@@ -1802,12 +1959,16 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogo = sanitizeLogoDataUrl(activeProject.brandLogo || "");
     activeProject.generationCount = selectedGenerationCount;
+    activeProject.agentTier = selectedAgentTier;
+    activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
+    activeProject.productImage = sanitizeProductImageDataUrl(activeProject.productImage || "");
     delete activeProject.agentIndexes;
     activeProject.generatedImages = generatedImages.map((image) => (image && image.url ? {
       url: image.url,
       displayUrl: image.displayUrl || image.url,
       name: image.name || "",
       agentIndex: Number.isInteger(image.agentIndex) ? image.agentIndex : undefined,
+      agentTier: image.agentTier || selectedAgentTier,
     } : null));
     saveProjects();
   }
@@ -1817,8 +1978,8 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
   } else {
     const cardError = generatedImages.find((image) => image?.error)?.message || "";
     const conciseError = String(firstError || cardError).split("\n")[0].slice(0, 220);
-    const providerMessage = "Periksa API token, model, billing, atau rate limit provider gambar.";
-    showToast("Belum ada gambar yang selesai", conciseError || providerMessage, "!");
+    const agentMessage = "Periksa API token, model, billing, atau rate limit agent gambar.";
+    showToast("Belum ada gambar yang selesai", conciseError || agentMessage, "!");
   }
 }
 
@@ -1893,6 +2054,9 @@ function markSaving() {
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogo = sanitizeLogoDataUrl(activeProject.brandLogo || "");
     activeProject.generationCount = selectedGenerationCount;
+    activeProject.agentTier = selectedAgentTier;
+    activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
+    activeProject.productImage = sanitizeProductImageDataUrl(activeProject.productImage || "");
     delete activeProject.agentIndexes;
     saveProjects();
     $("#save-status").innerHTML = "<i></i> Tersimpan";
@@ -1971,6 +2135,7 @@ async function regenerateSelected() {
         style: libraryItem.style || "Eksploratif",
         primaryColor: libraryItem.primaryColor || "",
         quality: libraryItem.quality || "1mp",
+        agentTier: libraryItem.agentTier || (isSubscriber() ? "pro" : "free"),
         sourceUrl: getCurrentLibraryVersion(libraryItem)?.url || libraryItem.sourceUrl,
       }),
     });
@@ -2000,6 +2165,7 @@ async function regenerateSelected() {
       colorGrade: normalizeColorGrade(getCurrentLibraryVersion(libraryItem)?.colorGrade),
     });
     libraryItem.currentVersionId = versionId;
+    libraryItem.agentTier = data.agentTier || libraryItem.agentTier || (isSubscriber() ? "pro" : "free");
     saveLibrary();
     renderLibrary();
     closeRefineDrawer();
@@ -2463,7 +2629,13 @@ function bindEvents() {
     $$(".project-action-menu").forEach((menu) => menu.classList.add("is-hidden"));
     $$(".project-options-button").forEach((button) => button.setAttribute("aria-expanded", "false"));
   });
-  window.addEventListener("resize", closeAccountMenu);
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#agent-dropdown")) closeAgentMenu();
+  });
+  window.addEventListener("resize", () => {
+    closeAccountMenu();
+    closeAgentMenu();
+  });
 
   ["#new-project-side", "#new-project-main", "#quick-create"].forEach((selector) => $(selector)?.addEventListener("click", openProjectModal));
   $$('[data-close-modal]').forEach((button) => button.addEventListener("click", closeProjectModal));
@@ -2527,6 +2699,9 @@ function bindEvents() {
       headlineMode: "manual",
       quality: "1mp",
       generationCount: 1,
+      agentTier: isSubscriber() ? "pro" : "free",
+      creationMode: "prompt",
+      productImage: "",
     };
     projects.unshift(project);
     saveProjects();
@@ -2576,6 +2751,30 @@ function bindEvents() {
   );
   $$('[data-headline-mode]').forEach((button) => button.addEventListener("click", () => setHeadlineMode(button.dataset.headlineMode)));
   $("#generate-headline").addEventListener("click", () => suggestHeadline());
+  $$(".creation-mode-option").forEach((button) => {
+    button.addEventListener("click", () => selectCreationMode(button.dataset.creationMode));
+  });
+  $("#product-image-input").addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file || !activeProject) return;
+    try {
+      activeProject.productImage = await optimizeProductImage(file);
+      activeProject.creationMode = "product";
+      renderCreationMode();
+      markSaving();
+      showToast("Gambar produk siap", "Gambar sudah di-resize dan akan menjadi referensi visual agent.", "✓");
+    } catch (error) {
+      showToast("Gambar produk belum dapat digunakan", error.message, "!");
+    } finally {
+      event.target.value = "";
+    }
+  });
+  $("#remove-product-image").addEventListener("click", () => {
+    if (!activeProject) return;
+    activeProject.productImage = "";
+    renderProductImagePreview();
+    markSaving();
+  });
   $("#brand-logo-input").addEventListener("change", async (event) => {
     const file = event.target.files?.[0];
     if (!file || !activeProject) return;
@@ -2651,6 +2850,10 @@ function bindEvents() {
   $$(".generation-count-option").forEach((button) => {
     button.addEventListener("click", () => selectGenerationCount(button.dataset.imageCount));
   });
+  $("#agent-trigger").addEventListener("click", toggleAgentMenu);
+  $$(".agent-option").forEach((button) => {
+    button.addEventListener("click", () => selectAgentTier(button.dataset.agentTier));
+  });
   $("#reset-controls").addEventListener("click", () => {
     const preferredStyle = accountPreferences?.defaultStyle || "Eksploratif";
     $$(".style-option").forEach((option) => option.classList.toggle("selected", option.dataset.style === preferredStyle));
@@ -2705,6 +2908,7 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     closeAccountMenu({ restoreFocus: true });
+    closeAgentMenu({ restoreFocus: true });
     closeProjectModal();
     closeAllProjectsModal({ restoreFocus: true });
     closeHelpModal({ restoreFocus: true });

@@ -301,6 +301,19 @@
                 <div><h2>Ceritakan Idemu</h2><p>Semakin spesifik, hasilnya semakin tepat.</p></div>
               </div>
 
+              <div class="creation-source-section">
+                <div class="control-title"><span>Mulai dari</span><small id="creation-mode-note">Buat visual sepenuhnya dari brief</small></div>
+                <div class="creation-mode-options" role="group" aria-label="Pilih sumber awal desain">
+                  <button class="creation-mode-option selected" type="button" data-creation-mode="prompt" aria-pressed="true"><span>✦</span><strong>Prompt dari awal</strong><small>Tanpa desain atau gambar awal</small></button>
+                  <button class="creation-mode-option" type="button" data-creation-mode="product" aria-pressed="false"><span>↑</span><strong>Upload produk</strong><small>Kembangkan foto produkmu</small></button>
+                </div>
+                <div id="product-upload-panel" class="product-upload-panel is-hidden">
+                  <input id="product-image-input" class="visually-hidden" type="file" accept="image/png,image/jpeg,image/webp,.jpg,.jpeg,.webp" />
+                  <label class="product-upload-button" for="product-image-input"><span>↑</span><strong id="product-upload-label">Pilih gambar produk</strong><small>PNG, JPG, atau WEBP · akan di-resize sebelum dikirim</small></label>
+                  <div id="product-image-preview" class="product-image-preview is-hidden"><img alt="Preview gambar produk" /><div><strong>Gambar produk siap</strong><small>Agent akan mempertahankan bentuk dan ciri produknya.</small></div><button id="remove-product-image" type="button" aria-label="Hapus gambar produk">×</button></div>
+                </div>
+              </div>
+
               <label for="prompt-input">Apa yang ingin kamu buat?</label>
               <div class="prompt-box">
                 <textarea id="prompt-input" maxlength="1000" placeholder="Ceritakan produk atau layanan, audiens, suasana, dan tujuan promosimu..."></textarea>
@@ -342,6 +355,21 @@
                 <div id="generation-count-selector" class="generation-count-selector" role="group" aria-label="Pilih jumlah gambar">
                   <button class="generation-count-option selected" type="button" data-image-count="1" aria-pressed="true"><b>1</b><span><strong>1 gambar</strong><small>Free &amp; Pro</small></span></button>
                   <button class="generation-count-option" type="button" data-image-count="10" aria-pressed="false"><b>10</b><span><strong>10 gambar</strong><small>Khusus Layera Pro</small></span><i>PRO</i></button>
+                </div>
+              </div>
+
+              <div class="agent-picker-section">
+                <div class="control-title"><span>Pilih Agent</span><small id="agent-plan-note">Agent Free tersedia</small></div>
+                <div id="agent-dropdown" class="agent-dropdown">
+                  <button id="agent-trigger" class="agent-trigger" type="button" aria-haspopup="listbox" aria-controls="agent-menu" aria-expanded="false">
+                    <span class="agent-icon">✦</span>
+                    <span><strong id="agent-label">Agent Free</strong><small id="agent-description">Eksplorasi cepat untuk semua plan</small></span>
+                    <b aria-hidden="true">⌄</b>
+                  </button>
+                  <div id="agent-menu" class="agent-menu is-hidden" role="listbox" aria-label="Pilih agent generasi">
+                    <button class="agent-option selected" type="button" role="option" data-agent-tier="free" aria-selected="true"><span>✦</span><span><strong>Agent Free</strong><small>Tersedia untuk semua plan</small></span><b>✓</b></button>
+                    <button class="agent-option" type="button" role="option" data-agent-tier="pro" aria-selected="false"><span>◆</span><span><strong>Agent Pro</strong><small>Reasoning dan presisi lebih tinggi</small></span><i>PRO</i><b>✓</b></button>
+                  </div>
                 </div>
               </div>
 

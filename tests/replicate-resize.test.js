@@ -66,3 +66,52 @@ test("Flux 2 Pro prediction is created, polled, and downloaded", async () => {
   assert.equal(body.input.aspect_ratio, "4:5");
   assert.deepEqual(body.input.input_images, []);
 });
+
+test("Riverflow 2.0 Pro receives its native instruction and init_images fields", async () => {
+  const outputImage = await sharp({
+    create: { width: 80, height: 64, channels: 3, background: { r: 90, g: 120, b: 55 } },
+  }).webp().toBuffer();
+  const referenceImage = await sharp({
+    create: { width: 900, height: 900, channels: 3, background: { r: 220, g: 210, b: 190 } },
+  }).jpeg().toBuffer();
+  const referenceDataUrl = `data:image/jpeg;base64,${referenceImage.toString("base64")}`;
+  const requests = [];
+  const fakeFetch = async (url, options = {}) => {
+    requests.push({ url: String(url), options });
+    if (String(url).endsWith("/models/sourceful/riverflow-2.0-pro/predictions")) {
+      return new Response(JSON.stringify({
+        id: "riverflow-test",
+        status: "succeeded",
+        output: ["https://replicate.delivery/test/riverflow.webp"],
+      }), { status: 201, headers: { "content-type": "application/json" } });
+    }
+    if (String(url) === "https://replicate.delivery/test/riverflow.webp") {
+      return new Response(outputImage, { status: 200, headers: { "content-type": "image/webp", "content-length": String(outputImage.length) } });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+  const provider = new ReplicateImageProvider({
+    token: "test-token",
+    model: "sourceful/riverflow-2.0-pro",
+    fetchImpl: fakeFetch,
+  });
+  const preparedReferenceImage = await provider.prepareReferenceImage(referenceDataUrl);
+  const result = await provider.run({
+    prompt: "Develop this product into a premium campaign visual",
+    format: "Persegi · 1:1",
+    quality: "4mp",
+    preparedReferenceImage,
+  });
+
+  assert.equal(result.mimeType, "image/jpeg");
+  assert.equal(requests.length, 2);
+  const body = JSON.parse(requests[0].options.body);
+  assert.equal(body.input.instruction, "Develop this product into a premium campaign visual");
+  assert.equal(body.input.resolution, "4K");
+  assert.equal(body.input.aspect_ratio, "1:1");
+  assert.deepEqual(body.input.init_images, [preparedReferenceImage]);
+  assert.equal(body.input.enhance_prompt, true);
+  assert.equal(body.input.max_iterations, 3);
+  assert.equal(body.input.prompt, undefined);
+  assert.equal(body.input.input_images, undefined);
+});
