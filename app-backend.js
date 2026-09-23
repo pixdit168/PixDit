@@ -1048,10 +1048,19 @@ if (pathname === "/api/9router-image-check" && request.method === "GET") {
     });
 
   } catch (error) {
-    return sendJson(response, 502, {
-      ok: false,
-      error: "generation_request_failed",
-      message: safeClientError(error),
+      return sendJson(response, 502, {
+        ok: false,
+        error: "generation_request_failed",
+
+      debug: {
+        name: String(error?.name || ""),
+        message: String(error?.message || "").slice(0, 500),
+        code: String(error?.code || ""),
+        causeName: String(error?.cause?.name || ""),
+        causeMessage: String(error?.cause?.message || "").slice(0, 500),
+        causeCode: String(error?.cause?.code || ""),
+      },
+
       model,
     });
   }
