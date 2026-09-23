@@ -969,6 +969,94 @@ async function handleApi(request, response, pathname) {
   }
 }
 
+if (pathname === "/api/9router-image-check" && request.method === "GET") {
+  const rawUrl = String(process.env.NINEROUTER_URL || "").trim();
+
+  const baseUrl = rawUrl
+    .replace(/\/+$/, "")
+    .replace(/\/v1$/i, "");
+
+  const apiKey = String(
+    process.env.NINEROUTER_API_KEY || ""
+  ).trim();
+
+  const model = String(
+    process.env.NINEROUTER_IMAGE_MODEL || ""
+  ).trim();
+
+  if (!baseUrl || !apiKey || !model) {
+    return sendJson(response, 500, {
+      ok: false,
+      error: "missing_config",
+      hasUrl: Boolean(baseUrl),
+      hasKey: Boolean(apiKey),
+      hasModel: Boolean(model),
+    });
+  }
+
+  try {
+    const upstream = await fetch(
+      `${baseUrl}/v1/images/generations`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          prompt:
+            "A premium modern Indonesian coffee package on a clean studio background, commercial advertising photography, no text, no logo",
+          n: 1,
+          size: "1024x1024",
+          response_format: "b64_json",
+        }),
+        signal: AbortSignal.timeout(120000),
+      }
+    );
+
+    const text = await upstream.text();
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+
+    if (!upstream.ok) {
+      return sendJson(response, 502, {
+        ok: false,
+        upstreamStatus: upstream.status,
+        model,
+        upstreamResponse: data,
+      });
+    }
+
+    return sendJson(response, 200, {
+      ok: true,
+      upstreamStatus: upstream.status,
+      model,
+      hasImage: Boolean(
+        data?.data?.[0]?.b64_json ||
+        data?.data?.[0]?.url
+      ),
+      responseKeys:
+        data && typeof data === "object"
+          ? Object.keys(data)
+          : [],
+    });
+
+  } catch (error) {
+    return sendJson(response, 502, {
+      ok: false,
+      error: "generation_request_failed",
+      message: safeClientError(error),
+      model,
+    });
+  }
+}
+
   const accountHandled = await handleAuthAndAccount(request, response, pathname);
   if (accountHandled !== false) return;
   const auth = await getAuthenticatedUser(request);
