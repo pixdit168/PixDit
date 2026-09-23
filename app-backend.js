@@ -890,6 +890,85 @@ async function handleApi(request, response, pathname) {
       message: providerMessage,
     });
   }
+
+  if (pathname === "/api/9router-check" && request.method === "GET") {
+  const rawUrl = String(process.env.NINEROUTER_URL || "").trim();
+
+  const baseUrl = rawUrl
+    .replace(/\/+$/, "")
+    .replace(/\/v1$/i, "");
+
+  const apiKey = String(
+    process.env.NINEROUTER_API_KEY || ""
+  ).trim();
+
+  if (!baseUrl || !apiKey) {
+    return sendJson(response, 500, {
+      ok: false,
+      error: "nine_router_not_configured",
+      hasUrl: Boolean(baseUrl),
+      hasKey: Boolean(apiKey),
+    });
+  }
+
+  try {
+    const upstream = await fetch(
+      `${baseUrl}/v1/models/image`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(30000),
+      }
+    );
+
+    const text = await upstream.text();
+
+    let data = null;
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+
+    if (!upstream.ok) {
+      return sendJson(response, 502, {
+        ok: false,
+        error: "nine_router_upstream_error",
+        upstreamStatus: upstream.status,
+        upstreamResponse: data,
+      });
+    }
+
+    const models = Array.isArray(data?.data)
+      ? data.data
+          .map((item) => item?.id)
+          .filter(Boolean)
+      : [];
+
+    return sendJson(response, 200, {
+      ok: true,
+      message: "Vercel berhasil terhubung ke 9Router.",
+      upstreamStatus: upstream.status,
+      imageModelCount: models.length,
+
+      // Aman untuk debugging sementara.
+      // Tidak mengembalikan API key.
+      models,
+    });
+
+  } catch (error) {
+    return sendJson(response, 502, {
+      ok: false,
+      error: "nine_router_connection_failed",
+      message: safeClientError(error),
+    });
+  }
+}
+
   const accountHandled = await handleAuthAndAccount(request, response, pathname);
   if (accountHandled !== false) return;
   const auth = await getAuthenticatedUser(request);
