@@ -7,6 +7,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import { creativeAgents, getBehavioralPrompt } from "./lib/creative-agents.js";
 import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supabase.js";
 import { NineRouterImageProvider } from "./lib/nine-router.js";
+import { NineRouterCreativeAgent } from "./lib/nine-router-agent.js";
 import { ReplicateImageProvider } from "./lib/replicate.js";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -57,6 +58,7 @@ const accountAuth = useMemoryBackend
   : new SupabaseAuth({ url: supabaseUrl, publishableKey: supabasePublishableKey, secretKey: supabaseSecretKey });
 const premiumImageProvider = new ReplicateImageProvider();
 const freeImageProvider = new NineRouterImageProvider();
+const creativeDirector = new NineRouterCreativeAgent();
 const activeUserJobs = new Set();
 
 if (isProduction && !publicOrigin) {
@@ -566,15 +568,32 @@ async function handleGeneration(request, response, input, auth) {
   const failureMessages = [];
   const perImageCreditCost = generationCreditCost(quality, 1);
   try {
+    let agentBrief = null;
+    try {
+      agentBrief =
+        await creativeDirector.createVisualBrief({
+          prompt: brief,
+          category,
+          style,
+          format,
+          primaryColor,
+        });
+    } catch (error) {
+      console.warn(
+        "Creative agent fallback:",
+        error.message
+      );
+    }
     for (const { slot, agentIndex, creativeAgent } of generationJobs) {
       try {
         sendNdjson(response, { type: "progress", index: slot, direction: creativeAgent.name });
-        const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, imageCount });
+        const prompt = newImagePrompt({ brief: intelligentBrief, category, creativeAgent, format, style, primaryColor, imageCount });
         const result = await imageProvider.run({ prompt, format, quality, signal: abortController.signal });
         const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
         const fileName = `concept-${String(slot + 1).padStart(2, "0")}.${result.extension}`;
         const imageId = `${safeJobId}/${fileName}`;
         const url = `/generated/${imageId}`;
+        const intelligentBrief = agentBrief?.visualBrief || brief;
         await store.saveImage(imageId, auth.user.id, result.buffer, result.mimeType);
         await recordGeneratedFile(auth.user.id, url);
         await addUsageEvent(auth.user.id, "generate", perImageCreditCost);
