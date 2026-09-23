@@ -36,7 +36,6 @@ const publicOrigin = String(process.env.PUBLIC_ORIGIN || "").replace(/\/+$/, "")
 const trustProxy = Boolean(process.env.VERCEL) || /^(?:1|true|yes)$/i.test(process.env.TRUST_PROXY || "");
 const cookieSecure = publicOrigin.startsWith("https://") || /^(?:1|true|yes)$/i.test(process.env.COOKIE_SECURE || "");
 const sessionCookieName = cookieSecure ? "__Host-layera_session" : "layera_session";
-const generatedRoot = path.resolve(projectRoot, process.env.GENERATED_DIR || (process.env.VERCEL ? "/tmp/layera-generated" : "generated"));
 const maxBodyBytes = 2 * 1024 * 1024;
 const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const supabasePublishableKey = String(process.env.SUPABASE_PUBLISHABLE_KEY || "");
@@ -54,19 +53,13 @@ try {
 const accountAuth = useMemoryBackend
   ? new MemoryAuth()
   : new SupabaseAuth({ url: supabaseUrl, publishableKey: supabasePublishableKey, secretKey: supabaseSecretKey });
-const freeImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_FREE_MODEL || process.env.REPLICATE_MODEL || "black-forest-labs/flux-2-pro" });
-const premiumImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_PRO_MODEL || "sourceful/riverflow-2.0-pro" });
+const freeImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_FREE_MODEL || "sourceful/riverflow-2.0-pro" });
+const premiumImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_PRO_MODEL || process.env.REPLICATE_MODEL || "black-forest-labs/flux-2-pro" });
 const activeUserJobs = new Set();
 
 if (isProduction && !publicOrigin) {
   console.warn("PERINGATAN: PUBLIC_ORIGIN wajib diatur saat NODE_ENV=production, contoh https://app.example.com. CORS mungkin tidak berfungsi.");
 }
-try {
-  await fsp.mkdir(generatedRoot, { recursive: true });
-} catch (err) {
-  // Ignored in serverless environment
-}
-
 const securityHeaders = {
   "Content-Security-Policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'none'; font-src 'self'; manifest-src 'self'",
   "Cross-Origin-Opener-Policy": "same-origin",
@@ -504,13 +497,10 @@ async function resolveGeneratedSource(sourceUrl, userId) {
   const cleanUrl = String(sourceUrl || "").split("?")[0];
   if (!/^\/generated\/[a-zA-Z0-9-]+\/concept-\d{2}\.(?:jpg|jpeg|png|webp)$/i.test(cleanUrl)) throw new Error("Gambar sumber edit harus berasal dari Library Layera.");
   if (store.data.generatedFiles[cleanUrl]?.userId !== userId) throw new Error("Gambar sumber tidak ditemukan untuk akun ini.");
-  const relative = decodeURIComponent(cleanUrl.slice("/generated/".length));
-  const filePath = path.resolve(generatedRoot, relative);
-  const rootPrefix = `${generatedRoot}${path.sep}`;
-  if (!filePath.startsWith(rootPrefix)) throw new Error("Path gambar sumber tidak valid.");
-  const stat = await fsp.stat(filePath).catch(() => null);
-  if (!stat?.isFile()) throw new Error("File gambar sumber tidak ditemukan.");
-  return filePath;
+  const imageId = decodeURIComponent(cleanUrl.slice("/generated/".length));
+  const image = await store.getImage(imageId, userId);
+  if (!image) throw new Error("File gambar sumber tidak ditemukan di Supabase Storage.");
+  return image.buffer;
 }
 
 function sendNdjson(response, data) {
@@ -968,7 +958,7 @@ async function sendFile(request, response, pathname) {
     if (!auth) return sendUnauthorized(response);
     
     const imageId = decodeURIComponent(pathname.slice("/generated/".length));
-    const image = await store.getImage(imageId);
+    const image = await store.getImage(imageId, auth.user.id);
     
     if (!image || image.userId !== auth.user.id) return sendJson(response, 404, { error: "not_found" });
     

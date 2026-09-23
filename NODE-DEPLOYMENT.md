@@ -4,8 +4,8 @@ Backend aktif Layera adalah `app-backend.js`. Backend menyajikan frontend, akun,
 
 Kedua agent berjalan melalui Replicate dan dipilih dari workspace:
 
-- Agent Free: `black-forest-labs/flux-2-pro`, tersedia untuk semua plan.
-- Agent Pro: `sourceful/riverflow-2.0-pro`, khusus Layera Pro.
+- Agent Free: `sourceful/riverflow-2.0-pro`, tersedia untuk semua plan.
+- Agent Pro: `black-forest-labs/flux-2-pro`, khusus Layera Pro.
 - Paket Gratis: 1 gambar per permintaan dan kualitas 1MP.
 - Layera Pro: Agent Free atau Agent Pro, pilihan 1 atau 10 gambar, kualitas 1MP/2MP/4MP.
 
@@ -38,19 +38,19 @@ HOST=0.0.0.0
 PORT=8000
 PUBLIC_ORIGIN=https://app.domainanda.com
 TRUST_PROXY=true
-GENERATED_DIR=/data/generated
 
 REPLICATE_API_TOKEN=secret_replicate
-REPLICATE_FREE_MODEL=black-forest-labs/flux-2-pro
-REPLICATE_PRO_MODEL=sourceful/riverflow-2.0-pro
+REPLICATE_FREE_MODEL=sourceful/riverflow-2.0-pro
+REPLICATE_PRO_MODEL=black-forest-labs/flux-2-pro
 REPLICATE_TIMEOUT_MS=600000
 
 SUPABASE_URL=https://project-ref-anda.supabase.co
 SUPABASE_PUBLISHABLE_KEY=sb_publishable_key_anda
 SUPABASE_SECRET_KEY=secret_server_supabase
+SUPABASE_IMAGE_BUCKET=layera-generated
 ```
 
-`PUBLIC_ORIGIN` wajib pada production dan harus sama persis dengan origin browser. `TRUST_PROXY=true` hanya digunakan di belakang reverse proxy tepercaya. `GENERATED_DIR` harus menunjuk ke persistent disk/volume.
+`PUBLIC_ORIGIN` wajib pada production dan harus sama persis dengan origin browser. `TRUST_PROXY=true` hanya digunakan di belakang reverse proxy tepercaya. Gambar hasil disimpan privat di Supabase Storage; bucket dibuat otomatis oleh backend bila belum ada.
 
 ## Pemeriksaan
 

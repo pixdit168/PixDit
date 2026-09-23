@@ -34,9 +34,8 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
       NODE_ENV: "test",
       PUBLIC_ORIGIN: "",
       REPLICATE_API_TOKEN: "",
-      REPLICATE_FREE_MODEL: "black-forest-labs/flux-2-pro",
-      REPLICATE_PRO_MODEL: "sourceful/riverflow-2.0-pro",
-      GENERATED_DIR: path.join(temporaryRoot, "generated"),
+      REPLICATE_FREE_MODEL: "sourceful/riverflow-2.0-pro",
+      REPLICATE_PRO_MODEL: "black-forest-labs/flux-2-pro",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -50,7 +49,7 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
 
   const health = await waitForServer(baseUrl, () => output);
   assert.equal(health.provider, "replicate");
-  assert.equal(health.model, "sourceful/riverflow-2.0-pro");
+  assert.equal(health.model, "black-forest-labs/flux-2-pro");
   assert.equal(health.agentLabel, "Agent Pro");
   assert.equal(health.configured, false);
   assert.equal(health.deploymentMode, "node");
@@ -107,8 +106,8 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(freeHealth.payload.provider, "replicate");
   assert.equal(freeHealth.payload.agentLabel, "Agent Free");
   assert.equal(freeHealth.payload.configured, false);
-  assert.equal(freeHealth.payload.agents.pro.model, "sourceful/riverflow-2.0-pro");
-  assert.equal(freeHealth.payload.agents.free.model, "black-forest-labs/flux-2-pro");
+  assert.equal(freeHealth.payload.agents.pro.model, "black-forest-labs/flux-2-pro");
+  assert.equal(freeHealth.payload.agents.free.model, "sourceful/riverflow-2.0-pro");
 
   const initialState = await request("/api/state");
   assert.equal(initialState.response.status, 200);

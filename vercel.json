@@ -10,6 +10,7 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/generated/(.*)", "destination": "/api/index.js" },
     { "source": "/favicon.ico", "destination": "/favicon.svg" },
     { "source": "/app.js", "destination": "/public/app.js" },
     { "source": "/styles.css", "destination": "/public/styles.css" },
