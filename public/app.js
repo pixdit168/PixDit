@@ -345,6 +345,8 @@ let selectedConcept = null;
 let selectedCategory = "Lainnya";
 let generatedImages = [];
 let generationInProgress = false;
+let generationAbortController = null;
+let generationCancelRequested = false;
 let saveTimer = null;
 let accountStateTimer = null;
 let accountStateReady = false;
@@ -1796,6 +1798,8 @@ async function startGeneration() {
 
   const previousImages = [...generatedImages];
   const imageModelLabel = requestedAgentTier === "pro" ? "Agent Pro" : "Agent Free";
+  generationAbortController = new AbortController();
+  generationCancelRequested = false;
   generationInProgress = true;
   closeAgentMenu();
   renderAgentSelector();
@@ -1804,6 +1808,8 @@ async function startGeneration() {
   $("#empty-results").classList.add("is-hidden");
   $("#generation-progress").classList.remove("is-hidden");
   $("#generate-button").disabled = true;
+  $("#cancel-generation").disabled = false;
+  $("#cancel-generation").textContent = "Batalkan";
   renderConcepts(true, generatedImages);
   $("#results-subtitle").textContent = `${imageModelLabel} mengeksplorasi ${requestedCount} arah visual.`;
   const progressTitle = $("#progress-title");
@@ -1814,6 +1820,7 @@ async function startGeneration() {
     const selectedStyle = $(".style-option.selected strong")?.textContent || "Eksploratif";
     const response = await fetch("/api/generate", {
       method: "POST",
+      signal: generationAbortController.signal,
       headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
       body: JSON.stringify({
         requestId,
@@ -1906,6 +1913,7 @@ async function startGeneration() {
       throw new Error("Koneksi terputus sebelum semua gambar selesai.");
     }
   } catch (error) {
+    const cancelled = generationCancelRequested || error?.name === "AbortError";
     if (error.data?.usage) {
       usageState = error.data.usage;
       updatePlanInterface();
@@ -1916,14 +1924,34 @@ async function startGeneration() {
     renderConcepts(false, generatedImages);
     $("#generation-progress").classList.add("is-hidden");
     $("#generate-button").disabled = false;
-    $("#results-subtitle").textContent = "Generasi belum selesai. Brief-mu tetap tersimpan.";
-    const fallback = "Periksa konfigurasi agent, saldo, atau status layanan AI.";
-    showToast("Generasi AI gagal", error.message || fallback, "!");
+    if (cancelled) {
+      const completedImages = generatedImages.filter((image) => image?.url).length;
+      $("#results-subtitle").textContent = completedImages
+        ? `${completedImages} gambar selesai sebelum generasi dibatalkan.`
+        : "Generasi dibatalkan. Brief-mu tetap tersimpan.";
+      showToast("Generasi dibatalkan", completedImages ? "Hasil yang sudah selesai tetap tersedia." : "Tidak ada gambar baru yang disimpan.", "×");
+    } else {
+      $("#results-subtitle").textContent = "Generasi belum selesai. Brief-mu tetap tersimpan.";
+      const fallback = "Periksa konfigurasi agent, saldo, atau status layanan AI.";
+      showToast("Generasi AI gagal", error.message || fallback, "!");
+    }
   } finally {
     generationInProgress = false;
+    generationAbortController = null;
+    generationCancelRequested = false;
     renderGenerationCountSelector();
     renderAgentSelector();
   }
+}
+
+function cancelGeneration() {
+  if (!generationInProgress || !generationAbortController) return;
+  generationCancelRequested = true;
+  const button = $("#cancel-generation");
+  button.disabled = true;
+  button.textContent = "Membatalkan...";
+  setGenerationProgress(Number.parseInt($("#progress-percent").textContent, 10) || 0, "Menghentikan proses generasi");
+  generationAbortController.abort();
 }
 
 function setGenerationProgress(percent, label) {
@@ -2868,6 +2896,7 @@ function bindEvents() {
     markSaving();
   });
   $("#generate-button").addEventListener("click", startGeneration);
+  $("#cancel-generation").addEventListener("click", cancelGeneration);
 
   $$(".view-toggles button").forEach((button) =>
     button.addEventListener("click", () => {

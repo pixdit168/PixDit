@@ -60,11 +60,38 @@ test("Flux 2 Pro prediction is created, polled, and downloaded", async () => {
   assert.equal(requests.length, 3);
   const createRequest = requests[0];
   assert.equal(createRequest.options.headers.Authorization, "Bearer test-token");
-  assert.equal(createRequest.options.headers.Prefer, "wait=60");
+  assert.equal(createRequest.options.headers.Prefer, undefined);
   const body = JSON.parse(createRequest.options.body);
   assert.equal(body.input.resolution, "2 MP");
   assert.equal(body.input.aspect_ratio, "4:5");
   assert.deepEqual(body.input.input_images, []);
+});
+
+test("an aborted generation asks Replicate to cancel the prediction", async () => {
+  const requests = [];
+  const fakeFetch = async (url, options = {}) => {
+    requests.push({ url: String(url), options });
+    if (String(url).endsWith("/models/black-forest-labs/flux-2-pro/predictions")) {
+      return new Response(JSON.stringify({
+        id: "prediction-cancel",
+        status: "processing",
+        urls: {
+          get: "https://api.replicate.com/v1/predictions/prediction-cancel",
+          cancel: "https://api.replicate.com/v1/predictions/prediction-cancel/cancel",
+        },
+      }), { status: 201, headers: { "content-type": "application/json" } });
+    }
+    if (String(url).endsWith("/prediction-cancel/cancel")) {
+      return new Response(JSON.stringify({ id: "prediction-cancel", status: "canceled" }), { status: 200 });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+  const provider = new ReplicateImageProvider({ token: "test-token", fetchImpl: fakeFetch, pollIntervalMs: 100 });
+  const controller = new AbortController();
+  const run = provider.run({ prompt: "A product visual", format: "Persegi · 1:1", quality: "1mp", signal: controller.signal });
+  setTimeout(() => controller.abort(), 5);
+  await assert.rejects(run, (error) => error?.name === "AbortError");
+  assert.ok(requests.some((request) => request.url.endsWith("/prediction-cancel/cancel") && request.options.method === "POST"));
 });
 
 test("Riverflow 2.0 Pro receives its native instruction and init_images fields", async () => {
