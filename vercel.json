@@ -4,18 +4,12 @@
   "installCommand": "npm ci --include=dev",
   "builds": [
     { "src": "api/index.ts", "use": "@vercel/node" },
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "favicon.svg", "use": "@vercel/static" },
-    { "src": "public/app.js", "use": "@vercel/static" },
-    { "src": "public/styles.css", "use": "@vercel/static" },
-    { "src": "assets/**", "use": "@vercel/static" }
+    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } }
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.ts" },
     { "source": "/generated/(.*)", "destination": "/api/index.ts" },
     { "source": "/favicon.ico", "destination": "/favicon.svg" },
-    { "source": "/app.js", "destination": "/public/app.js" },
-    { "source": "/styles.css", "destination": "/public/styles.css" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

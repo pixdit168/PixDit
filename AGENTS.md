@@ -7,7 +7,7 @@ This file is for coding agents working in this repository. Read the user's curre
 Layera is an Indonesian-language campaign image generator. It is a TypeScript/Node.js ESM application with a browser frontend, Replicate image generation, and Supabase for authentication, application data, and private generated images. Node.js 20.9 or newer is required.
 
 - `app-backend.ts`: HTTP server and API; authentication, sessions, plans, credits, prompts, generation, refinement, and authenticated image serving.
-- `api/index.ts` and `vercel.json`: Vercel entry point and routes. `/generated/*` must reach the backend, not the SPA fallback.
+- `api/index.ts` and `vercel.json`: Vercel entry point and routes. `/generated/*` must reach the backend, not the SPA fallback. `npm run vercel-build` compiles TypeScript and packages only the public assets in ignored `dist/`; Vercel publishes that directory through `@vercel/static-build`.
 - `index.html`, `public/app.ts`, `public/styles.css`: browser UI and interaction. Most user-facing copy is Indonesian.
 - `lib/replicate.ts`: Replicate model inputs, polling, image download, reference-image resizing, and prediction cancellation.
 - `lib/creative-agents.ts`: the ten distinct visual directions used when generating variations.

@@ -1,5 +1,6 @@
 # Generated campaign images are runtime output.
 generated/
+dist/
 data/
 node_modules/
 .tsbuildinfo

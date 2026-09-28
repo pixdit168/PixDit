@@ -18,6 +18,8 @@ npm ci --include=dev
 npm start
 ```
 
+Untuk memeriksa aset sebelum deploy Vercel, jalankan `npm run vercel-build`. Hasil statis yang dipublikasikan berada di `dist/` (termasuk `app.js`); source TypeScript tidak ikut disajikan.
+
 ## Checklist sebelum publik
 
 - Domain memakai HTTPS dan `PUBLIC_ORIGIN` sama persis dengan domain tersebut.

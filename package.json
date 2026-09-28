@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.browser.json",
+    "vercel-build": "npm run build && node scripts/build-vercel-static.mjs",
     "postinstall": "npm run build",
     "start": "node app-backend.js",
     "predev": "npm run build",
@@ -21,7 +22,7 @@
     "migrate:supabase": "node scripts/migrate-to-supabase.mjs",
     "preverify:supabase-storage": "npm run build",
     "verify:supabase-storage": "node scripts/verify-supabase-storage.mjs",
-    "pretest": "npm run build",
+    "pretest": "npm run vercel-build",
     "test": "node --test tests/creative-agents.test.js tests/deployment-contract.test.js tests/replicate-resize.test.js tests/server-contract.test.js tests/supabase-storage.test.js"
   },
   "dependencies": {
