@@ -4,14 +4,14 @@ This file is for coding agents working in this repository. Read the user's curre
 
 ## Project at a glance
 
-Layera is an Indonesian-language campaign image generator. It is a Node.js ESM application with a browser frontend, Replicate image generation, and Supabase for authentication, application data, and private generated images. Node.js 20.9 or newer is required.
+Layera is an Indonesian-language campaign image generator. It is a TypeScript/Node.js ESM application with a browser frontend, Replicate image generation, and Supabase for authentication, application data, and private generated images. Node.js 20.9 or newer is required.
 
-- `app-backend.js`: HTTP server and API; authentication, sessions, plans, credits, prompts, generation, refinement, and authenticated image serving.
-- `api/index.js` and `vercel.json`: Vercel entry point and routes. `/generated/*` must reach the backend, not the SPA fallback.
-- `index.html`, `public/app.js`, `public/styles.css`: browser UI and interaction. Most user-facing copy is Indonesian.
-- `lib/replicate.js`: Replicate model inputs, polling, image download, reference-image resizing, and prediction cancellation.
-- `lib/creative-agents.js`: the ten distinct visual directions used when generating variations.
-- `lib/supabase.js` and `supabase/schema.sql`: Supabase Auth, application state, and the private `layera-generated` Storage bucket.
+- `app-backend.ts`: HTTP server and API; authentication, sessions, plans, credits, prompts, generation, refinement, and authenticated image serving.
+- `api/index.ts` and `vercel.json`: Vercel entry point and routes. `/generated/*` must reach the backend, not the SPA fallback.
+- `index.html`, `public/app.ts`, `public/styles.css`: browser UI and interaction. Most user-facing copy is Indonesian.
+- `lib/replicate.ts`: Replicate model inputs, polling, image download, reference-image resizing, and prediction cancellation.
+- `lib/creative-agents.ts`: the ten distinct visual directions used when generating variations.
+- `lib/supabase.ts` and `supabase/schema.sql`: Supabase Auth, application state, and the private `layera-generated` Storage bucket.
 - `tests/`: backend contracts, model adapter, visual directions, and storage tests.
 - `.env.example`, `NODE-DEPLOYMENT.md`, `PUBLIC-DEPLOYMENT.md`: configuration and deployment guidance. `README.md` is currently empty.
 
@@ -28,8 +28,9 @@ Layera is an Indonesian-language campaign image generator. It is a Node.js ESM a
 
 1. Inspect `git status --short` and the relevant code before changing it. Do not discard user changes.
 2. Copy `.env.example` to `.env` only when local configuration is needed. Keep real keys in `.env` or the hosting environment; never commit or print them.
-3. Run `npm install` if dependencies are missing, then `npm start` for a local server. The default origin is `http://localhost:8000`; the local `.env` may set another port.
-4. Run `npm run check` and `npm test` after code changes. Add or update focused tests for behavior that can regress, especially generation, cancellation, plan enforcement, and storage.
+3. Run `npm install` if dependencies are missing; installation builds TypeScript automatically. Use `npm start` for a local server or `npm run dev` to watch TypeScript and restart the server. The default origin is `http://localhost:8000`; the local `.env` may set another port.
+4. Edit `.ts`/`.mts` sources, never generated `.js`/`.mjs` output. `npm run build` emits output beside the source; generated JavaScript is ignored by Git. Run `npm run check` and `npm test` after code changes. Add or update focused tests for behavior that can regress, especially generation, cancellation, plan enforcement, and storage.
+   The browser build intentionally keeps `public/app.js` a non-module, non-strict classic script; do not remove that compatibility setting without checking browser behavior.
 5. For a live Supabase Storage check, `npm run verify:supabase-storage` uploads a temporary image, verifies the downloaded bytes, then removes that test object. Use it only when a live external check is appropriate.
 
 ## Deployment and data cautions

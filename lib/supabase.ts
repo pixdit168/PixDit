@@ -4,7 +4,18 @@ import { randomUUID } from "node:crypto";
 const STORE_ROW_ID = "primary";
 const DEFAULT_IMAGE_BUCKET = "layera-generated";
 
-function createEmptyStore() {
+export type StoreData = {
+  version: number;
+  users: Record<string, any>;
+  sessions: Record<string, any>;
+  usageEvents: any[];
+  accountBrands: Record<string, any>;
+  signupSignals: any[];
+  securityEvents: any[];
+  generatedFiles: Record<string, any>;
+};
+
+function createEmptyStore(): StoreData {
   return {
     version: 1,
     users: {},
@@ -17,7 +28,7 @@ function createEmptyStore() {
   };
 }
 
-export function normalizeStore(value) {
+export function normalizeStore(value: any): StoreData {
   const empty = createEmptyStore();
   const data = value && typeof value === "object" ? value : {};
   return {
@@ -43,13 +54,18 @@ function clientOptions() {
 }
 
 function operationError(error, fallback) {
-  const wrapped = new Error(error?.message || fallback);
+  const wrapped = new Error(error?.message || fallback) as Error & { code?: string; status?: number };
   wrapped.code = error?.code || "supabase_error";
   wrapped.status = Number(error?.status) || 500;
   return wrapped;
 }
 
 export class SupabaseStore {
+  client: any;
+  data: StoreData;
+  imageBucket: string;
+  writeQueue: Promise<any>;
+  _pendingFlush: Promise<void> | null = null;
   static async connect({ url, secretKey, imageBucket = process.env.SUPABASE_IMAGE_BUCKET || DEFAULT_IMAGE_BUCKET }) {
     const client = createClient(url, secretKey, clientOptions());
     const { data, error } = await client
@@ -166,6 +182,9 @@ export class SupabaseStore {
 }
 
 export class SupabaseAuth {
+  url: string;
+  publishableKey: string;
+  admin: any;
   constructor({ url, publishableKey, secretKey }) {
     this.url = url;
     this.publishableKey = publishableKey;
@@ -218,6 +237,8 @@ export class SupabaseAuth {
 }
 
 export class MemoryStore {
+  data: StoreData;
+  images: Map<string, any>;
   constructor() {
     this.data = createEmptyStore();
     this.images = new Map();
@@ -238,13 +259,14 @@ export class MemoryStore {
 }
 
 export class MemoryAuth {
+  users: Map<string, any>;
   constructor() {
     this.users = new Map();
   }
 
   async createUser({ email, password, displayName }) {
     if ([...this.users.values()].some((user) => user.email === email)) {
-      const error = new Error("Email tersebut sudah terdaftar.");
+      const error = new Error("Email tersebut sudah terdaftar.") as Error & { code?: string };
       error.code = "email_exists";
       throw error;
     }

@@ -138,7 +138,7 @@ function isRequestOriginAllowed(request) {
 async function readJsonBody(request) {
   const declaredLength = Number.parseInt(request.headers["content-length"] || "0", 10);
   if (declaredLength > maxBodyBytes) {
-    const error = new Error("Request body terlalu besar.");
+    const error = new Error("Request body terlalu besar.") as Error & { statusCode?: number };
     error.statusCode = 413;
     throw error;
   }
@@ -147,7 +147,7 @@ async function readJsonBody(request) {
   for await (const chunk of request) {
     total += chunk.length;
     if (total > maxBodyBytes) {
-      const error = new Error("Request body terlalu besar.");
+      const error = new Error("Request body terlalu besar.") as Error & { statusCode?: number };
       error.statusCode = 413;
       throw error;
     }
@@ -156,7 +156,7 @@ async function readJsonBody(request) {
   if (!chunks.length) return {};
   try { return JSON.parse(Buffer.concat(chunks).toString("utf8")); }
   catch {
-    const error = new Error("JSON request tidak valid.");
+    const error = new Error("JSON request tidak valid.") as Error & { statusCode?: number };
     error.statusCode = 400;
     throw error;
   }
@@ -167,7 +167,7 @@ function defaultPreferences() {
 }
 
 function findUserByEmail(email) {
-  return Object.values(store.data.users).find((user) => user.email === email) || null;
+  return (Object.values(store.data.users) as any[]).find((user) => user.email === email) || null;
 }
 
 function getPlanCode(userId) {
@@ -211,10 +211,10 @@ async function createSession(userId, remember = false) {
   const now = Date.now();
   const expiresAt = new Date(now + (remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)).toISOString();
   await store.mutate((data) => {
-    for (const [key, session] of Object.entries(data.sessions)) {
+    for (const [key, session] of Object.entries(data.sessions) as [string, any][]) {
       if (Date.parse(session.expiresAt) <= now) delete data.sessions[key];
     }
-    const userSessions = Object.entries(data.sessions).filter(([, session]) => session.userId === userId);
+    const userSessions = (Object.entries(data.sessions) as [string, any][]).filter(([, session]) => session.userId === userId);
     if (userSessions.length >= 8) {
       for (const [key] of userSessions) delete data.sessions[key];
     }
@@ -677,7 +677,7 @@ async function handleAuthAndAccount(request, response, pathname) {
     let sessionObj;
     try {
       await store.mutate((data) => {
-        if (Object.values(data.users).some((existing) => existing.email === email)) throw new Error("Email tersebut sudah terdaftar.");
+        if ((Object.values(data.users) as any[]).some((existing) => existing.email === email)) throw new Error("Email tersebut sudah terdaftar.");
         data.users[user.id] = user;
         data.signupSignals.push({ id: randomUUID(), userId: user.id, ...signal, createdAt: now });
         
@@ -723,16 +723,16 @@ async function handleAuthAndAccount(request, response, pathname) {
     let user;
     let sessionObj;
     await store.mutate((data) => {
-      user = data.users[authUser.id] || Object.values(data.users).find((u) => u.email === email);
+      user = data.users[authUser.id] || (Object.values(data.users) as any[]).find((u) => u.email === email);
       if (user && user.id !== authUser.id) {
         const previousId = user.id;
         delete data.users[previousId];
         user.id = authUser.id;
         data.users[authUser.id] = user;
-        for (const session of Object.values(data.sessions)) if (session.userId === previousId) session.userId = authUser.id;
+        for (const session of Object.values(data.sessions) as any[]) if (session.userId === previousId) session.userId = authUser.id;
         for (const event of data.usageEvents) if (event.userId === previousId) event.userId = authUser.id;
         for (const signal of data.signupSignals) if (signal.userId === previousId) signal.userId = authUser.id;
-        for (const file of Object.values(data.generatedFiles)) if (file.userId === previousId) file.userId = authUser.id;
+        for (const file of Object.values(data.generatedFiles) as any[]) if (file.userId === previousId) file.userId = authUser.id;
         if (data.accountBrands[previousId]) {
           data.accountBrands[authUser.id] = data.accountBrands[previousId];
           delete data.accountBrands[previousId];
@@ -857,7 +857,7 @@ async function handleAuthAndAccount(request, response, pathname) {
     await accountAuth.updateUser(auth.user.id, { password: newPassword });
     await store.mutate((data) => {
       data.users[auth.user.id].updatedAt = new Date().toISOString();
-      for (const [key, session] of Object.entries(data.sessions)) if (session.userId === auth.user.id) delete data.sessions[key];
+      for (const [key, session] of Object.entries(data.sessions) as [string, any][]) if (session.userId === auth.user.id) delete data.sessions[key];
     });
     const session = await createSession(auth.user.id, true);
     return sendJson(response, 200, { ok: true, csrfToken: session.csrfToken }, { "Set-Cookie": getSessionCookie(session) });

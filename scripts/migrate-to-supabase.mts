@@ -92,7 +92,7 @@ for (const localUser of Object.values(source.users)) {
   if (suppliedPassword && (suppliedPassword.length < 8 || suppliedPassword.length > 128)) throw new Error(`Kata sandi migrasi untuk ${email} harus 8-128 karakter.`);
   let authUser = await auth.findUserByEmail(email);
   if (authUser) {
-    const attributes = { user_metadata: { ...authUser.user_metadata, display_name: displayName } };
+    const attributes: { user_metadata: any; password?: string } = { user_metadata: { ...authUser.user_metadata, display_name: displayName } };
     if (suppliedPassword) attributes.password = suppliedPassword;
     authUser = await auth.updateUser(authUser.id, attributes);
     updatedCount += 1;

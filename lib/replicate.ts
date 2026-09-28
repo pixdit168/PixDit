@@ -80,7 +80,17 @@ async function readApiError(response) {
 }
 
 export class ReplicateImageProvider {
-  constructor(options = {}) {
+  name: string;
+  token: string;
+  model: string;
+  apiBase: string;
+  timeoutMs: number;
+  pollIntervalMs: number;
+  safetyTolerance: number;
+  outputQuality: number;
+  fetch: typeof fetch;
+
+  constructor(options: { token?: string; model?: string; apiBase?: string; timeoutMs?: number; pollIntervalMs?: number; fetchImpl?: typeof fetch } = {}) {
     this.name = "replicate";
     this.token = options.token || process.env.REPLICATE_API_TOKEN || "";
     this.model = options.model || process.env.REPLICATE_MODEL || DEFAULT_MODEL;
@@ -104,7 +114,7 @@ export class ReplicateImageProvider {
     return `${this.apiBase}/models/${encodeURIComponent(owner || "black-forest-labs")}/${encodeURIComponent(name || "flux-2-pro")}/predictions`;
   }
 
-  async requestJson(url, options = {}) {
+  async requestJson(url, options: RequestInit = {}) {
     const response = await this.fetch(url, {
       ...options,
       headers: {
@@ -193,7 +203,7 @@ export class ReplicateImageProvider {
     return `data:image/jpeg;base64,${buffer.toString("base64")}`;
   }
 
-  async run({ prompt, format, quality, sourcePath = "", preparedReferenceImage = "", signal }) {
+  async run({ prompt, format, quality, sourcePath = "", preparedReferenceImage = "", signal }: { prompt: string; format: string; quality: string; sourcePath?: string; preparedReferenceImage?: string; signal?: AbortSignal }) {
     if (!this.configured) throw new Error("REPLICATE_API_TOKEN belum diatur pada environment server Node.js.");
     const referenceImage = preparedReferenceImage || (sourcePath ? await this.prepareReferenceImage(sourcePath) : "");
     const isRiverflow = this.model.toLowerCase() === RIVERFLOW_MODEL;

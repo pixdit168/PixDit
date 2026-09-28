@@ -90,7 +90,7 @@ test("an aborted generation asks Replicate to cancel the prediction", async () =
   const controller = new AbortController();
   const run = provider.run({ prompt: "A product visual", format: "Persegi · 1:1", quality: "1mp", signal: controller.signal });
   setTimeout(() => controller.abort(), 5);
-  await assert.rejects(run, (error) => error?.name === "AbortError");
+  await assert.rejects(run, (error: any) => error?.name === "AbortError");
   assert.ok(requests.some((request) => request.url.endsWith("/prediction-cancel/cancel") && request.options.method === "POST"));
 });
 

@@ -127,12 +127,12 @@ function getLibraryPosterCopy(item) {
   return getPosterCopy({ name: item?.projectName, category: item?.category });
 }
 
-function posterCopyMarkup(copy, { draggableLogo = false, logoScope = "", logoKey = "" } = {}) {
+function posterCopyMarkup(copy, { draggableLogo = false, logoScope = "", logoKey = "" as string | number } = {}) {
   const headline = escapeHtml(copy.headline).replace(/\n/g, "<br>");
   const logo = sanitizeLogoDataUrl(copy.logo || "");
   const position = normalizeLogoPosition(copy.logoPosition);
   const logoStyle = `left:${position.x * 100}%;top:${position.y * 100}%;width:${position.width * 100}%;`;
-  const editorData = draggableLogo ? `data-logo-draggable="true" data-logo-scope="${escapeHtml(logoScope)}" data-logo-key="${escapeHtml(logoKey)}"` : "";
+  const editorData = draggableLogo ? `data-logo-draggable="true" data-logo-scope="${escapeHtml(logoScope)}" data-logo-key="${escapeHtml(String(logoKey))}"` : "";
   return `${logo ? `<div class="poster-brand-logo${draggableLogo ? " draggable" : ""}" style="${logoStyle}" data-logo-plate="pending" ${editorData}><img src="${escapeHtml(logo)}" alt="Logo brand" draggable="false" />${draggableLogo ? '<i class="logo-resize-handle" role="button" aria-label="Ubah ukuran logo" title="Drag untuk mengubah ukuran"></i>' : ""}</div>` : ""}${copy.brand ? `<small>${escapeHtml(copy.brand)}</small>` : ""}${headline ? `<strong>${headline}</strong>` : ""}${copy.cta ? `<span>${escapeHtml(copy.cta)}</span>` : ""}`;
 }
 
@@ -331,8 +331,9 @@ function updateAdaptiveLogos(root = document) {
 }
 
 function scheduleAdaptiveLogos(root) {
-  cancelAnimationFrame(scheduleAdaptiveLogos.frameId || 0);
-  scheduleAdaptiveLogos.frameId = requestAnimationFrame(() => updateAdaptiveLogos(root));
+  const scheduler = scheduleAdaptiveLogos as typeof scheduleAdaptiveLogos & { frameId?: number };
+  cancelAnimationFrame(scheduler.frameId || 0);
+  scheduler.frameId = requestAnimationFrame(() => updateAdaptiveLogos(root));
 }
 
 let projects = [];
@@ -374,7 +375,7 @@ function loadLegacyArray(key) {
   }
 }
 
-async function requestJson(path, options = {}) {
+async function requestJson(path, options: any = {}): Promise<any> {
   const method = String(options.method || "GET").toUpperCase();
   const headers = { ...(options.headers || {}) };
   if (options.body) headers["Content-Type"] = "application/json";
@@ -384,14 +385,14 @@ async function requestJson(path, options = {}) {
     cache: "no-store",
     headers,
   });
-  let data = {};
+  let data: any = {};
   try {
     data = await response.json();
   } catch {
     data = {};
   }
   if (!response.ok) {
-    const error = new Error(data.message || `Permintaan gagal (${response.status}).`);
+    const error = new Error(data.message || `Permintaan gagal (${response.status}).`) as Error & { status?: number; data?: any };
     error.status = response.status;
     error.data = data;
     throw error;
@@ -526,8 +527,9 @@ function showToast(title, message, icon = "✓") {
   $("strong", toast).textContent = title;
   $("small", toast).textContent = message;
   toast.classList.add("show");
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => toast.classList.remove("show"), 3000);
+  const toastFunction = showToast as typeof showToast & { timer?: number };
+  clearTimeout(toastFunction.timer);
+  toastFunction.timer = setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
 async function checkApiHealth() {
@@ -1319,7 +1321,7 @@ function getProjectCardMarkup(project) {
     </article>`;
 }
 
-function bindProjectCards(grid, { beforeOpen } = {}) {
+function bindProjectCards(grid, { beforeOpen }: { beforeOpen?: any } = {}) {
   $$(".project-card", grid).forEach((card) => {
     const open = () => {
       beforeOpen?.();
@@ -1399,7 +1401,7 @@ function deletePendingProject() {
   showToast("Proyek dihapus", `${project.name} dihapus. Item Library tetap aman.`, "⌫");
 }
 
-function renderProjectCards(grid, projectList, options) {
+function renderProjectCards(grid, projectList, options = {}) {
   grid.innerHTML = projectList.map(getProjectCardMarkup).join("");
   bindProjectCards(grid, options);
 }
@@ -1845,13 +1847,13 @@ async function startGeneration() {
     }
 
     if (!response.ok) {
-      let errorData = {};
+      let errorData: any = {};
       try {
         errorData = await response.json();
       } catch {
         errorData.message = `Server merespons dengan status ${response.status}.`;
       }
-      const requestError = new Error(errorData.message || "Generasi gambar gagal.");
+      const requestError = new Error(errorData.message || "Generasi gambar gagal.") as Error & { data?: any };
       requestError.data = errorData;
       throw requestError;
     }
@@ -2173,7 +2175,7 @@ async function regenerateSelected() {
     }
     const data = await response.json();
     if (!response.ok) {
-      const requestError = new Error(data.message || "Variasi baru gagal dibuat.");
+      const requestError = new Error(data.message || "Variasi baru gagal dibuat.") as Error & { data?: any };
       requestError.data = data;
       throw requestError;
     }
@@ -2222,7 +2224,7 @@ function useSelectedDesign() {
 }
 
 function loadPosterImage(url) {
-  return new Promise((resolve, reject) => {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("File key visual tidak dapat dimuat."));
@@ -2454,7 +2456,7 @@ async function downloadComposedPoster(imageUrl, posterCopy, fileName, conceptInd
     // Ekspor teks tetap dapat dilanjutkan jika data logo lama tidak dapat dibaca.
   }
 
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.94));
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.94));
   if (!blob) throw new Error("Browser gagal menyusun file poster.");
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -2649,16 +2651,16 @@ function bindEvents() {
   document.addEventListener("click", (event) => {
     const popover = $("#account-popover");
     if (popover.classList.contains("is-hidden")) return;
-    if (popover.contains(event.target) || event.target.closest("#profile-button, #mobile-profile-button")) return;
+    if (popover.contains(event.target) || (event.target as Element).closest("#profile-button, #mobile-profile-button")) return;
     closeAccountMenu();
   });
   document.addEventListener("click", (event) => {
-    if (event.target.closest(".project-options-button, .project-action-menu")) return;
+    if ((event.target as Element).closest(".project-options-button, .project-action-menu")) return;
     $$(".project-action-menu").forEach((menu) => menu.classList.add("is-hidden"));
     $$(".project-options-button").forEach((button) => button.setAttribute("aria-expanded", "false"));
   });
   document.addEventListener("click", (event) => {
-    if (!event.target.closest("#agent-dropdown")) closeAgentMenu();
+    if (!(event.target as Element).closest("#agent-dropdown")) closeAgentMenu();
   });
   window.addEventListener("resize", () => {
     closeAccountMenu();

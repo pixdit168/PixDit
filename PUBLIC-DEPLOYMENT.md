@@ -3,7 +3,7 @@
 ## Arsitektur
 
 ```text
-Browser -> HTTPS hosting -> app-backend.js -> Replicate Agent Free
+Browser -> HTTPS hosting -> app-backend.js (dari app-backend.ts) -> Replicate Agent Free
                                       |----> Replicate Agent Pro (Layera Pro)
                                       |----> Supabase Auth + Postgres
                                       `----> Supabase Storage (private images)
@@ -14,7 +14,7 @@ Masukkan seluruh secret dari `.env.example` melalui menu environment/secret mili
 ## Build dan start
 
 ```text
-npm ci
+npm ci --include=dev
 npm start
 ```
 

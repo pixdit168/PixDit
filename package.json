@@ -9,17 +9,29 @@
     "node": ">=20.9.0"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.browser.json",
+    "postinstall": "npm run build",
     "start": "node app-backend.js",
-    "dev": "node --watch app-backend.js",
-    "check": "node --check app-backend.js && node --check lib/supabase.js && node --check lib/replicate.js && node --check lib/creative-agents.js && node --check scripts/configure-supabase.mjs && node --check scripts/migrate-to-supabase.mjs && node --check scripts/verify-supabase-storage.mjs && node --check public/app.js",
+    "predev": "npm run build",
+    "dev": "concurrently -k \"tsc --watch -p tsconfig.node.json\" \"tsc --watch -p tsconfig.browser.json\" \"node --watch app-backend.js\"",
+    "check": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.browser.json --noEmit",
+    "preconfigure:supabase": "npm run build",
     "configure:supabase": "node scripts/configure-supabase.mjs",
+    "premigrate:supabase": "npm run build",
     "migrate:supabase": "node scripts/migrate-to-supabase.mjs",
+    "preverify:supabase-storage": "npm run build",
     "verify:supabase-storage": "node scripts/verify-supabase-storage.mjs",
-    "test": "node --test"
+    "pretest": "npm run build",
+    "test": "node --test tests/creative-agents.test.js tests/deployment-contract.test.js tests/replicate-resize.test.js tests/server-contract.test.js tests/supabase-storage.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
     "replicate": "^1.4.0",
     "sharp": "^0.35.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "concurrently": "^10.0.5",
+    "typescript": "~5.9.3"
   }
 }

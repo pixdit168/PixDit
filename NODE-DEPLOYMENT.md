@@ -1,6 +1,6 @@
 # Layera Node.js — Replicate Agents
 
-Backend aktif Layera adalah `app-backend.js`. Backend menyajikan frontend, akun, sesi, proyek, kredit, file hasil, image generation, dan image editing.
+Source backend aktif Layera adalah `app-backend.ts`; `npm install` atau `npm run build` menghasilkan `app-backend.js` untuk dijalankan oleh Node. Backend menyajikan frontend, akun, sesi, proyek, kredit, file hasil, image generation, dan image editing.
 
 Kedua agent berjalan melalui Replicate dan dipilih dari workspace:
 
@@ -20,13 +20,13 @@ Gunakan Node.js 20.9 atau lebih baru.
 3. Jalankan:
 
    ```text
-   npm install
+   npm install --include=dev
    npm start
    ```
 
 4. Buka `http://localhost:8000`.
 
-Token dan secret hanya dibaca oleh proses Node. File `.env` diabaikan Git; jangan menaruh secret di `public/app.js`, `index.html`, atau repository.
+Token dan secret hanya dibaca oleh proses Node. File `.env` diabaikan Git; jangan menaruh secret di `public/app.ts`, `index.html`, atau repository. `public/app.js` adalah hasil build, bukan source yang diedit.
 
 Supabase Auth menangani registrasi, login, perubahan email, nama profil, dan kata sandi. State proyek, kredit, sesi Layera, dan metadata file disimpan di Supabase Postgres. Jalankan `supabase/schema.sql` sebelum server pertama kali dimulai.
 

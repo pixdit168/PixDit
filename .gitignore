@@ -2,6 +2,14 @@
 generated/
 data/
 node_modules/
+.tsbuildinfo
+# TypeScript output is generated beside its source during the build.
+/app-backend.js
+/api/*.js
+/lib/*.js
+/public/app.js
+/scripts/*.mjs
+/tests/*.js
 .node-runtime/
 npm-debug.log*
 *.log

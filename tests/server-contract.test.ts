@@ -43,7 +43,7 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   child.stderr.on("data", (chunk) => { output += chunk; });
   context.after(async () => {
     if (child.exitCode === null) child.kill("SIGTERM");
-    await new Promise((resolve) => child.exitCode === null ? child.once("exit", resolve) : resolve());
+    await new Promise<void>((resolve) => child.exitCode === null ? child.once("exit", resolve) : resolve());
     await fs.rm(temporaryRoot, { recursive: true, force: true });
   });
 
@@ -67,11 +67,21 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.match(pageHtml, /data-agent-tier="pro"/);
   const faviconResponse = await fetch(`${baseUrl}/favicon.ico`);
   assert.equal(faviconResponse.status, 200);
+  const scriptResponse = await fetch(`${baseUrl}/app.js`);
+  assert.equal(scriptResponse.status, 200);
+  assert.match(scriptResponse.headers.get("content-type") || "", /application\/javascript/);
+  assert.match(await scriptResponse.text(), /function bootstrap\(/);
+  assert.equal((await fetch(`${baseUrl}/app.ts`)).status, 404);
+  const stylesResponse = await fetch(`${baseUrl}/styles.css`);
+  assert.equal(stylesResponse.status, 200);
+  assert.match(stylesResponse.headers.get("content-type") || "", /text\/css/);
+  const privateImageResponse = await fetch(`${baseUrl}/generated/unknown-image`);
+  assert.equal(privateImageResponse.status, 401);
 
   let cookie = "";
   let csrfToken = "";
-  async function request(pathname, { method = "GET", body, csrf = false } = {}) {
-    const headers = { Origin: baseUrl };
+  async function request(pathname, { method = "GET", body, csrf = false }: { method?: string; body?: any; csrf?: boolean } = {}) {
+    const headers: Record<string, string> = { Origin: baseUrl };
     if (cookie) headers.Cookie = cookie;
     if (body !== undefined) headers["Content-Type"] = "application/json";
     if (csrf) headers["X-CSRF-Token"] = csrfToken;

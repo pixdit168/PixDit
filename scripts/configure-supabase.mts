@@ -9,7 +9,7 @@ if (!accessToken || !projectRef) throw new Error("SUPABASE_ACCESS_TOKEN dan SUPA
 
 const headers = { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" };
 
-async function managementRequest(pathname, options = {}) {
+async function managementRequest(pathname, options: RequestInit = {}) {
   const response = await fetch(`https://api.supabase.com${pathname}`, { ...options, headers: { ...headers, ...(options.headers || {}) } });
   const raw = await response.text();
   let data;
