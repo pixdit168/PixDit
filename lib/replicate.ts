@@ -215,7 +215,7 @@ export class ReplicateImageProvider {
         init_images: referenceImage ? [referenceImage] : [],
         transparency: false,
         output_format: "webp",
-        enhance_prompt: true,
+        enhance_prompt: false,
         max_iterations: 3,
         safety_checker: true,
       }

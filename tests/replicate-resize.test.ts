@@ -137,7 +137,7 @@ test("Riverflow 2.0 Pro receives its native instruction and init_images fields",
   assert.equal(body.input.resolution, "4K");
   assert.equal(body.input.aspect_ratio, "1:1");
   assert.deepEqual(body.input.init_images, [preparedReferenceImage]);
-  assert.equal(body.input.enhance_prompt, true);
+  assert.equal(body.input.enhance_prompt, false);
   assert.equal(body.input.max_iterations, 3);
   assert.equal(body.input.prompt, undefined);
   assert.equal(body.input.input_images, undefined);

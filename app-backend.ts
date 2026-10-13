@@ -4,7 +4,8 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { creativeAgents, getBehavioralPrompt } from "./lib/creative-agents.js";
+import { creativeAgents } from "./lib/creative-agents.js";
+import { newImagePrompt } from "./lib/image-prompt.js";
 import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supabase.js";
 import { ReplicateImageProvider } from "./lib/replicate.js";
 
@@ -381,26 +382,6 @@ function quotaExceeded(response, userId, eventType, requiredCredits) {
     ? `Kredit Layera Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
     : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.`;
   sendJson(response, 429, { ok: false, error: "quota_exhausted", quotaType: eventType, requiredCredits, upgradeRequired: !usage.isPremium, upgradeLabel: "Upgrade ke pro - Rp. 199.999/bln", message, usage });
-}
-
-function convertToVisualBrief(brief) {
-  let result = String(brief || "").replace(/(?:\b(?:dengan|serta|dan)\s+)?\b(tagline|headline|call\s+to\s+action|cta|tipografi|typography|font|teks|text|logo)\b\s*[:\-]?\s*[^.!?\r\n]*[.!?]?/gim, "");
-  result = result.replace(/\b(poster|flyer|banner)\b/gi, "key visual").replace(/\s{2,}/g, " ").trim().replace(/^[,;:\-\s]+|[,;:\-\s]+$/g, "");
-  return result || "Create a tasteful commercial key visual based on the supplied business category.";
-}
-
-function newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement = "", imageCount = 1, hasProductReference = false }) {
-  const visualBrief = convertToVisualBrief(brief);
-  if (refinement) {
-    return `IMAGE EDIT TASK — the attached/source image is the visual source of truth.\nUSER'S REQUIRED CHANGE (highest priority): ${refinement}\n\nMake the requested change clearly visible. Preserve every element the user did not ask to change: subject identity, shape, people, activity, camera angle, crop, composition, lighting direction, background structure, and material details. If the requested change names one of those elements, change that element and preserve the rest. Do not reinterpret the full campaign or introduce an unrelated subject, object, person, industry, or setting.\nOriginal campaign context (use only to disambiguate the edit): ${visualBrief}\nBusiness category: ${category}\nOutput format: ${format}\nVisual continuity: ${style}, polished commercial quality, realistic materials.\nHard constraints: return one edited key visual only. No text, pseudo-text, letters, numbers, labels, logos, watermarks, signatures, borders, or UI. Any surface that could contain writing must remain blank.`;
-  }
-  const diversityRule = imageCount === 10
-    ? "Set-wide diversity: this image belongs to a ten-image exploration. Make its camera, spatial hierarchy, visual medium, subject scale, and copy-zone geometry unmistakably specific to this direction. Brand consistency may come from palette and subject matter, never from repeating one layout."
-    : "Standalone strength: deliver one decisive, complete visual direction with a clear hierarchy and intentional copy zone; do not make it look like a fragment of a larger set.";
-  const productReferenceRule = hasProductReference
-    ? "Product reference fidelity: the attached image is the user's actual product and is the visual source of truth. Preserve its recognizable silhouette, proportions, material, color, packaging, and distinctive details. Improve the presentation through art direction, lighting, environment, styling, and composition; do not replace it with a generic or different product."
-    : "No initial image is supplied. Build the complete visual direction from the written brief without assuming a pre-existing design.";
-  return `IMPORTANT OUTPUT RULE: Generate only a clean advertising key visual. This is NOT a finished poster and must contain no typography.\nUse case: advertising key visual for an Indonesian small business\nBusiness category selected in the UI: ${category}\nPrimary visual brief (highest authority for subject and meaning): ${visualBrief}\nRequested output format: ${format}\nUser-selected visual style: ${style}\nPreferred primary color: ${/^#[0-9a-f]{6}$/i.test(primaryColor) ? primaryColor : "derive a tasteful palette from the brief"}\n\n${getBehavioralPrompt(creativeAgent)}\n\n${productReferenceRule}\nPriority order: (1) preserve the user's actual business, subject, benefit, and audience; (2) obey this creative direction's exclusive composition and rendering contract; (3) apply the selected style and brand color without erasing its visual signature.\nDomain fidelity: infer the actual industry and subject from the user's visual brief. The visual brief overrides the UI category whenever they conflict. Represent services, software, education, health, property, fashion, beauty, events, professional work, and other fields through an appropriate audience, action, environment, outcome, or visual metaphor. Never substitute a different business sector or invent any subject, object, person, activity, or setting absent from the brief.\nBrief interpretation: use the brief to understand the subject or service, audience, benefit, mood, colors, materials, action, and setting. Treat any request for a tagline, headline, typography, logo, brand name, campaign name, or written copy only as a request to reserve the exact copy zone required by this direction. Never render or imitate those words.\n${diversityRule}\nQuality: polished, commercially usable, context-appropriate imagery, realistic materials where relevant, and intentional lighting.\nCultural context: contemporary Indonesia, tasteful and authentic when relevant to the brief.\nHard constraints: visual imagery only. Absolutely no text, pseudo-text, glyphs, letters, words, numbers, captions, labels, logos, brand marks, signatures, UI, border, poster title, or watermark anywhere in the image. Any surface that could contain writing must remain blank. Do not add unrelated objects or people.`;
 }
 
 function enhancedPrompt(input) {
