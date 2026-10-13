@@ -12,6 +12,10 @@ test("visual brief removes prices without losing property details", () => {
   assert.doesNotMatch(brief, /,\s*,/);
   assert.doesNotMatch(convertToVisualBrief("Apartemen dekat stasiun mulai dari Rp1,3 miliar"), /Rp|1,3|miliar/i);
   assert.equal(convertToVisualBrief("Rumah dekat stasiun, harga 1300000000, 2 kamar"), "Rumah dekat stasiun, 2 kamar");
+  assert.equal(
+    convertToVisualBrief("Saya mau buat key visual untuk iklan yang berkaitan dengan jual properti di BSD, harganya start from 1.3M, fasilitas mewah"),
+    "jual properti di BSD, fasilitas mewah",
+  );
 });
 
 test("generation prompt is concise and contains no instruction headings, prices, or copy labels", () => {
@@ -26,6 +30,9 @@ test("generation prompt is concise and contains no instruction headings, prices,
   assert.match(prompt, /rumah cluster dekat BSD/i);
   assert.match(prompt, /3 kamar tidur/i);
   assert.match(prompt, /unmarked negative space/i);
+  assert.match(prompt, /property itself clearly visible/i);
+  assert.match(prompt, /deep brown/i);
   assert.doesNotMatch(prompt, /IMPORTANT OUTPUT RULE|Primary visual brief|copy zone|harga|\bRp\s*\d|1,3 miliar/i);
+  assert.doesNotMatch(prompt, /#[0-9a-f]{6}|Eksploratif|Instagram Post/i);
   assert.ok(prompt.length < 1_300, `prompt was ${prompt.length} characters`);
 });

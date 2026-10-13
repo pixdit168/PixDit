@@ -427,7 +427,7 @@ function headlineSuggestion(input) {
   const source = `${brief} ${category} ${brand}`.toLowerCase();
   const sectors = [
     { key: "technology", match: /software|aplikasi|platform|saas|digital|teknologi|akuntansi|otomasi|website|web app|fintech/, lines: ["Kerja lebih rapi. Keputusan lebih pasti.", "Sederhanakan kerja, besarkan peluang.", "Lebih sedikit langkah. Lebih banyak kemajuan."] },
-    { key: "fashion", match: /fashion|pakaian|baju|sepatu|sneaker|koleksi|busana|hijab|tas|aksesoris|lari/, lines: ["Bergerak ringan, tampil percaya diri.", "Dibuat untuk langkah yang lebih berani.", "Gaya yang mengikuti caramu bergerak."] },
+    { key: "fashion", match: /\b(?:fashion|pakaian|baju|sepatu|sneaker|koleksi|busana|hijab|tas|aksesoris|lari)\b/, lines: ["Bergerak ringan, tampil percaya diri.", "Dibuat untuk langkah yang lebih berani.", "Gaya yang mengikuti caramu bergerak."] },
     { key: "beauty", match: /skincare|kecantikan|serum|kulit|kosmetik|makeup|perawatan wajah/, lines: ["Lembut dirawat, berani bersinar.", "Perawatan baik dimulai dari rasa nyaman.", "Kulitmu, ritmemu, cahayamu."] },
     { key: "food", match: /makanan|minuman|kopi|kuliner|restoran|cafe|kafe|roti|snack|rasa|menu|catering/, lines: ["Rasa baik untuk momen yang berarti.", "Satu rasa, banyak cerita.", "Temukan nikmat di setiap momen."] },
     { key: "education", match: /pendidikan|belajar|sekolah|kursus|kelas|pelatihan|siswa|mahasiswa|edukasi/, lines: ["Belajar hari ini, melangkah lebih jauh.", "Tumbuhkan kemampuan, buka lebih banyak jalan.", "Rasa ingin tahu menjadi kemajuan."] },

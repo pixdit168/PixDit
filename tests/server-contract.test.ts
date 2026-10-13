@@ -160,6 +160,15 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.ok(suggestedHeadline.payload.headline.length > 0 && suggestedHeadline.payload.headline.length <= 100);
   assert.doesNotMatch(suggestedHeadline.payload.headline, /kopi|rasa|makanan|minuman/i);
 
+  const propertyHeadline = await request("/api/headline-suggest", {
+    method: "POST",
+    csrf: true,
+    body: { prompt: "Jual properti di BSD dengan fasilitas mewah dekat mall", category: "Properti", variation: 1 },
+  });
+  assert.equal(propertyHeadline.response.status, 200);
+  assert.match(propertyHeadline.payload.headline, /Ruang yang|Temukan tempat|Lebih dari ruang/);
+  assert.doesNotMatch(propertyHeadline.payload.headline, /Bergerak ringan|Dibuat untuk langkah|Gaya yang/);
+
   const profile = await request("/api/account/profile", {
     method: "PUT",
     csrf: true,
