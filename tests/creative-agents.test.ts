@@ -28,12 +28,13 @@ test("behavioral prompt enforces composition and separation contracts", () => {
   const prompts = creativeAgents.map(getBehavioralPrompt);
   assert.equal(new Set(prompts).size, 10);
   prompts.forEach((prompt, index) => {
-    assert.match(prompt, /EXCLUSIVE VISUAL SIGNATURE:/);
-    assert.match(prompt, /COMPOSITION CONTRACT:/);
-    assert.match(prompt, /RENDERING LANGUAGE:/);
-    assert.match(prompt, /SEPARATION RULE:/);
+    assert.ok(prompt.includes(creativeAgents[index].signature));
+    assert.ok(prompt.includes(creativeAgents[index].composition));
+    assert.ok(prompt.includes(creativeAgents[index].medium));
+    assert.ok(prompt.includes(creativeAgents[index].avoid));
     assert.match(prompt, /Do not fall back to a universal corporate-poster template/);
-    assert.ok(prompt.includes(creativeAgents[index].name));
+    assert.doesNotMatch(prompt, /behavioral agent|agent (?:aruna|bima|citra|dara|elang|fajar|gita|harsa|intan|jaya)|exclusive visual signature|composition contract|rendering language|separation rule/i);
+    assert.ok(!prompt.includes(creativeAgents[index].name));
   });
 });
 

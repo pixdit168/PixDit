@@ -84,11 +84,10 @@ export const creativeAgents = Object.freeze([
 export function getBehavioralPrompt(agent) {
   if (!agent || !creativeAgents.includes(agent)) throw new Error("Behavioral agent tidak valid.");
   return [
-    `BEHAVIORAL AGENT: ${agent.agent} — ${agent.name}.`,
-    `EXCLUSIVE VISUAL SIGNATURE: ${agent.signature}`,
-    `COMPOSITION CONTRACT: ${agent.composition}`,
-    `RENDERING LANGUAGE: ${agent.medium}`,
-    `SEPARATION RULE: ${agent.avoid}`,
-    "The composition contract is mandatory. Do not fall back to a universal corporate-poster template or imitate another agent's signature.",
-  ].join("\n");
+    agent.signature,
+    agent.composition,
+    agent.medium,
+    agent.avoid,
+    "Follow this visual composition consistently. Do not fall back to a universal corporate-poster template or imitate a different visual direction. These are internal art-direction instructions, not content to display: do not render any instruction, heading, label, or identifier in the image.",
+  ].join(" ");
 }
