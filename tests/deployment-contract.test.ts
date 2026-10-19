@@ -27,6 +27,9 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.ok(html.indexOf('id="brand-logo-input"') < html.indexOf('id="poster-advanced"'));
   assert.ok(html.indexOf('Arah Visual') < html.indexOf('id="poster-advanced"'));
   assert.match(html, /id="product-image-input"[^>]*multiple/);
+  assert.ok(html.indexOf('id="product-image-preview"') < html.indexOf('id="product-add-button"'));
+  assert.match(browserSource, /\.product-upload-button"\)\.classList\.toggle\("is-hidden", images\.length > 0\)/);
+  assert.match(browserSource, /data-remove-product-image="\$\{index\}"/);
   assert.match(html, /data-headline-mode="ai">Otomatis<\/button>/);
   assert.match(browserSource, /headlineMode: "ai"/);
   assert.match(browserSource, /if \(activeProject\?\.headlineMode === "ai"\) await suggestHeadline\(\{ silent: true \}\)/);

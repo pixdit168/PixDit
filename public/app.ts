@@ -966,10 +966,10 @@ function renderProductImagePreview() {
   const preview = $("#product-image-preview");
   if (!preview) return;
   preview.classList.toggle("is-hidden", images.length === 0);
-  preview.innerHTML = images.map((image, index) => `<div class="product-image-preview"><img src="${image}" alt="Gambar produk ${index + 1}" /><div><strong>Gambar ${index + 1}</strong><small>Referensi visual agent</small></div><button type="button" data-remove-product-image="${index}" aria-label="Hapus gambar produk ${index + 1}">×</button></div>`).join("");
-  $("#product-upload-label").textContent = images.length >= MAX_PRODUCT_IMAGES ? "Maksimal 3 gambar" : (images.length ? `Tambah gambar (${images.length}/${MAX_PRODUCT_IMAGES})` : "Pilih gambar produk");
+  preview.innerHTML = images.map((image, index) => `<div class="product-image-preview"><img src="${image}" alt="Gambar produk ${index + 1}" /><span>Gambar ${index + 1}</span><button type="button" data-remove-product-image="${index}" aria-label="Hapus gambar produk ${index + 1}">×</button></div>`).join("");
+  $(".product-upload-button").classList.toggle("is-hidden", images.length > 0);
+  $("#product-add-button").classList.toggle("is-hidden", images.length === 0 || images.length >= MAX_PRODUCT_IMAGES);
   $("#product-image-input").disabled = images.length >= MAX_PRODUCT_IMAGES;
-  $(".product-upload-button").classList.toggle("at-capacity", images.length >= MAX_PRODUCT_IMAGES);
 }
 
 async function optimizeProductImage(file) {
@@ -1026,6 +1026,7 @@ function renderBrandLogoPreview() {
   const preview = $("#brand-logo-preview");
   if (!preview) return;
   preview.classList.toggle("is-hidden", !logo);
+  $(".source-logo-section .logo-upload-button").classList.toggle("is-hidden", Boolean(logo));
   $("img", preview).src = logo || "";
 }
 
