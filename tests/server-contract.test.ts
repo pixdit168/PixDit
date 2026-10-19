@@ -123,13 +123,25 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
     method: "POST",
     csrf: true,
     body: {
-      prompt: "Poster produk dengan empat foto referensi berbeda",
+      prompt: "Poster produk dengan enam foto referensi berbeda",
       creationMode: "product",
-      productImages: ["a", "b", "c", "d"],
+      productImages: ["a", "b", "c", "d", "e", "f"],
     },
   });
   assert.equal(tooManyProductImages.response.status, 400);
   assert.equal(tooManyProductImages.payload.error, "invalid_product_images");
+
+  const fiveProductImages = await request("/api/generate", {
+    method: "POST",
+    csrf: true,
+    body: {
+      prompt: "Poster produk dengan lima foto referensi berbeda",
+      creationMode: "product",
+      productImages: ["a", "b", "c", "d", "e"],
+    },
+  });
+  assert.equal(fiveProductImages.response.status, 503);
+  assert.equal(fiveProductImages.payload.error, "provider_not_configured");
 
   const legacyRefinement = await request("/api/refine", {
     method: "POST",

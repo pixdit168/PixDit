@@ -31,6 +31,8 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.ok(html.indexOf('id="brand-logo-input"') < html.indexOf('id="poster-advanced"'));
   assert.ok(html.indexOf('Arah Visual') < html.indexOf('id="poster-advanced"'));
   assert.match(html, /id="product-image-input"[^>]*multiple/);
+  assert.match(html, /Gambar Produk <span class="optional-label">Maksimal 5<\/span>/);
+  assert.doesNotMatch(html, /id="brand-logo-input"[^>]*multiple/);
   assert.match(html, /class="source-upload-stack"[\s\S]*?id="product-image-preview"[\s\S]*?id="brand-logo-preview"/);
   assert.match(browserSource, /data-remove-product-image/);
   assert.match(browserSource, /data-remove-brand-logo/);

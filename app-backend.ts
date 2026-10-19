@@ -506,8 +506,8 @@ async function handleGeneration(request, response, input, auth) {
   const productImages = creationMode === "product"
     ? (Array.isArray(input.productImages) ? input.productImages : (input.productImage ? [input.productImage] : [])) : [];
   if (creationMode === "product" && !productImages.length) return sendJson(response, 400, { error: "product_image_required", message: "Upload gambar produk atau pilih opsi mulai dari prompt." });
-  if (productImages.length > 3 || productImages.some((image) => typeof image !== "string" || image.length > 1_400_000)) {
-    return sendJson(response, 400, { error: "invalid_product_images", message: "Gunakan maksimal 3 gambar produk berukuran aman." });
+  if (productImages.length > 5 || productImages.some((image) => typeof image !== "string" || image.length > 1_400_000)) {
+    return sendJson(response, 400, { error: "invalid_product_images", message: "Gunakan maksimal 5 gambar produk berukuran aman." });
   }
   if (productImages.length && imageProvider.model.toLowerCase() === "prunaai/z-image-turbo") {
     return sendJson(response, 400, { error: "model_no_image_input", message: "Agent Free saat ini memakai model teks-ke-gambar yang tidak menerima foto produk. Pilih Agent Pro atau atur REPLICATE_FREE_MODEL ke model yang mendukung gambar referensi." });

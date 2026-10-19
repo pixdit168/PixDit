@@ -131,16 +131,17 @@ function sanitizeLogoDataUrl(value = "") {
   return /^data:image\/(?:png|jpeg);base64,[a-z0-9+/=]+$/i.test(logo) ? logo : "";
 }
 
-const MAX_BRAND_LOGOS = 3;
+const MAX_BRAND_LOGOS = 1;
+const MAX_LEGACY_BRAND_LOGOS = 3;
 
 function getBrandLogos(project) {
   const values = Array.isArray(project?.brandLogos) && project.brandLogos.length ? project.brandLogos : (project?.brandLogo ? [project.brandLogo] : []);
-  return values.slice(0, MAX_BRAND_LOGOS).map(sanitizeLogoDataUrl).filter(Boolean);
+  return values.slice(0, MAX_LEGACY_BRAND_LOGOS).map(sanitizeLogoDataUrl).filter(Boolean);
 }
 
 function getPosterLogos(copy, legacyLogo = "", legacyPosition = null) {
   if (Array.isArray(copy?.logos)) {
-    return copy.logos.slice(0, MAX_BRAND_LOGOS).map((entry, index) => ({
+    return copy.logos.slice(0, MAX_LEGACY_BRAND_LOGOS).map((entry, index) => ({
       image: sanitizeLogoDataUrl(entry?.image || ""),
       position: normalizeLogoPosition(entry?.position, index),
     })).filter((entry) => entry.image);
@@ -154,7 +155,7 @@ function sanitizeProductImageDataUrl(value = "") {
   return /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(image) && image.length <= 1_400_000 ? image : "";
 }
 
-const MAX_PRODUCT_IMAGES = 3;
+const MAX_PRODUCT_IMAGES = 5;
 
 function getProductImages(project) {
   const values = Array.isArray(project?.productImages) && project.productImages.length ? project.productImages : (project?.productImage ? [project.productImage] : []);

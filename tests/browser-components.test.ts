@@ -14,9 +14,8 @@ test("compiled classic browser script preserves image gallery helpers without a 
   const result = JSON.parse(vm.runInContext(`JSON.stringify((() => {
     const first = "data:image/png;base64,AA==";
     const second = "data:image/png;base64,AQ==";
-    const project = { productImage: first, brandLogo: first };
+    const project = { productImage: first, brandLogos: [first, second] };
     addProductImages(project, [second]);
-    addBrandLogos(project, [second]);
     setProjectLogoPosition(project, 0, { x: 0.1, y: 0.2, width: 0.2 }, 0);
     setProjectLogoPosition(project, 0, { x: 0.6, y: 0.5, width: 0.2 }, 1);
     const posterBeforeRemoval = getPosterCopy(project);
@@ -50,4 +49,34 @@ test("compiled classic browser script preserves image gallery helpers without a 
   assert.doesNotMatch(result.productCard, /Referensi visual agent/);
   assert.match(result.logoCard, />Logo 2</);
   assert.match(result.logoCard, /data-remove-brand-logo="1"/);
+});
+
+test("new projects accept five product images and one logo while preserving older multi-logo projects", async () => {
+  const script = await fs.readFile(path.join(projectRoot, "public", "app.js"), "utf8");
+  const context = vm.createContext({});
+  vm.runInContext(script, context);
+
+  const result = JSON.parse(vm.runInContext(`JSON.stringify((() => {
+    const image = "data:image/png;base64,AA==";
+    const project = {};
+    addProductImages(project, Array(5).fill(image));
+    addBrandLogos(project, [image]);
+    let sixthProductError = "";
+    let secondLogoError = "";
+    try { addProductImages(project, [image]); } catch (error) { sixthProductError = error.message; }
+    try { addBrandLogos(project, [image]); } catch (error) { secondLogoError = error.message; }
+    return {
+      productCount: getProductImages(project).length,
+      logoCount: getBrandLogos(project).length,
+      legacyLogoCount: getBrandLogos({ brandLogos: [image, image] }).length,
+      sixthProductError,
+      secondLogoError,
+    };
+  })())`, context));
+
+  assert.equal(result.productCount, 5);
+  assert.equal(result.logoCount, 1);
+  assert.equal(result.legacyLogoCount, 2);
+  assert.match(result.sixthProductError, /Maksimal 5 gambar produk/);
+  assert.match(result.secondLogoError, /Maksimal 1 logo/);
 });

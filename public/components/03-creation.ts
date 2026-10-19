@@ -285,7 +285,7 @@ function renderProductImagePreview() {
   preview.innerHTML = images.map((image, index) => sourceImageCardMarkup(image, index, "product")).join("");
   $("#product-image-input").disabled = images.length >= MAX_PRODUCT_IMAGES;
   $(".product-upload-button").classList.toggle("at-capacity", images.length >= MAX_PRODUCT_IMAGES);
-  $("#product-upload-label").textContent = images.length >= MAX_PRODUCT_IMAGES ? "Maksimal 3 gambar" : "Upload gambar";
+  $("#product-upload-label").textContent = images.length >= MAX_PRODUCT_IMAGES ? "Maksimal 5 gambar" : "Upload gambar";
 }
 
 async function optimizeProductImage(file) {
@@ -300,7 +300,7 @@ async function optimizeProductImage(file) {
     if (image.naturalWidth * image.naturalHeight > 40_000_000) throw new Error("Dimensi gambar produk terlalu besar.");
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
-    for (const targetPixels of [1_000_000, 700_000, 500_000]) {
+    for (const targetPixels of [1_000_000, 700_000, 500_000, 350_000]) {
       const scale = Math.min(1, Math.sqrt(targetPixels / (image.naturalWidth * image.naturalHeight)));
       canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
       canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -309,7 +309,7 @@ async function optimizeProductImage(file) {
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
       for (const quality of [0.86, 0.76, 0.66, 0.56]) {
         const result = canvas.toDataURL("image/jpeg", quality);
-        if (result.length <= 700_000) return result;
+        if (result.length <= 500_000) return result;
       }
     }
     throw new Error("Gambar produk tidak dapat diperkecil ke ukuran aman.");
@@ -345,7 +345,7 @@ function renderBrandLogoPreview() {
   preview.innerHTML = logos.map((logo, index) => sourceImageCardMarkup(logo, index, "logo")).join("");
   $("#brand-logo-input").disabled = logos.length >= MAX_BRAND_LOGOS;
   $(".logo-upload-button").classList.toggle("at-capacity", logos.length >= MAX_BRAND_LOGOS);
-  $("#brand-logo-upload-label").textContent = logos.length >= MAX_BRAND_LOGOS ? "Maksimal 3 logo" : "Upload logo";
+  $("#brand-logo-upload-label").textContent = logos.length >= MAX_BRAND_LOGOS ? "Maksimal 1 logo" : "Upload logo";
 }
 
 async function optimizeBrandLogo(file) {
