@@ -1,8 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
+    "module": "none",
     "moduleDetection": "legacy",
+    "outFile": "public/app.js",
     "alwaysStrict": false,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": [],
@@ -11,6 +12,16 @@
     "noEmitOnError": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["public/app.ts"],
+  "files": [
+    "public/app.ts",
+    "public/components/01-poster.ts",
+    "public/components/02-state-auth.ts",
+    "public/components/03-creation.ts",
+    "public/components/04-library.ts",
+    "public/components/05-projects.ts",
+    "public/components/06-generation.ts",
+    "public/components/07-editor-export.ts",
+    "public/components/08-events.ts"
+  ],
   "exclude": ["node_modules"]
 }

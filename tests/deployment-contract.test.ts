@@ -19,7 +19,11 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.equal(rewrites.get("/favicon.ico"), "/favicon.svg");
 
   const html = await fs.readFile(path.join(projectRoot, "index.html"), "utf8");
-  const browserSource = await fs.readFile(path.join(projectRoot, "public/app.ts"), "utf8");
+  const browserConfig = JSON.parse(await fs.readFile(path.join(projectRoot, "tsconfig.browser.json"), "utf8"));
+  assert.equal(browserConfig.compilerOptions.module, "none");
+  assert.equal(browserConfig.compilerOptions.outFile, "public/app.js");
+  assert.equal(browserConfig.files.length, 9);
+  const browserSource = (await Promise.all(browserConfig.files.map((name: string) => fs.readFile(path.join(projectRoot, name), "utf8")))).join("\n");
   const browserScript = await fs.readFile(path.join(projectRoot, "public/app.js"), "utf8");
   const publishedScript = await fs.readFile(path.join(projectRoot, "dist/app.js"), "utf8");
   assert.match(html, /<script src="\/app\.js"><\/script>/);
@@ -27,9 +31,9 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.ok(html.indexOf('id="brand-logo-input"') < html.indexOf('id="poster-advanced"'));
   assert.ok(html.indexOf('Arah Visual') < html.indexOf('id="poster-advanced"'));
   assert.match(html, /id="product-image-input"[^>]*multiple/);
-  assert.ok(html.indexOf('id="product-image-preview"') < html.indexOf('id="product-add-button"'));
-  assert.match(browserSource, /\.product-upload-button"\)\.classList\.toggle\("is-hidden", images\.length > 0\)/);
-  assert.match(browserSource, /data-remove-product-image="\$\{index\}"/);
+  assert.match(html, /class="source-upload-stack"[\s\S]*?id="product-image-preview"[\s\S]*?id="brand-logo-preview"/);
+  assert.match(browserSource, /data-remove-product-image/);
+  assert.match(browserSource, /data-remove-brand-logo/);
   assert.match(html, /data-headline-mode="ai">Otomatis<\/button>/);
   assert.match(browserSource, /headlineMode: "ai"/);
   assert.match(browserSource, /if \(activeProject\?\.headlineMode === "ai"\) await suggestHeadline\(\{ silent: true \}\)/);
