@@ -55,7 +55,7 @@ const accountAuth = useMemoryBackend
   ? new MemoryAuth()
   : new SupabaseAuth({ url: supabaseUrl, publishableKey: supabasePublishableKey, secretKey: supabaseSecretKey });
 const freeImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_FREE_MODEL || "sourceful/riverflow-2.0-pro" });
-const premiumImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_PRO_MODEL || process.env.REPLICATE_MODEL || "black-forest-labs/flux-2-pro" });
+const premiumImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_PRO_MODEL || process.env.REPLICATE_MODEL || "openai/gpt-image-2" });
 const activeUserJobs = new Set();
 
 if (isProduction && !publicOrigin) {
@@ -507,7 +507,7 @@ async function handleGeneration(request, response, input, auth) {
   if (creationMode === "product" && !productImage) return sendJson(response, 400, { error: "product_image_required", message: "Upload gambar produk atau pilih opsi mulai dari prompt." });
   let quality = String(input.quality || "1mp").toLowerCase();
   if (!["1mp", "2mp", "4mp"].includes(quality)) quality = "1mp";
-  if (!usage.allowedQualities.includes(quality)) return sendJson(response, 403, { error: "quality_limit", upgradeRequired: true, message: "Paket Gratis hanya mendukung kualitas 1MP/HD. Upgrade ke Pro untuk membuka 2MP dan 4MP.", usage });
+  if (!usage.allowedQualities.includes(quality)) return sendJson(response, 403, { error: "quality_limit", upgradeRequired: true, message: "Paket Gratis hanya mendukung kualitas Standar. Upgrade ke Pro untuk membuka Detail dan Maksimal.", usage });
   const requestedImageCount = Number(input.imageCount ?? 1);
   if (![1, 10].includes(requestedImageCount)) return sendJson(response, 400, { error: "invalid_image_count", message: "Jumlah gambar hanya dapat dipilih 1 atau 10." });
   const imageCount = requestedImageCount;

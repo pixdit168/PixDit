@@ -5,9 +5,9 @@ Source backend aktif Layera adalah `app-backend.ts`; `npm install` atau `npm run
 Kedua agent berjalan melalui Replicate dan dipilih dari workspace:
 
 - Agent Free: `sourceful/riverflow-2.0-pro`, tersedia untuk semua plan.
-- Agent Pro: `black-forest-labs/flux-2-pro`, khusus Layera Pro.
-- Paket Gratis: 1 gambar per permintaan dan kualitas 1MP.
-- Layera Pro: Agent Free atau Agent Pro, pilihan 1 atau 10 gambar, kualitas 1MP/2MP/4MP.
+- Agent Pro: `openai/gpt-image-2`, khusus Layera Pro. Pilihan kualitas Standar/Detail/Maksimal dipetakan ke preset model `low`/`medium`/`high`; model tidak menjamin jumlah piksel persis. Untuk format 4:5, hasil 3:4 dipotong ke 4:5 setelah diunduh.
+- Paket Gratis: 1 gambar per permintaan dan kualitas Standar.
+- Layera Pro: Agent Free atau Agent Pro, pilihan 1 atau 10 gambar, kualitas Standar/Detail/Maksimal.
 
 Generasi gambar mengikuti prompt asli pengguna. Pilihan 10 gambar mengirim prompt yang sama untuk tiap variasi; model Replicate dapat menghasilkan variasi alami tanpa arah kreatif bawaan. Gaya dan warna hanya menjadi petunjuk tambahan jika dipilih secara eksplisit. Edit gambar memakai gambar tersimpan dan instruksi edit pengguna.
 
@@ -43,7 +43,7 @@ TRUST_PROXY=true
 
 REPLICATE_API_TOKEN=secret_replicate
 REPLICATE_FREE_MODEL=sourceful/riverflow-2.0-pro
-REPLICATE_PRO_MODEL=black-forest-labs/flux-2-pro
+REPLICATE_PRO_MODEL=openai/gpt-image-2
 REPLICATE_TIMEOUT_MS=600000
 
 SUPABASE_URL=https://project-ref-anda.supabase.co

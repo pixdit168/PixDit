@@ -52,7 +52,7 @@ test("Flux 2 Pro prediction is created, polled, and downloaded", async () => {
     }
     throw new Error(`Unexpected URL: ${url}`);
   };
-  const provider = new ReplicateImageProvider({ token: "test-token", fetchImpl: fakeFetch, pollIntervalMs: 1 });
+  const provider = new ReplicateImageProvider({ token: "test-token", model: "black-forest-labs/flux-2-pro", fetchImpl: fakeFetch, pollIntervalMs: 1 });
   const result = await provider.run({ prompt: "A premium product key visual", format: "Instagram Post · 4:5", quality: "2mp" });
 
   assert.equal(result.mimeType, "image/jpeg");
@@ -87,7 +87,7 @@ test("an aborted generation asks Replicate to cancel the prediction", async () =
     }
     throw new Error(`Unexpected URL: ${url}`);
   };
-  const provider = new ReplicateImageProvider({ token: "test-token", fetchImpl: fakeFetch, pollIntervalMs: 100 });
+  const provider = new ReplicateImageProvider({ token: "test-token", model: "black-forest-labs/flux-2-pro", fetchImpl: fakeFetch, pollIntervalMs: 100 });
   const controller = new AbortController();
   const run = provider.run({ prompt: "A product visual", format: "Persegi · 1:1", quality: "1mp", signal: controller.signal });
   setTimeout(() => controller.abort(), 5);
@@ -142,4 +142,51 @@ test("Riverflow 2.0 Pro receives its native instruction and init_images fields",
   assert.equal(body.input.max_iterations, 3);
   assert.equal(body.input.prompt, undefined);
   assert.equal(body.input.input_images, undefined);
+});
+
+test("GPT Image 2 uses its native inputs, array output, and a 4:5 final crop", async () => {
+  const outputImage = await sharp({
+    create: { width: 300, height: 400, channels: 3, background: { r: 50, g: 90, b: 140 } },
+  }).jpeg().toBuffer();
+  const referenceImage = `data:image/jpeg;base64,${outputImage.toString("base64")}`;
+  const requests = [];
+  const fakeFetch = async (url, options = {}) => {
+    requests.push({ url: String(url), options });
+    if (String(url).endsWith("/models/openai/gpt-image-2/predictions")) {
+      return new Response(JSON.stringify({
+        id: "gpt-image-test",
+        status: "processing",
+        urls: { get: "https://api.replicate.com/v1/predictions/gpt-image-test" },
+      }), { status: 201 });
+    }
+    if (String(url).endsWith("/predictions/gpt-image-test")) {
+      return new Response(JSON.stringify({ status: "succeeded", output: ["https://replicate.delivery/test/gpt-image-2.jpeg"] }), { status: 200 });
+    }
+    if (String(url) === "https://replicate.delivery/test/gpt-image-2.jpeg") {
+      return new Response(outputImage, { status: 200, headers: { "content-type": "image/jpeg" } });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+  const provider = new ReplicateImageProvider({ token: "test-token", model: "openai/gpt-image-2", fetchImpl: fakeFetch, pollIntervalMs: 1 });
+  const result = await provider.run({
+    prompt: "A premium product photograph",
+    format: "Instagram Post · 4:5",
+    quality: "4mp",
+    preparedReferenceImage: referenceImage,
+  });
+
+  const body = JSON.parse(requests[0].options.body);
+  assert.equal(body.input.prompt, "A premium product photograph");
+  assert.equal(body.input.quality, "high");
+  assert.equal(body.input.aspect_ratio, "3:4");
+  assert.deepEqual(body.input.input_images, [referenceImage]);
+  assert.equal(body.input.number_of_images, 1);
+  assert.equal(body.input.output_format, "jpeg");
+  assert.equal(body.input.output_compression, 90);
+  assert.equal(body.input.resolution, undefined);
+  assert.equal(body.input.seed, undefined);
+  assert.equal(result.mimeType, "image/jpeg");
+  const metadata = await sharp(result.buffer).metadata();
+  assert.equal(metadata.width, 300);
+  assert.equal(metadata.height, 375);
 });

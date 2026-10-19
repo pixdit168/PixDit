@@ -2,8 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
-const DEFAULT_MODEL = "black-forest-labs/flux-2-pro";
+const DEFAULT_MODEL = "openai/gpt-image-2";
 const RIVERFLOW_MODEL = "sourceful/riverflow-2.0-pro";
+const GPT_IMAGE_2_MODEL = "openai/gpt-image-2";
 const DEFAULT_API_BASE = "https://api.replicate.com/v1";
 const TERMINAL_STATUSES = new Set(["succeeded", "failed", "canceled", "cancelled"]);
 
@@ -38,6 +39,10 @@ function getResolution(quality = "1mp") {
 
 function getRiverflowResolution(quality = "1mp") {
   return ({ "1mp": "1K", "2mp": "2K", "4mp": "4K" })[String(quality).toLowerCase()] || "1K";
+}
+
+function getGptImageQuality(quality = "1mp") {
+  return ({ "1mp": "low", "2mp": "medium", "4mp": "high" })[String(quality).toLowerCase()] || "low";
 }
 
 function getSharpInput(source) {
@@ -111,7 +116,7 @@ export class ReplicateImageProvider {
 
   get endpoint() {
     const [owner, name] = this.model.split("/");
-    return `${this.apiBase}/models/${encodeURIComponent(owner || "black-forest-labs")}/${encodeURIComponent(name || "flux-2-pro")}/predictions`;
+    return `${this.apiBase}/models/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/predictions`;
   }
 
   async requestJson(url, options: RequestInit = {}) {
@@ -154,7 +159,7 @@ export class ReplicateImageProvider {
     if (!response.ok && response.status !== 409) throw new Error(`Replicate gagal membatalkan prediction (HTTP ${response.status}).`);
   }
 
-  async downloadOutput(output, signal) {
+  async downloadOutput(output, signal, cropToAspectRatio = "") {
     let outputUrl = assertReplicateOutputUrl(getOutputUrl(output));
     let response;
     for (let redirectCount = 0; redirectCount <= 3; redirectCount++) {
@@ -169,7 +174,20 @@ export class ReplicateImageProvider {
     if (contentLength > 25 * 1024 * 1024) throw new Error("File hasil Replicate melebihi batas 25 MB.");
     const buffer = Buffer.from(await response.arrayBuffer());
     if (!buffer.length || buffer.length > 25 * 1024 * 1024) throw new Error("Ukuran file hasil Replicate tidak valid.");
-    const normalized = await sharp(buffer).rotate().jpeg({ quality: this.outputQuality, mozjpeg: true }).toBuffer();
+    let image = sharp(buffer).rotate();
+    if (cropToAspectRatio) {
+      const metadata = await sharp(buffer).metadata();
+      if (!metadata.width || !metadata.height) throw new Error("Dimensi gambar hasil tidak dapat dibaca.");
+      const rotated = metadata.orientation >= 5 && metadata.orientation <= 8;
+      const width = rotated ? metadata.height : metadata.width;
+      const height = rotated ? metadata.width : metadata.height;
+      const [ratioWidth, ratioHeight] = cropToAspectRatio.split(":").map(Number);
+      const ratio = ratioWidth / ratioHeight;
+      const cropWidth = width / height > ratio ? Math.round(height * ratio) : width;
+      const cropHeight = width / height < ratio ? Math.round(width / ratio) : height;
+      image = image.resize({ width: cropWidth, height: cropHeight, fit: "cover" });
+    }
+    const normalized = await image.jpeg({ quality: this.outputQuality, mozjpeg: true }).toBuffer();
     return { buffer: normalized, extension: "jpg", mimeType: "image/jpeg" };
   }
 
@@ -207,11 +225,13 @@ export class ReplicateImageProvider {
     if (!this.configured) throw new Error("REPLICATE_API_TOKEN belum diatur pada environment server Node.js.");
     const referenceImage = preparedReferenceImage || (sourcePath ? await this.prepareReferenceImage(sourcePath) : "");
     const isRiverflow = this.model.toLowerCase() === RIVERFLOW_MODEL;
+    const isGptImage2 = this.model.toLowerCase() === GPT_IMAGE_2_MODEL;
+    const aspectRatio = getAspectRatio(format);
     const input = isRiverflow
       ? {
         instruction: prompt,
         resolution: getRiverflowResolution(quality),
-        aspect_ratio: getAspectRatio(format),
+        aspect_ratio: aspectRatio,
         init_images: referenceImage ? [referenceImage] : [],
         transparency: false,
         output_format: "webp",
@@ -219,10 +239,20 @@ export class ReplicateImageProvider {
         max_iterations: 3,
         safety_checker: true,
       }
+      : isGptImage2
+        ? {
+          prompt,
+          quality: getGptImageQuality(quality),
+          aspect_ratio: aspectRatio === "4:5" ? "3:4" : aspectRatio,
+          input_images: referenceImage ? [referenceImage] : [],
+          number_of_images: 1,
+          output_format: "jpeg",
+          output_compression: this.outputQuality,
+        }
       : {
         prompt,
         resolution: getResolution(quality),
-        aspect_ratio: getAspectRatio(format),
+        aspect_ratio: aspectRatio,
         input_images: referenceImage ? [referenceImage] : [],
         output_format: "jpg",
         output_quality: this.outputQuality,
@@ -242,7 +272,7 @@ export class ReplicateImageProvider {
         body: JSON.stringify({ input }),
       });
       const completed = getOutputUrl(prediction.output) ? prediction : await this.waitForPrediction(prediction, signal);
-      return await this.downloadOutput(completed.output, signal);
+      return await this.downloadOutput(completed.output, signal, isGptImage2 && aspectRatio === "4:5" ? "4:5" : "");
     } catch (error) {
       if (signal?.aborted && prediction?.id) {
         try { await this.cancelPrediction(prediction); } catch { /* Pembatalan lokal tetap diteruskan. */ }

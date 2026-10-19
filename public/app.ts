@@ -491,7 +491,7 @@ function updatePlanInterface() {
   if (qualitySelect) {
     $$("option", qualitySelect).forEach((option) => { option.disabled = !subscriber && option.value !== "1mp"; });
     if (!subscriber && qualitySelect.value !== "1mp") qualitySelect.value = "1mp";
-    $("#quality-plan-note").textContent = subscriber ? "Layera Pro mendukung 1MP, 2MP, dan 4MP." : "Paket Gratis mendukung hingga 1MP / HD.";
+    $("#quality-plan-note").textContent = subscriber ? "Pilih kualitas Standar, Detail, atau Maksimal. Resolusi akhir bergantung pada model." : "Paket Gratis mendukung kualitas Standar.";
   }
   renderGenerationCountSelector();
   renderAgentSelector();
@@ -509,7 +509,8 @@ function updateGenerationControls() {
   const note = $("#generation-cost-note");
   if (!note) return;
   const remaining = usageState?.credits?.remaining;
-  note.textContent = remaining !== undefined && remaining < totalCost ? `Butuh ${totalCost} kredit · saldo tidak cukup` : `${quality.toUpperCase()} · ${totalCost} kredit`;
+  const qualityLabel = { "1mp": "Standar", "2mp": "Detail", "4mp": "Maksimal" }[quality] || "Standar";
+  note.textContent = remaining !== undefined && remaining < totalCost ? `Butuh ${totalCost} kredit · saldo tidak cukup` : `${qualityLabel} · ${totalCost} kredit`;
 }
 
 function showToast(title, message, icon = "✓") {
@@ -2863,7 +2864,7 @@ function bindEvents() {
   $("#quality-select").addEventListener("change", () => {
     if (!isSubscriber() && $("#quality-select").value !== "1mp") {
       $("#quality-select").value = "1mp";
-      openUpgradeModal("Kualitas 2MP dan 4MP tersedia pada Layera Pro.");
+      openUpgradeModal("Kualitas Detail dan Maksimal tersedia pada Layera Pro.");
     }
     updateGenerationControls();
     markSaving();

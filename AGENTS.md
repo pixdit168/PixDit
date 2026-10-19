@@ -17,10 +17,10 @@ Layera is an Indonesian-language campaign image generator. It is a TypeScript/No
 
 ## Current behavior to preserve
 
-- Agent Free uses `sourceful/riverflow-2.0-pro`; Agent Pro uses `black-forest-labs/flux-2-pro`. The environment overrides are `REPLICATE_FREE_MODEL` and `REPLICATE_PRO_MODEL`. The UI labels are Agent Free and Agent Pro.
+- Agent Free uses `sourceful/riverflow-2.0-pro`; Agent Pro uses `openai/gpt-image-2`. The environment overrides are `REPLICATE_FREE_MODEL` and `REPLICATE_PRO_MODEL`. The UI labels are Agent Free and Agent Pro.
 - Image generation passes the user's original prompt first, with only explicitly selected optional style/color hints. Ten-image jobs use the same prompt and neutral `Variasi 01`–`Variasi 10` labels; no behavioral creative agents are involved.
 - Image refinement uses the stored source image and the user's edit request, not historical creative-agent metadata. Older projects may retain that metadata without affecting new generation or editing.
-- Free accounts may generate one 1MP image per request. Subscribers may choose one or ten images and 1MP, 2MP, or 4MP. Keep plan and credit enforcement on the server.
+- Free accounts may generate one image at the standard quality tier per request. Subscribers may choose one or ten images and the standard, detail, or maximum quality tiers. The internal tier keys remain `1mp`, `2mp`, and `4mp`; actual pixel dimensions depend on the selected model. Keep plan and credit enforcement on the server.
 - Users may start from a written prompt or upload a product image. The browser resizes product images, and the server normalizes them again before sending them to Replicate.
 - Generated images are stored in a private Supabase Storage bucket and served through authenticated `/generated/*` requests. Edits read their source image from that storage, not a local directory.
 - The Generate progress panel has a Cancel button. Browser cancellation aborts the request; after Replicate returns a prediction ID, the adapter requests cancellation from Replicate. Results completed before cancellation can remain available.
