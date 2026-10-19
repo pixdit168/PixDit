@@ -24,6 +24,9 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   const publishedScript = await fs.readFile(path.join(projectRoot, "dist/app.js"), "utf8");
   assert.match(html, /<script src="\/app\.js"><\/script>/);
   assert.match(html, /<details id="poster-advanced" class="copy-section">[\s\S]*?<summary[^>]*>[\s\S]*?Pengaturan Lanjutan[\s\S]*?<\/details>/);
+  assert.ok(html.indexOf('id="brand-logo-input"') < html.indexOf('id="poster-advanced"'));
+  assert.ok(html.indexOf('Arah Visual') < html.indexOf('id="poster-advanced"'));
+  assert.match(html, /id="product-image-input"[^>]*multiple/);
   assert.match(html, /data-headline-mode="ai">Otomatis<\/button>/);
   assert.match(browserSource, /headlineMode: "ai"/);
   assert.match(browserSource, /if \(activeProject\?\.headlineMode === "ai"\) await suggestHeadline\(\{ silent: true \}\)/);
@@ -35,6 +38,7 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.doesNotMatch(browserScript, /^\s*["']use strict["'];/);
   assert.equal(await fs.readFile(path.join(projectRoot, "dist/index.html"), "utf8"), html);
   assert.equal(await fs.readFile(path.join(projectRoot, "dist/styles.css"), "utf8"), await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8"));
+  assert.match(await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8"), /#library-preview-poster\.api-poster \.poster-copy \{ background:none !important; \}/);
   assert.ok((await fs.stat(path.join(projectRoot, "dist/favicon.svg"))).isFile());
   assert.ok((await fs.stat(path.join(projectRoot, "dist/assets/kopi-gula-aren.png"))).isFile());
 });

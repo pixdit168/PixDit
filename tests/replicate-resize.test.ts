@@ -128,7 +128,7 @@ test("Riverflow 2.0 Pro receives its native instruction and init_images fields",
     prompt: "Develop this product into a premium campaign visual",
     format: "Persegi · 1:1",
     quality: "4mp",
-    preparedReferenceImage,
+    preparedReferenceImages: [preparedReferenceImage, preparedReferenceImage],
   });
 
   assert.equal(result.mimeType, "image/jpeg");
@@ -137,11 +137,19 @@ test("Riverflow 2.0 Pro receives its native instruction and init_images fields",
   assert.equal(body.input.instruction, "Develop this product into a premium campaign visual");
   assert.equal(body.input.resolution, "4K");
   assert.equal(body.input.aspect_ratio, "1:1");
-  assert.deepEqual(body.input.init_images, [preparedReferenceImage]);
+  assert.deepEqual(body.input.init_images, [preparedReferenceImage, preparedReferenceImage]);
   assert.equal(body.input.enhance_prompt, false);
   assert.equal(body.input.max_iterations, 3);
   assert.equal(body.input.prompt, undefined);
   assert.equal(body.input.input_images, undefined);
+});
+
+test("text-only Z-Image Turbo rejects product references instead of ignoring them", async () => {
+  const provider = new ReplicateImageProvider({ token: "test-token", model: "prunaai/z-image-turbo" });
+  await assert.rejects(
+    provider.run({ prompt: "Product poster", format: "Persegi · 1:1", quality: "1mp", preparedReferenceImages: ["data:image/jpeg;base64,AA=="] }),
+    /tidak menerima gambar referensi/,
+  );
 });
 
 test("GPT Image 2 uses its native inputs, array output, and a 4:5 final crop", async () => {

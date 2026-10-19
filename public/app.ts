@@ -141,6 +141,13 @@ function sanitizeProductImageDataUrl(value = "") {
   return /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(image) && image.length <= 1_400_000 ? image : "";
 }
 
+const MAX_PRODUCT_IMAGES = 3;
+
+function getProductImages(project) {
+  const values = Array.isArray(project?.productImages) && project.productImages.length ? project.productImages : (project?.productImage ? [project.productImage] : []);
+  return values.slice(0, MAX_PRODUCT_IMAGES).map(sanitizeProductImageDataUrl).filter(Boolean);
+}
+
 function normalizeLogoPosition(value) {
   const x = Number(value?.x);
   const y = Number(value?.y);
@@ -253,11 +260,11 @@ function contrastRatio(first, second) {
 }
 
 function chooseLogoTreatment(surface, logo) {
-  const weakShare = logo.luminances.filter((value) => contrastRatio(value, surface.average) < 2.4).length / logo.luminances.length;
-  const busy = surface.variance > 0.055;
-  if (weakShare < 0.28 && !busy) return { plate: "none", busy: false };
-  const score = (plateLuminance) => logo.luminances.reduce((sum, value) => sum + Math.min(contrastRatio(value, plateLuminance), 7), 0) / logo.luminances.length;
-  return { plate: score(0.96) >= score(0.025) ? "light" : "dark", busy };
+  const busy = surface.variance > 0.04;
+  const weakShare = logo.luminances.filter((value) => contrastRatio(value, surface.average) < 3).length / logo.luminances.length;
+  if (weakShare < 0.1 && !busy) return { plate: "none", busy: false };
+  const score = (plateLuminance) => logo.luminances.reduce((sum, value) => sum + (contrastRatio(value, plateLuminance) >= 3 ? 1 : 0), 0) / logo.luminances.length;
+  return { plate: score(1) >= score(0.005) ? "light" : "dark", busy };
 }
 
 function getElementPixelStats(image, { width = 64, height = 64, ignoreTransparent = false } = {}) {
@@ -899,6 +906,19 @@ function renderAgentSelector() {
     button.disabled = generationInProgress;
   });
   renderAgentStatus();
+  renderProductModelNotice();
+}
+
+function selectedModelSupportsProductImages() {
+  return String(getSelectedAgentHealth()?.model || "").toLowerCase() !== "prunaai/z-image-turbo";
+}
+
+function renderProductModelNotice() {
+  const notice = $("#product-model-notice");
+  if (!notice) return;
+  const unsupported = !selectedModelSupportsProductImages();
+  notice.classList.toggle("is-hidden", !unsupported);
+  notice.textContent = unsupported ? "Model Agent Free saat ini tidak mendukung foto produk. Pilih Agent Pro atau minta admin mengganti model Free ke model yang menerima gambar." : "";
 }
 
 function selectAgentTier(value) {
@@ -925,6 +945,7 @@ function renderCreationMode() {
     button.setAttribute("aria-pressed", String(selected));
   });
   $("#product-upload-panel").classList.toggle("is-hidden", mode !== "product");
+  $(".source-upload-row").classList.toggle("has-product", mode === "product");
   $("#creation-mode-note").textContent = mode === "product" ? "Kembangkan gambar produk yang diupload" : "Buat visual sepenuhnya dari brief";
   $("label[for='prompt-input']").textContent = mode === "product" ? "Bagaimana produk ini ingin dikembangkan?" : "Apa yang ingin kamu buat?";
   $("#prompt-input").placeholder = mode === "product"
@@ -941,12 +962,14 @@ function selectCreationMode(value) {
 }
 
 function renderProductImagePreview() {
-  const image = sanitizeProductImageDataUrl(activeProject?.productImage || "");
+  const images = getProductImages(activeProject);
   const preview = $("#product-image-preview");
   if (!preview) return;
-  preview.classList.toggle("is-hidden", !image);
-  $("img", preview).src = image || "";
-  $("#product-upload-label").textContent = image ? "Ganti gambar produk" : "Pilih gambar produk";
+  preview.classList.toggle("is-hidden", images.length === 0);
+  preview.innerHTML = images.map((image, index) => `<div class="product-image-preview"><img src="${image}" alt="Gambar produk ${index + 1}" /><div><strong>Gambar ${index + 1}</strong><small>Referensi visual agent</small></div><button type="button" data-remove-product-image="${index}" aria-label="Hapus gambar produk ${index + 1}">×</button></div>`).join("");
+  $("#product-upload-label").textContent = images.length >= MAX_PRODUCT_IMAGES ? "Maksimal 3 gambar" : (images.length ? `Tambah gambar (${images.length}/${MAX_PRODUCT_IMAGES})` : "Pilih gambar produk");
+  $("#product-image-input").disabled = images.length >= MAX_PRODUCT_IMAGES;
+  $(".product-upload-button").classList.toggle("at-capacity", images.length >= MAX_PRODUCT_IMAGES);
 }
 
 async function optimizeProductImage(file) {
@@ -959,18 +982,19 @@ async function optimizeProductImage(file) {
     const image = await loadPosterImage(sourceUrl);
     if (!image.naturalWidth || !image.naturalHeight) throw new Error("Dimensi gambar produk tidak dapat dibaca.");
     if (image.naturalWidth * image.naturalHeight > 40_000_000) throw new Error("Dimensi gambar produk terlalu besar.");
-    const targetPixels = 1_000_000;
-    const scale = Math.min(1, Math.sqrt(targetPixels / (image.naturalWidth * image.naturalHeight)));
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
     const context = canvas.getContext("2d");
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(image, 0, 0, canvas.width, canvas.height);
-    for (const quality of [0.86, 0.76, 0.66, 0.56]) {
-      const result = canvas.toDataURL("image/jpeg", quality);
-      if (result.length <= 1_200_000) return result;
+    for (const targetPixels of [1_000_000, 700_000, 500_000]) {
+      const scale = Math.min(1, Math.sqrt(targetPixels / (image.naturalWidth * image.naturalHeight)));
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.86, 0.76, 0.66, 0.56]) {
+        const result = canvas.toDataURL("image/jpeg", quality);
+        if (result.length <= 700_000) return result;
+      }
     }
     throw new Error("Gambar produk tidak dapat diperkecil ke ukuran aman.");
   } finally {
@@ -1439,7 +1463,8 @@ function openProject(id) {
   if (!isSubscriber()) selectedGenerationCount = 1;
   selectedAgentTier = activeProject.agentTier === "free" ? "free" : (isSubscriber() ? "pro" : "free");
   activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
-  activeProject.productImage = sanitizeProductImageDataUrl(activeProject.productImage || "");
+  activeProject.productImages = getProductImages(activeProject);
+  delete activeProject.productImage;
   $("#color-control").value = activeProject.primaryColor || accountPreferences?.primaryColor || "#5a3529";
   $("#color-value").textContent = $("#color-control").value.toUpperCase();
   $("#format-select").value = activeProject.format || accountPreferences?.defaultFormat || "Instagram Post · 4:5";
@@ -1760,10 +1785,14 @@ async function startGeneration() {
   const requestedCount = selectedGenerationCount === 10 ? 10 : 1;
   const requestedAgentTier = selectedAgentTier;
   const creationMode = activeProject?.creationMode === "product" ? "product" : "prompt";
-  const productImage = creationMode === "product" ? sanitizeProductImageDataUrl(activeProject?.productImage || "") : "";
-  if (creationMode === "product" && !productImage) {
+  const productImages = creationMode === "product" ? getProductImages(activeProject) : [];
+  if (creationMode === "product" && !productImages.length) {
     showToast("Gambar produk belum dipilih", "Upload gambar produk atau pilih opsi Prompt dari awal.", "!");
     $("#product-image-input").focus();
+    return;
+  }
+  if (creationMode === "product" && !selectedModelSupportsProductImages()) {
+    showToast("Model tidak mendukung foto produk", "Pilih Agent Pro atau minta admin mengganti model Agent Free.", "!");
     return;
   }
   const requestedCreditCost = requestedCount * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
@@ -1825,7 +1854,7 @@ async function startGeneration() {
         quality: requestedQuality,
         agentTier: requestedAgentTier,
         creationMode,
-        productImage,
+        productImages,
         brandName: $("#brand-input").value.trim() || activeProject?.name || "",
       }),
     });
@@ -1979,7 +2008,8 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
     activeProject.generationCount = selectedGenerationCount;
     activeProject.agentTier = selectedAgentTier;
     activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
-    activeProject.productImage = sanitizeProductImageDataUrl(activeProject.productImage || "");
+    activeProject.productImages = getProductImages(activeProject);
+    delete activeProject.productImage;
     activeProject.generatedImages = generatedImages.map((image) => (image && image.url ? {
       url: image.url,
       displayUrl: image.displayUrl || image.url,
@@ -2074,7 +2104,8 @@ function markSaving() {
     activeProject.generationCount = selectedGenerationCount;
     activeProject.agentTier = selectedAgentTier;
     activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
-    activeProject.productImage = sanitizeProductImageDataUrl(activeProject.productImage || "");
+    activeProject.productImages = getProductImages(activeProject);
+    delete activeProject.productImage;
     saveProjects();
     $("#save-status").innerHTML = "<i></i> Tersimpan";
   }, 700);
@@ -2406,8 +2437,8 @@ async function drawAdaptiveCanvasLogo(context, width, height, posterCopy) {
   if (treatment.plate !== "none") {
     context.save();
     context.fillStyle = treatment.plate === "dark"
-      ? `rgba(12,16,22,${treatment.busy ? 0.94 : 0.84})`
-      : `rgba(255,255,255,${treatment.busy ? 0.95 : 0.87})`;
+      ? "#101419"
+      : "#ffffff";
     context.shadowColor = "rgba(0,0,0,.32)";
     context.shadowBlur = Math.max(3, Math.round(width * 0.012));
     canvasRoundedRect(context, x, y, plateWidth, plateHeight, Math.round(width * 0.008));
@@ -2719,7 +2750,7 @@ function bindEvents() {
       generationCount: 1,
       agentTier: isSubscriber() ? "pro" : "free",
       creationMode: "prompt",
-      productImage: "",
+      productImages: [],
     };
     projects.unshift(project);
     saveProjects();
@@ -2776,23 +2807,29 @@ function bindEvents() {
     button.addEventListener("click", () => selectCreationMode(button.dataset.creationMode));
   });
   $("#product-image-input").addEventListener("change", async (event) => {
-    const file = event.target.files?.[0];
-    if (!file || !activeProject) return;
+    const files = Array.from(event.target.files || []);
+    if (!files.length || !activeProject) return;
     try {
-      activeProject.productImage = await optimizeProductImage(file);
+      const existing = getProductImages(activeProject);
+      if (existing.length + files.length > MAX_PRODUCT_IMAGES) throw new Error(`Maksimal ${MAX_PRODUCT_IMAGES} gambar produk per proyek.`);
+      const optimized = await Promise.all(files.map(optimizeProductImage));
+      activeProject.productImages = [...existing, ...optimized];
+      delete activeProject.productImage;
       activeProject.creationMode = "product";
       renderCreationMode();
       markSaving();
-      showToast("Gambar produk siap", "Gambar sudah di-resize dan akan menjadi referensi visual agent.", "✓");
+      showToast("Gambar produk siap", `${activeProject.productImages.length} gambar sudah di-resize dan akan menjadi referensi visual agent.`, "✓");
     } catch (error) {
       showToast("Gambar produk belum dapat digunakan", error.message, "!");
     } finally {
       event.target.value = "";
     }
   });
-  $("#remove-product-image").addEventListener("click", () => {
+  $("#product-image-preview").addEventListener("click", (event) => {
     if (!activeProject) return;
-    activeProject.productImage = "";
+    const button = event.target.closest("[data-remove-product-image]");
+    if (!button) return;
+    activeProject.productImages = getProductImages(activeProject).filter((_, index) => index !== Number(button.dataset.removeProductImage));
     renderProductImagePreview();
     markSaving();
   });

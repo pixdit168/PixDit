@@ -37,7 +37,7 @@ const publicOrigin = String(process.env.PUBLIC_ORIGIN || "").replace(/\/+$/, "")
 const trustProxy = Boolean(process.env.VERCEL) || /^(?:1|true|yes)$/i.test(process.env.TRUST_PROXY || "");
 const cookieSecure = publicOrigin.startsWith("https://") || /^(?:1|true|yes)$/i.test(process.env.COOKIE_SECURE || "");
 const sessionCookieName = cookieSecure ? "__Host-layera_session" : "layera_session";
-const maxBodyBytes = 2 * 1024 * 1024;
+const maxBodyBytes = 4 * 1024 * 1024;
 const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 const supabasePublishableKey = String(process.env.SUPABASE_PUBLISHABLE_KEY || "");
 const supabaseSecretKey = String(process.env.SUPABASE_SECRET_KEY || "");
@@ -503,8 +503,15 @@ async function handleGeneration(request, response, input, auth) {
   if (agentTier === "pro" && !usage.isPremium) return sendJson(response, 403, { error: "agent_tier_limit", upgradeRequired: true, message: "Agent Pro hanya tersedia untuk pelanggan Layera Pro.", usage });
   const imageProvider = getImageProvider(auth.user.id, agentTier);
   const creationMode = input.creationMode === "product" ? "product" : "prompt";
-  const productImage = creationMode === "product" ? String(input.productImage || "") : "";
-  if (creationMode === "product" && !productImage) return sendJson(response, 400, { error: "product_image_required", message: "Upload gambar produk atau pilih opsi mulai dari prompt." });
+  const productImages = creationMode === "product"
+    ? (Array.isArray(input.productImages) ? input.productImages : (input.productImage ? [input.productImage] : [])) : [];
+  if (creationMode === "product" && !productImages.length) return sendJson(response, 400, { error: "product_image_required", message: "Upload gambar produk atau pilih opsi mulai dari prompt." });
+  if (productImages.length > 3 || productImages.some((image) => typeof image !== "string" || image.length > 1_400_000)) {
+    return sendJson(response, 400, { error: "invalid_product_images", message: "Gunakan maksimal 3 gambar produk berukuran aman." });
+  }
+  if (productImages.length && imageProvider.model.toLowerCase() === "prunaai/z-image-turbo") {
+    return sendJson(response, 400, { error: "model_no_image_input", message: "Agent Free saat ini memakai model teks-ke-gambar yang tidak menerima foto produk. Pilih Agent Pro atau atur REPLICATE_FREE_MODEL ke model yang mendukung gambar referensi." });
+  }
   let quality = String(input.quality || "1mp").toLowerCase();
   if (!["1mp", "2mp", "4mp"].includes(quality)) quality = "1mp";
   if (!usage.allowedQualities.includes(quality)) return sendJson(response, 403, { error: "quality_limit", upgradeRequired: true, message: "Paket Gratis hanya mendukung kualitas Standar. Upgrade ke Pro untuk membuka Detail dan Maksimal.", usage });
@@ -527,10 +534,10 @@ async function handleGeneration(request, response, input, auth) {
   const format = String(input.format || "Instagram Post · 4:5").trim();
   const style = String(input.style || "Eksploratif").trim();
   const primaryColor = /^#[0-9a-f]{6}$/i.test(input.primaryColor || "") ? input.primaryColor : "";
-  let preparedReferenceImage = "";
-  if (productImage) {
+  let preparedReferenceImages = [];
+  if (productImages.length) {
     try {
-      preparedReferenceImage = await imageProvider.prepareReferenceImage(productImage);
+      preparedReferenceImages = await Promise.all(productImages.map((image) => imageProvider.prepareReferenceImage(image)));
     } catch (error) {
       return sendJson(response, 400, { error: "invalid_product_image", message: safeClientError(error) });
     }
@@ -556,8 +563,10 @@ async function handleGeneration(request, response, input, auth) {
     for (const { slot, name } of generationJobs) {
       try {
         sendNdjson(response, { type: "progress", index: slot, name });
-        const prompt = newImagePrompt({ brief, style, styleExplicit: input.styleExplicit === true, primaryColor, primaryColorExplicit: input.primaryColorExplicit === true, hasProductReference: Boolean(preparedReferenceImage) });
-        const result = await imageProvider.run({ prompt, format, quality, preparedReferenceImage, signal: abortController.signal });
+        const basePrompt = newImagePrompt({ brief, style, styleExplicit: input.styleExplicit === true, primaryColor, primaryColorExplicit: input.primaryColorExplicit === true, hasProductReference: preparedReferenceImages.length > 0 });
+        const prompt = preparedReferenceImages.length > 1 ? `${basePrompt} Use all supplied product images as visual references for varied design; preserve each product's recognizable features and do not invent unrelated products.` : basePrompt;
+        const orderedReferences = preparedReferenceImages.length > 1 ? [...preparedReferenceImages.slice(slot % preparedReferenceImages.length), ...preparedReferenceImages.slice(0, slot % preparedReferenceImages.length)] : preparedReferenceImages;
+        const result = await imageProvider.run({ prompt, format, quality, preparedReferenceImages: orderedReferences, signal: abortController.signal });
         const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
         const fileName = `variation-${String(slot + 1).padStart(2, "0")}.${result.extension}`;
         const imageId = `${safeJobId}/${fileName}`;

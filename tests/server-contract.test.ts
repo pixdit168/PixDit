@@ -119,6 +119,18 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(freeHealth.payload.agents.pro.model, "openai/gpt-image-2");
   assert.equal(freeHealth.payload.agents.free.model, "sourceful/riverflow-2.0-pro");
 
+  const tooManyProductImages = await request("/api/generate", {
+    method: "POST",
+    csrf: true,
+    body: {
+      prompt: "Poster produk dengan empat foto referensi berbeda",
+      creationMode: "product",
+      productImages: ["a", "b", "c", "d"],
+    },
+  });
+  assert.equal(tooManyProductImages.response.status, 400);
+  assert.equal(tooManyProductImages.payload.error, "invalid_product_images");
+
   const legacyRefinement = await request("/api/refine", {
     method: "POST",
     csrf: true,

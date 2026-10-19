@@ -221,9 +221,10 @@ export class ReplicateImageProvider {
     return `data:image/jpeg;base64,${buffer.toString("base64")}`;
   }
 
-  async run({ prompt, format, quality, sourcePath = "", preparedReferenceImage = "", signal }: { prompt: string; format: string; quality: string; sourcePath?: string; preparedReferenceImage?: string; signal?: AbortSignal }) {
+  async run({ prompt, format, quality, sourcePath = "", preparedReferenceImage = "", preparedReferenceImages = [], signal }: { prompt: string; format: string; quality: string; sourcePath?: string; preparedReferenceImage?: string; preparedReferenceImages?: string[]; signal?: AbortSignal }) {
     if (!this.configured) throw new Error("REPLICATE_API_TOKEN belum diatur pada environment server Node.js.");
-    const referenceImage = preparedReferenceImage || (sourcePath ? await this.prepareReferenceImage(sourcePath) : "");
+    const referenceImages = preparedReferenceImages.length ? preparedReferenceImages : (preparedReferenceImage ? [preparedReferenceImage] : (sourcePath ? [await this.prepareReferenceImage(sourcePath)] : []));
+    if (referenceImages.length && this.model.toLowerCase() === "prunaai/z-image-turbo") throw new Error("Model prunaai/z-image-turbo tidak menerima gambar referensi.");
     const isRiverflow = this.model.toLowerCase() === RIVERFLOW_MODEL;
     const isGptImage2 = this.model.toLowerCase() === GPT_IMAGE_2_MODEL;
     const aspectRatio = getAspectRatio(format);
@@ -232,7 +233,7 @@ export class ReplicateImageProvider {
         instruction: prompt,
         resolution: getRiverflowResolution(quality),
         aspect_ratio: aspectRatio,
-        init_images: referenceImage ? [referenceImage] : [],
+        init_images: referenceImages,
         transparency: false,
         output_format: "webp",
         enhance_prompt: false,
@@ -244,7 +245,7 @@ export class ReplicateImageProvider {
           prompt,
           quality: getGptImageQuality(quality),
           aspect_ratio: aspectRatio === "4:5" ? "3:4" : aspectRatio,
-          input_images: referenceImage ? [referenceImage] : [],
+          input_images: referenceImages,
           number_of_images: 1,
           output_format: "jpeg",
           output_compression: this.outputQuality,
@@ -253,7 +254,7 @@ export class ReplicateImageProvider {
         prompt,
         resolution: getResolution(quality),
         aspect_ratio: aspectRatio,
-        input_images: referenceImage ? [referenceImage] : [],
+        input_images: referenceImages,
         output_format: "jpg",
         output_quality: this.outputQuality,
         safety_tolerance: this.safetyTolerance,
