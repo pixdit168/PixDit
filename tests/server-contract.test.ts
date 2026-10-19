@@ -160,6 +160,14 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.ok(suggestedHeadline.payload.headline.length > 0 && suggestedHeadline.payload.headline.length <= 100);
   assert.doesNotMatch(suggestedHeadline.payload.headline, /kopi|rasa|makanan|minuman/i);
 
+  const coffeeHeadline = await request("/api/headline-suggest", {
+    method: "POST",
+    csrf: true,
+    body: { prompt: "Iklan kopi susu gula aren untuk pelanggan yang suka rasa hangat", category: "Makanan & Minuman", variation: 1 },
+  });
+  assert.equal(coffeeHeadline.response.status, 200);
+  assert.match(coffeeHeadline.payload.headline, /kopi susu/i);
+
   const propertyHeadline = await request("/api/headline-suggest", {
     method: "POST",
     csrf: true,

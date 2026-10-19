@@ -749,7 +749,7 @@ function createProjectFromInspiration(inspirationId) {
     hasResults: false,
     generatedImages: [],
     quality: "1mp",
-    headlineMode: "manual",
+    headlineMode: "ai",
     logoPositions: {},
     inspirationSource: source.id,
   };
@@ -757,7 +757,7 @@ function createProjectFromInspiration(inspirationId) {
   saveProjects();
   renderProjects();
   openProject(project.id);
-  showToast("Inspirasi siap dikembangkan", "Ubah brief, teks poster, dan arah visual agar sesuai dengan brand-mu.", "✦");
+  showToast("Inspirasi siap dikembangkan", "Teks poster dibuat otomatis saat generasi; kamu bisa mengubahnya di Pengaturan Lanjutan.", "✦");
 }
 
 const promptSuggestionSets = {
@@ -2033,6 +2033,7 @@ function setHeadlineMode(mode, { persist = true } = {}) {
 
 async function suggestHeadline({ silent = false } = {}) {
   if (!activeProject) return false;
+  const projectId = activeProject.id;
   const button = $("#generate-headline");
   const originalMarkup = button?.innerHTML || "✦ Buat headline dari brief";
   if (button) {
@@ -2050,6 +2051,7 @@ async function suggestHeadline({ silent = false } = {}) {
         variation: Date.now(),
       }),
     });
+    if (activeProject?.id !== projectId || activeProject.headlineMode !== "ai") return false;
     $("#headline-input").value = String(data.headline || "").slice(0, 100);
     activeProject.headline = $("#headline-input").value;
     markSaving();
@@ -2726,7 +2728,7 @@ function bindEvents() {
       prompt: "",
       brandLogo: "",
       logoPositions: {},
-      headlineMode: "manual",
+      headlineMode: "ai",
       quality: "1mp",
       generationCount: 1,
       agentTier: isSubscriber() ? "pro" : "free",
@@ -2779,7 +2781,10 @@ function bindEvents() {
       if (activeProject?.hasResults) renderConcepts(false, generatedImages);
     }),
   );
-  $$('[data-headline-mode]').forEach((button) => button.addEventListener("click", () => setHeadlineMode(button.dataset.headlineMode)));
+  $$('[data-headline-mode]').forEach((button) => button.addEventListener("click", () => {
+    setHeadlineMode(button.dataset.headlineMode);
+    if (button.dataset.headlineMode === "ai" && $("#prompt-input").value.trim()) void suggestHeadline();
+  }));
   $("#generate-headline").addEventListener("click", () => suggestHeadline());
   $$(".creation-mode-option").forEach((button) => {
     button.addEventListener("click", () => selectCreationMode(button.dataset.creationMode));

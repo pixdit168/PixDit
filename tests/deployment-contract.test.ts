@@ -19,9 +19,14 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.equal(rewrites.get("/favicon.ico"), "/favicon.svg");
 
   const html = await fs.readFile(path.join(projectRoot, "index.html"), "utf8");
+  const browserSource = await fs.readFile(path.join(projectRoot, "public/app.ts"), "utf8");
   const browserScript = await fs.readFile(path.join(projectRoot, "public/app.js"), "utf8");
   const publishedScript = await fs.readFile(path.join(projectRoot, "dist/app.js"), "utf8");
   assert.match(html, /<script src="\/app\.js"><\/script>/);
+  assert.match(html, /<details id="poster-advanced" class="copy-section">[\s\S]*?<summary[^>]*>[\s\S]*?Pengaturan Lanjutan[\s\S]*?<\/details>/);
+  assert.match(html, /data-headline-mode="ai">Otomatis<\/button>/);
+  assert.match(browserSource, /headlineMode: "ai"/);
+  assert.match(browserSource, /if \(activeProject\?\.headlineMode === "ai"\) await suggestHeadline\(\{ silent: true \}\)/);
   assert.equal(publishedScript, browserScript);
   assert.match(publishedScript, /^const \$ = /);
   assert.doesNotMatch(browserScript, /^\s*(?:import|export)\s/m);

@@ -447,6 +447,7 @@ function headlineSuggestion(input) {
   }[category];
   const matched = sectors.find((sector) => sector.match.test(brief.toLowerCase()))
     || sectors.find((sector) => sector.key === categorySector);
+  const foodProduct = matched?.key === "food" && brief.match(/\b(kopi(?: susu)?|teh|roti|kue|donat|burger|pizza|bakso|mie|nasi|cokelat|jus)\b/i)?.[1];
   const lines = matched?.lines || [
     "Ide baik, dibuat lebih berarti.",
     "Saatnya mengubah rencana menjadi kemajuan.",
@@ -454,6 +455,15 @@ function headlineSuggestion(input) {
   ];
   const variation = String(input.variation || "0");
   const hash = [...`${brief}|${brand}|${variation}`].reduce((total, character) => ((total * 31) + character.charCodeAt(0)) >>> 0, 7);
+  if (foodProduct) {
+    const product = foodProduct.toLowerCase();
+    const productLines = [
+      `${product} pilihan untuk momen yang berarti.`,
+      `Nikmati ${product} yang bikin ingin kembali.`,
+      `Satu ${product}, banyak cerita.`,
+    ];
+    return productLines[hash % productLines.length].slice(0, 100);
+  }
   return lines[hash % lines.length].slice(0, 100);
 }
 

@@ -325,18 +325,20 @@
                 <div id="prompt-suggestion-buttons"></div>
               </div>
 
-              <div class="copy-section">
-                <div class="copy-section-head"><span>Teks Poster</span><small>Ditambahkan setelah gambar dibuat</small></div>
+              <details id="poster-advanced" class="copy-section">
+                <summary class="copy-section-head"><span>Pengaturan Lanjutan</span><small>Teks poster &amp; logo · opsional</small></summary>
+                <div class="copy-section-body">
+                <p class="copy-auto-note">Headline dibuat otomatis dari brief dan kategori saat gambar digenerasi. Buka pengaturan ini untuk mengubah teks atau menambahkan logo.</p>
                 <label for="brand-input">Nama Brand:</label>
                 <input id="brand-input" type="text" maxlength="60" value="Rumah Seduh" placeholder="Contoh: Rumah Seduh" />
                 <div class="headline-control-head">
                   <label for="headline-input">Headline:</label>
                   <div id="headline-mode-toggle" class="headline-mode-toggle" role="group" aria-label="Cara membuat headline">
-                    <button class="active" type="button" data-headline-mode="manual">Tulis manual</button>
-                    <button type="button" data-headline-mode="ai">Buatkan AI</button>
+                    <button type="button" data-headline-mode="manual">Tulis manual</button>
+                    <button class="active" type="button" data-headline-mode="ai">Otomatis</button>
                   </div>
                 </div>
-                <textarea id="headline-input" maxlength="100" rows="2" placeholder="Contoh: Rasa pulang di setiap tegukan">Rasa pulang di setiap tegukan.</textarea>
+                <textarea id="headline-input" maxlength="100" rows="2" readonly placeholder="Contoh: Rasa pulang di setiap tegukan">Rasa pulang di setiap tegukan.</textarea>
                 <button id="generate-headline" class="headline-ai-button is-hidden" type="button"><span>✦</span><strong>Buat headline dari brief</strong></button>
                 <label for="cta-input">Call to Action:</label>
                 <input id="cta-input" type="text" maxlength="50" value="Nikmati sekarang" placeholder="Contoh: Pesan sekarang" />
@@ -346,8 +348,9 @@
                   <label class="logo-upload-button" for="brand-logo-input"><span>↑</span><strong>Upload logo</strong><small>PNG/JPG · latar dihapus otomatis</small></label>
                   <div id="brand-logo-preview" class="brand-logo-preview is-hidden"><img alt="Preview logo brand" /><button id="remove-brand-logo" type="button" aria-label="Hapus logo">×</button></div>
                 </div>
-                <p>AI membuat key visual tanpa tulisan. Kosongkan kolom yang tidak ingin ditampilkan. Logo diperkecil dan latarnya dihapus otomatis; posisinya dapat kamu atur langsung dengan drag pada hasil gambar.</p>
-              </div>
+                <p>Key visual dibuat tanpa tulisan; teks ditambahkan setelahnya. Pilih Tulis manual untuk mengedit, mengganti, atau menambahkan teks sendiri. Kosongkan kolom yang tidak ingin ditampilkan. Logo dapat kamu atur langsung pada hasil gambar.</p>
+                </div>
+              </details>
 
               <div class="generation-count-section">
                 <div class="control-title"><span>Jumlah Gambar</span><small id="generation-count-plan-note">Paket gratis: 1 gambar</small></div>
