@@ -65,6 +65,7 @@ test("Flux 2 Pro prediction is created, polled, and downloaded", async () => {
   assert.equal(body.input.resolution, "2 MP");
   assert.equal(body.input.aspect_ratio, "4:5");
   assert.deepEqual(body.input.input_images, []);
+  assert.ok(Number.isInteger(body.input.seed));
 });
 
 test("an aborted generation asks Replicate to cancel the prediction", async () => {

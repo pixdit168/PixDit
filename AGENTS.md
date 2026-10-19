@@ -10,14 +10,16 @@ Layera is an Indonesian-language campaign image generator. It is a TypeScript/No
 - `api/index.ts` and `vercel.json`: Vercel entry point and routes. `/generated/*` must reach the backend, not the SPA fallback. `npm run vercel-build` compiles TypeScript and packages only the public assets in ignored `dist/`; Vercel publishes that directory through `@vercel/static-build`.
 - `index.html`, `public/app.ts`, `public/styles.css`: browser UI and interaction. Most user-facing copy is Indonesian.
 - `lib/replicate.ts`: Replicate model inputs, polling, image download, reference-image resizing, and prediction cancellation.
-- `lib/creative-agents.ts`: the ten distinct visual directions used when generating variations.
+- `lib/image-prompt.ts` and `lib/generation-jobs.ts`: prompt-first model instructions and neutral one/ten-image job slots.
 - `lib/supabase.ts` and `supabase/schema.sql`: Supabase Auth, application state, and the private `layera-generated` Storage bucket.
-- `tests/`: backend contracts, model adapter, visual directions, and storage tests.
-- `.env.example`, `NODE-DEPLOYMENT.md`, `PUBLIC-DEPLOYMENT.md`: configuration and deployment guidance. `README.md` is currently empty.
+- `tests/`: backend contracts, model adapter, prompt-first generation jobs, and storage tests.
+- `README.md`, `.env.example`, `NODE-DEPLOYMENT.md`, `PUBLIC-DEPLOYMENT.md`: project overview, configuration, and deployment guidance.
 
 ## Current behavior to preserve
 
 - Agent Free uses `sourceful/riverflow-2.0-pro`; Agent Pro uses `black-forest-labs/flux-2-pro`. The environment overrides are `REPLICATE_FREE_MODEL` and `REPLICATE_PRO_MODEL`. The UI labels are Agent Free and Agent Pro.
+- Image generation passes the user's original prompt first, with only explicitly selected optional style/color hints. Ten-image jobs use the same prompt and neutral `Variasi 01`–`Variasi 10` labels; no behavioral creative agents are involved.
+- Image refinement uses the stored source image and the user's edit request, not historical creative-agent metadata. Older projects may retain that metadata without affecting new generation or editing.
 - Free accounts may generate one 1MP image per request. Subscribers may choose one or ten images and 1MP, 2MP, or 4MP. Keep plan and credit enforcement on the server.
 - Users may start from a written prompt or upload a product image. The browser resizes product images, and the server normalizes them again before sending them to Replicate.
 - Generated images are stored in a private Supabase Storage bucket and served through authenticated `/generated/*` requests. Edits read their source image from that storage, not a local directory.

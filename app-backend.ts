@@ -4,7 +4,7 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { creativeAgents } from "./lib/creative-agents.js";
+import { getGenerationJobs } from "./lib/generation-jobs.js";
 import { newImagePrompt } from "./lib/image-prompt.js";
 import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supabase.js";
 import { ReplicateImageProvider } from "./lib/replicate.js";
@@ -339,14 +339,6 @@ function generationCreditCost(quality, count = 1) {
   return perImage * Math.max(1, count);
 }
 
-function getGenerationJobs(imageCount, requestId) {
-  if (imageCount === creativeAgents.length) {
-    return creativeAgents.map((creativeAgent, slot) => ({ slot, agentIndex: slot, creativeAgent }));
-  }
-  const direction = Number.parseInt(sha256(requestId).slice(0, 8), 16) % creativeAgents.length;
-  return [{ slot: 0, agentIndex: direction, creativeAgent: creativeAgents[direction] }];
-}
-
 function creditAllowed(userId, eventType, creditCost) {
   const usage = getUsageStatus(userId);
   if (creditCost > usage.credits.remaining) return { allowed: false, usage };
@@ -415,7 +407,7 @@ function enhancedPrompt(input) {
   if (String(input.brand || "").trim()) parts.push(`Identitas brand yang perlu terasa: ${String(input.brand).trim()}`);
   if (String(input.headline || "").trim()) parts.push(`Makna headline yang perlu didukung visual: ${String(input.headline).trim()}`);
   if (String(input.cta || "").trim()) parts.push(`Aksi yang ingin didorong: ${String(input.cta).trim()}`);
-  parts.push("Hasilkan key visual saja tanpa teks, huruf, angka, watermark, atau logo; aplikasi akan menambahkan elemen branding setelah gambar dibuat");
+  parts.push("Pertahankan instruksi eksplisit pengguna, termasuk permintaan teks di dalam gambar jika disebutkan");
   const result = parts.join(". ").trim();
   return result.length > 1000 ? `${result.slice(0, 997).trimEnd()}...` : result;
 }
@@ -530,11 +522,10 @@ async function handleGeneration(request, response, input, auth) {
   if (!isBrandAllowed(auth.user.id, brandName)) return sendJson(response, 403, { error: "brand_limit", upgradeRequired: true, message: `Paket Gratis hanya berlaku untuk 1 brand. Brand aktif akun ini adalah '${usage.brand.name}'. Upgrade ke Pro untuk menggunakan brand tanpa batas.`, usage });
 
   const requestId = String(input.requestId || randomUUID());
-  const generationJobs = getGenerationJobs(imageCount, requestId);
+  const generationJobs = getGenerationJobs(imageCount);
   const jobId = randomUUID().replace(/-/g, "");
   const format = String(input.format || "Instagram Post · 4:5").trim();
   const style = String(input.style || "Eksploratif").trim();
-  const category = String(input.category || "Bisnis lokal").trim();
   const primaryColor = /^#[0-9a-f]{6}$/i.test(input.primaryColor || "") ? input.primaryColor : "";
   let preparedReferenceImage = "";
   if (productImage) {
@@ -562,13 +553,13 @@ async function handleGeneration(request, response, input, auth) {
   const failureMessages = [];
   const perImageCreditCost = generationCreditCost(quality, 1);
   try {
-    for (const { slot, agentIndex, creativeAgent } of generationJobs) {
+    for (const { slot, name } of generationJobs) {
       try {
-        sendNdjson(response, { type: "progress", index: slot, direction: creativeAgent.name });
-        const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, imageCount, hasProductReference: Boolean(preparedReferenceImage) });
+        sendNdjson(response, { type: "progress", index: slot, name });
+        const prompt = newImagePrompt({ brief, style, styleExplicit: input.styleExplicit === true, primaryColor, primaryColorExplicit: input.primaryColorExplicit === true, hasProductReference: Boolean(preparedReferenceImage) });
         const result = await imageProvider.run({ prompt, format, quality, preparedReferenceImage, signal: abortController.signal });
         const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
-        const fileName = `concept-${String(slot + 1).padStart(2, "0")}.${result.extension}`;
+        const fileName = `variation-${String(slot + 1).padStart(2, "0")}.${result.extension}`;
         const imageId = `${safeJobId}/${fileName}`;
         const url = `/generated/${imageId}`;
         await store.saveImage(imageId, auth.user.id, result.buffer, result.mimeType);
@@ -576,11 +567,11 @@ async function handleGeneration(request, response, input, auth) {
         await addUsageEvent(auth.user.id, "generate", perImageCreditCost);
         if (!brandRecorded) { await addAccountBrand(auth.user.id, brandName); brandRecorded = true; }
         successCount += 1;
-        sendNdjson(response, { type: "image", index: slot, agentIndex, name: creativeAgent.name, agentTier, agentLabel: getAgentLabel(agentTier), url, displayUrl: url });
+        sendNdjson(response, { type: "image", index: slot, name, agentTier, agentLabel: getAgentLabel(agentTier), url, displayUrl: url });
       } catch (error) {
         const message = safeClientError(error);
         failureMessages.push(message);
-        sendNdjson(response, { type: "image_error", index: slot, name: creativeAgent.name, message });
+        sendNdjson(response, { type: "image_error", index: slot, name, message });
         if (abortController.signal.aborted) break;
       }
     }
@@ -592,9 +583,7 @@ async function handleGeneration(request, response, input, auth) {
 }
 
 async function handleRefinement(request, response, input, auth) {
-  const brief = String(input.prompt || "").trim();
   const refinement = String(input.refinement || "").trim();
-  if (brief.length < 20 || brief.length > 1000) return sendJson(response, 400, { error: "invalid_prompt", message: "Prompt Library harus berisi 20-1000 karakter." });
   if (!refinement || refinement.length > 500) return sendJson(response, 400, { error: "invalid_refinement", message: "Instruksi edit harus berisi 1-500 karakter." });
   const usage = getUsageStatus(auth.user.id);
   const requestedAgentTier = String(input.agentTier || "").trim().toLowerCase();
@@ -610,21 +599,17 @@ async function handleRefinement(request, response, input, auth) {
   if (!creditAllowed(auth.user.id, "refine", 3).allowed) return quotaExceeded(response, auth.user.id, "refine", 3);
   activeUserJobs.add(auth.user.id);
   try {
-    const indexValue = Number(input.agentIndex ?? input.conceptIndex);
-    const index = Number.isInteger(indexValue) && indexValue >= 0 && indexValue < creativeAgents.length ? indexValue : 0;
-    const creativeAgent = creativeAgents[index];
+    const indexValue = Number(input.conceptIndex);
+    const index = Number.isInteger(indexValue) && indexValue >= 0 && indexValue < 10 ? indexValue : 0;
     const format = String(input.format || "Instagram Post · 4:5").trim();
-    const style = String(input.style || "Eksploratif").trim();
-    const category = String(input.category || "Bisnis lokal").trim();
-    const primaryColor = /^#[0-9a-f]{6}$/i.test(input.primaryColor || "") ? input.primaryColor : "";
     let quality = String(input.quality || "1mp").toLowerCase();
     if (!usage.allowedQualities.includes(quality)) quality = "1mp";
     const sourcePath = await resolveGeneratedSource(input.sourceUrl, auth.user.id);
-    const prompt = newImagePrompt({ brief, category, creativeAgent, format, style, primaryColor, refinement });
+    const prompt = newImagePrompt({ brief: "", refinement });
     const result = await imageProvider.run({ prompt, format, quality, sourcePath });
     const jobId = `refine-${randomUUID().replace(/-/g, "")}`;
     const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
-    const fileName = `concept-${String(index + 1).padStart(2, "0")}.${result.extension}`;
+    const fileName = `variation-${String(index + 1).padStart(2, "0")}.${result.extension}`;
     const imageId = `${safeJobId}/${fileName}`;
     const url = `/generated/${imageId}`;
     await store.saveImage(imageId, auth.user.id, result.buffer, result.mimeType);

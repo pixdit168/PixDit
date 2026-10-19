@@ -9,6 +9,8 @@ Kedua agent berjalan melalui Replicate dan dipilih dari workspace:
 - Paket Gratis: 1 gambar per permintaan dan kualitas 1MP.
 - Layera Pro: Agent Free atau Agent Pro, pilihan 1 atau 10 gambar, kualitas 1MP/2MP/4MP.
 
+Generasi gambar mengikuti prompt asli pengguna. Pilihan 10 gambar mengirim prompt yang sama untuk tiap variasi; model Replicate dapat menghasilkan variasi alami tanpa arah kreatif bawaan. Gaya dan warna hanya menjadi petunjuk tambahan jika dipilih secara eksplisit. Edit gambar memakai gambar tersimpan dan instruksi edit pengguna.
+
 Pengguna juga dapat memulai sepenuhnya dari prompt atau mengunggah gambar produk. Gambar produk di-resize di browser dan dinormalisasi ulang oleh server sebelum dikirim ke Replicate.
 
 ## Menjalankan secara lokal

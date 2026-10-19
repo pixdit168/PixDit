@@ -119,6 +119,14 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(freeHealth.payload.agents.pro.model, "black-forest-labs/flux-2-pro");
   assert.equal(freeHealth.payload.agents.free.model, "sourceful/riverflow-2.0-pro");
 
+  const legacyRefinement = await request("/api/refine", {
+    method: "POST",
+    csrf: true,
+    body: { refinement: "Change only the background to blue", sourceUrl: "/generated/legacy/image.jpg" },
+  });
+  assert.equal(legacyRefinement.response.status, 503);
+  assert.equal(legacyRefinement.payload.error, "provider_not_configured");
+
   const initialState = await request("/api/state");
   assert.equal(initialState.response.status, 200);
   assert.deepEqual(initialState.payload.projects, []);
@@ -128,9 +136,16 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   const savedState = await request("/api/state", {
     method: "PUT",
     csrf: true,
-    body: { projects: [{ id: "project-1", name: "Kampanye Sepatu" }], library: [] },
+    body: {
+      projects: [{ id: "project-1", name: "Kampanye Sepatu", generatedImages: [{ url: "/generated/legacy/image.jpg", agentIndex: 7, name: "Mixed Collage" }] }],
+      library: [{ id: "legacy-image", conceptIndex: 7, agentIndex: 7, conceptName: "Mixed Collage", versions: [{ id: "legacy-v1", url: "/generated/legacy/image.jpg" }] }],
+    },
   });
   assert.equal(savedState.response.status, 200);
+  const reloadedLegacyState = await request("/api/state");
+  assert.equal(reloadedLegacyState.response.status, 200);
+  assert.equal(reloadedLegacyState.payload.projects[0].generatedImages[0].agentIndex, 7);
+  assert.equal(reloadedLegacyState.payload.library[0].versions[0].url, "/generated/legacy/image.jpg");
 
   const enhanced = await request("/api/prompt-enhance", {
     method: "POST",

@@ -27,6 +27,8 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.match(html, /data-headline-mode="ai">Otomatis<\/button>/);
   assert.match(browserSource, /headlineMode: "ai"/);
   assert.match(browserSource, /if \(activeProject\?\.headlineMode === "ai"\) await suggestHeadline\(\{ silent: true \}\)/);
+  assert.match(browserSource, /variationName\(conceptIndex\)/);
+  assert.doesNotMatch(browserSource, /Human Narrative|Kinetic Impact|Agent Aruna|Agent Bima/);
   assert.equal(publishedScript, browserScript);
   assert.match(publishedScript, /^const \$ = /);
   assert.doesNotMatch(browserScript, /^\s*(?:import|export)\s/m);

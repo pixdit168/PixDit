@@ -60,18 +60,9 @@ const inspirationProjects = [
   },
 ];
 
-const concepts = [
-  { name: "Human Narrative", agent: "Agent Aruna", description: "Cerita manusia yang autentik" },
-  { name: "Kinetic Impact", agent: "Agent Bima", description: "Aksi sinematik dan diagonal" },
-  { name: "Modular Explainer", agent: "Agent Citra", description: "Alur visual 3–5 tahap" },
-  { name: "Catalog Matrix", agent: "Agent Dara", description: "Katalog modular 4–6 contoh" },
-  { name: "Macro Craft", agent: "Agent Elang", description: "Detail proses dari dekat" },
-  { name: "Bold Diptych", agent: "Agent Fajar", description: "Dua sisi dengan kontras tegas" },
-  { name: "Spatial Journey", agent: "Agent Gita", description: "Rute dan ruang berlapis" },
-  { name: "Mixed Collage", agent: "Agent Harsa", description: "Kolase ekspresif dan tak rapi" },
-  { name: "Premium Sculpture", agent: "Agent Intan", description: "Minimal, ikonik, dan mewah" },
-  { name: "Surreal Scale", agent: "Agent Jaya", description: "Metafora skala tak terduga" },
-];
+const MAX_VARIATIONS = 10;
+const variationName = (index) => `Variasi ${String(index + 1).padStart(2, "0")}`;
+const variationIndex = (value) => Math.max(0, Math.min(MAX_VARIATIONS - 1, Math.trunc(Number(value) || 0)));
 
 const copyDefaults = {
   "Makanan & Minuman": { headline: "Rasa yang layak dibagikan.", cta: "Pesan sekarang" },
@@ -750,6 +741,8 @@ function createProjectFromInspiration(inspirationId) {
     generatedImages: [],
     quality: "1mp",
     headlineMode: "ai",
+    styleExplicit: false,
+    primaryColorExplicit: false,
     logoPositions: {},
     inspirationSource: source.id,
   };
@@ -1166,8 +1159,8 @@ function renderLibrary() {
 
   grid.innerHTML = libraryItems
     .map((item) => {
-      const conceptIndex = Math.max(0, Math.min(concepts.length - 1, Number(item.conceptIndex) || 0));
-      const concept = concepts[conceptIndex];
+      const conceptIndex = variationIndex(item.conceptIndex);
+      const label = variationName(conceptIndex);
       const versions = Array.isArray(item.versions) ? item.versions : [];
       const current = getCurrentLibraryVersion(item) || {};
       const imageSource = current.url || "";
@@ -1179,13 +1172,13 @@ function renderLibrary() {
         <article class="library-card" data-library-id="${escapeHtml(item.id)}">
           <div class="library-card-preview">
             <div class="poster poster-${conceptIndex + 1} ${formatClass} ${imageSource ? "api-poster" : ""}">
-              ${imageSource ? `<img class="generated-image" src="${escapeHtml(imageSource)}" alt="${escapeHtml(item.conceptName || concept.name)}" style="filter:${escapeHtml(getColorGradeFilter(current.colorGrade))}" />` : ""}
+              ${imageSource ? `<img class="generated-image" src="${escapeHtml(imageSource)}" alt="${escapeHtml(label)}" style="filter:${escapeHtml(getColorGradeFilter(current.colorGrade))}" />` : ""}
               <div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy)}</div>
             </div>
             <span class="library-version-badge">${isOriginal ? "ORIGINAL" : `VERSI ${versions.indexOf(current) + 1}`}</span>
           </div>
           <div class="library-card-body">
-            <div class="library-card-title"><div><small>${escapeHtml(item.projectName || "Proyek Kanvas")}</small><h3>${escapeHtml(item.conceptName || concept.name)}</h3></div><span class="original-lock" title="Gambar awal terkunci">◆ Aman</span></div>
+            <div class="library-card-title"><div><small>${escapeHtml(item.projectName || "Proyek Kanvas")}</small><h3>${escapeHtml(label)}</h3></div><span class="original-lock" title="Gambar awal terkunci">◆ Aman</span></div>
             <p>${escapeHtml(item.category || "Bisnis lokal")} · ${versions.length} versi</p>
             <div class="version-strip" aria-label="Pilih versi">
               ${versions.map((version, index) => `<button class="version-pill ${version.id === current.id ? "active" : ""}" data-version-id="${escapeHtml(version.id)}" type="button" title="${escapeHtml(version.refinement || "Gambar original")}">${index === 0 ? "Original" : `V${index + 1}`}</button>`).join("")}
@@ -1235,16 +1228,16 @@ function renderLibraryPreview() {
   const item = getLibraryItem(activeLibraryPreviewId);
   const version = getCurrentLibraryVersion(item);
   if (!item || !version?.url) return closeLibraryPreview();
-  const conceptIndex = Math.max(0, Math.min(concepts.length - 1, Number(item.conceptIndex) || 0));
+  const conceptIndex = variationIndex(item.conceptIndex);
   const poster = $("#library-preview-poster");
   const posterCopy = getLibraryPosterCopy(item);
   const versionIndex = item.versions.findIndex((candidate) => candidate.id === version.id);
   const grade = normalizeColorGrade(version.colorGrade);
   version.colorGrade = grade;
-  $("#library-preview-title").textContent = item.conceptName || concepts[conceptIndex].name;
+  $("#library-preview-title").textContent = variationName(conceptIndex);
   $("#library-preview-version").textContent = `${item.projectName || "Proyek Kanvas"} · ${versionIndex === 0 ? "Original" : `Versi ${versionIndex + 1}`}`;
   poster.className = `poster poster-${conceptIndex + 1} ${getPosterFormatClass(item.format)} api-poster`;
-  poster.innerHTML = `<img class="generated-image" src="${escapeHtml(version.url)}" alt="Preview penuh ${escapeHtml(item.conceptName || concepts[conceptIndex].name)}" style="filter:${escapeHtml(getColorGradeFilter(grade))}" /><div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy)}</div>`;
+  poster.innerHTML = `<img class="generated-image" src="${escapeHtml(version.url)}" alt="Preview penuh ${escapeHtml(variationName(conceptIndex))}" style="filter:${escapeHtml(getColorGradeFilter(grade))}" /><div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy)}</div>`;
   updateAdaptiveLogos(poster);
   $$('[data-grade]', $("#library-preview-modal")).forEach((input) => {
     input.value = String(grade[input.dataset.grade]);
@@ -1440,8 +1433,8 @@ function openProject(id) {
   $("#headline-input").value = posterCopy.headline;
   $("#cta-input").value = posterCopy.cta;
   setHeadlineMode(activeProject.headlineMode || "manual", { persist: false });
-  const legacyAgentCount = Array.isArray(activeProject.agentIndexes) ? activeProject.agentIndexes.length : 0;
-  selectedGenerationCount = Number(activeProject.generationCount) === 10 || legacyAgentCount === 10 ? 10 : 1;
+  const savedImageCount = Array.isArray(activeProject.generatedImages) ? activeProject.generatedImages.length : 0;
+  selectedGenerationCount = Number(activeProject.generationCount) === 10 || savedImageCount === 10 ? 10 : 1;
   if (!isSubscriber()) selectedGenerationCount = 1;
   selectedAgentTier = activeProject.agentTier === "free" ? "free" : (isSubscriber() ? "pro" : "free");
   activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
@@ -1530,15 +1523,13 @@ function closeHelpModal({ restoreFocus = false } = {}) {
 
 function renderConcepts(loading = false, images = generatedImages) {
   const formatClass = getPosterFormatClass($("#format-select")?.value || activeProject?.format);
-  const completedIndexes = concepts.map((_, index) => index).filter((index) => images[index]);
+  const completedIndexes = Array.from({ length: MAX_VARIATIONS }, (_, index) => index).filter((index) => images[index]);
   const requestedIndexes = Array.from({ length: selectedGenerationCount }, (_, index) => index);
   const visibleIndexes = loading ? requestedIndexes : (completedIndexes.length ? completedIndexes : requestedIndexes);
   $("#results-grid").innerHTML = visibleIndexes
     .map((index) => {
       const image = images[index];
-      const directionIndex = Number.isInteger(image?.agentIndex) ? image.agentIndex : index;
-      const concept = concepts[directionIndex] || concepts[index] || concepts[0];
-      const conceptName = image?.name || concept.name;
+      const conceptName = variationName(index);
       const imageSource = image && (image.displayUrl || image.url);
       const isLoading = loading && !imageSource && !(image && image.error);
       const hasApiImage = Boolean(imageSource);
@@ -1550,7 +1541,7 @@ function renderConcepts(loading = false, images = generatedImages) {
             ${hasApiImage ? `<img class="generated-image" src="${escapeHtml(imageSource)}" alt="Hasil visual ${escapeHtml(conceptName)}" />` : ""}
             <div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy, { draggableLogo: hasApiImage && !isLoading, logoScope: "project", logoKey: index })}</div>
           </div>
-          <div class="concept-meta"><span>${String(index + 1).padStart(2, "0")} · ${escapeHtml(conceptName)}</span><small>${image && image.error ? "Gagal · coba lagi" : "Variasi visual"}</small></div>
+          <div class="concept-meta"><span>${escapeHtml(conceptName)}</span><small>${image && image.error ? "Gagal · coba lagi" : "Variasi visual"}</small></div>
         </article>`;
     })
     .join("");
@@ -1675,8 +1666,7 @@ function bindLogoEditing(root) {
 function selectConcept(index) {
   selectedConcept = index;
   $$(".concept-card").forEach((card) => card.classList.toggle("selected", Number(card.dataset.concept) === index));
-  const selected = concepts[index];
-  $("#selected-name").textContent = `Konsep ${String(index + 1).padStart(2, "0")} · ${selected.name}`;
+  $("#selected-name").textContent = variationName(index);
   const thumb = $("#selection-bar .selected-thumb");
   const image = generatedImages[index];
   const imageSource = image && (image.displayUrl || image.url);
@@ -1724,8 +1714,6 @@ function saveSelectedToLibrary() {
     showToast("Belum ada key visual AI", "Buat gambar terlebih dahulu sebelum menyimpan desain ke Library.", "!");
     return;
   }
-  const directionIndex = Number.isInteger(image.agentIndex) ? image.agentIndex : selectedConcept;
-  const concept = concepts[directionIndex] || concepts[selectedConcept] || concepts[0];
   const createdAt = new Date().toISOString();
   const itemId = `library-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const originalVersionId = `${itemId}-v1`;
@@ -1742,9 +1730,7 @@ function saveSelectedToLibrary() {
     quality: $("#quality-select").value,
     posterCopy: getWorkspacePosterCopy(selectedConcept),
     conceptIndex: selectedConcept,
-    agentIndex: directionIndex,
-    conceptName: image.name || concept.name,
-    agent: concept.agent,
+    conceptName: variationName(selectedConcept),
     agentTier: image.agentTier || selectedAgentTier,
     sourceUrl,
     createdAt,
@@ -1813,7 +1799,7 @@ async function startGeneration() {
   $("#cancel-generation").disabled = false;
   $("#cancel-generation").textContent = "Batalkan";
   renderConcepts(true, generatedImages);
-  $("#results-subtitle").textContent = `${imageModelLabel} mengeksplorasi ${requestedCount} arah visual.`;
+  $("#results-subtitle").textContent = `${imageModelLabel} membuat ${requestedCount} variasi dari brief-mu.`;
   const progressTitle = $("#progress-title");
   if (progressTitle) progressTitle.textContent = `${imageModelLabel} sedang membuat key visual...`;
   setGenerationProgress(3, `Menyiapkan ${imageModelLabel} untuk ${requestedCount} gambar`);
@@ -1831,7 +1817,9 @@ async function startGeneration() {
         category: activeProject?.category || "Bisnis lokal",
         format: $("#format-select").value,
         style: selectedStyle,
+        styleExplicit: activeProject?.styleExplicit === true || (activeProject?.styleExplicit === undefined && selectedStyle !== "Eksploratif"),
         primaryColor: $("#color-control").value,
+        primaryColorExplicit: activeProject?.primaryColorExplicit === true || (activeProject?.primaryColorExplicit === undefined && Boolean(activeProject?.primaryColor && activeProject.primaryColor !== "#5a3529")),
         imageCount: requestedCount,
         quality: requestedQuality,
         agentTier: requestedAgentTier,
@@ -1884,14 +1872,13 @@ async function startGeneration() {
         }
         if (event.type === "progress") {
           const percent = Math.min(92, 8 + (completedImages / requestedCount) * 82);
-          setGenerationProgress(percent, `${event.direction || imageModelLabel} sedang membuat variasi visual`);
+          setGenerationProgress(percent, `${event.name || imageModelLabel} sedang dibuat`);
         }
         if (event.type === "image") {
           generatedImages[event.index] = {
             url: event.url,
             displayUrl: event.displayUrl,
-            name: event.name,
-            agentIndex: event.agentIndex,
+            name: variationName(event.index),
             agentTier: event.agentTier || requestedAgentTier,
           };
           renderConcepts(true, generatedImages);
@@ -1992,12 +1979,10 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
     activeProject.agentTier = selectedAgentTier;
     activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
     activeProject.productImage = sanitizeProductImageDataUrl(activeProject.productImage || "");
-    delete activeProject.agentIndexes;
     activeProject.generatedImages = generatedImages.map((image) => (image && image.url ? {
       url: image.url,
       displayUrl: image.displayUrl || image.url,
       name: image.name || "",
-      agentIndex: Number.isInteger(image.agentIndex) ? image.agentIndex : undefined,
       agentTier: image.agentTier || selectedAgentTier,
     } : null));
     saveProjects();
@@ -2089,7 +2074,6 @@ function markSaving() {
     activeProject.agentTier = selectedAgentTier;
     activeProject.creationMode = activeProject.creationMode === "product" ? "product" : "prompt";
     activeProject.productImage = sanitizeProductImageDataUrl(activeProject.productImage || "");
-    delete activeProject.agentIndexes;
     saveProjects();
     $("#save-status").innerHTML = "<i></i> Tersimpan";
   }, 700);
@@ -2102,7 +2086,7 @@ function openRefineDrawer(itemId) {
     return;
   }
   activeLibraryItemId = itemId;
-  const conceptIndex = Math.max(0, Math.min(concepts.length - 1, Number(item.conceptIndex) || 0));
+  const conceptIndex = variationIndex(item.conceptIndex);
   const currentVersion = getCurrentLibraryVersion(item);
   const imageSource = currentVersion?.url || "";
   const poster = $("#drawer-poster");
@@ -2160,7 +2144,6 @@ async function regenerateSelected() {
         prompt: libraryItem.prompt,
         refinement: input.value.trim(),
         conceptIndex: libraryItem.conceptIndex,
-        agentIndex: libraryItem.agentIndex,
         projectName: libraryItem.projectName || "Proyek Kanvas",
         category: libraryItem.category || "Bisnis lokal",
         format: libraryItem.format || "Instagram Post · 4:5",
@@ -2276,7 +2259,7 @@ function getCanvasPosterLayout(conceptIndex) {
   return canvasPosterLayouts[index];
 }
 
-function drawCanvasAgentOverlay(context, width, height, type) {
+function drawCanvasPosterOverlay(context, width, height, type) {
   let gradient;
   if (type === "left" || type === "leftNarrow") {
     gradient = context.createLinearGradient(0, 0, width, 0);
@@ -2449,7 +2432,7 @@ async function downloadComposedPoster(imageUrl, posterCopy, fileName, conceptInd
   const layout = getCanvasPosterLayout(conceptIndex);
   const hasPosterText = Boolean(posterCopy.brand || posterCopy.headline || posterCopy.cta);
   if (hasPosterText) {
-    drawCanvasAgentOverlay(context, width, height, layout.overlay);
+    drawCanvasPosterOverlay(context, width, height, layout.overlay);
     drawCanvasPosterText(context, width, height, posterCopy, layout);
   }
   try {
@@ -2472,13 +2455,13 @@ async function downloadComposedPoster(imageUrl, posterCopy, fileName, conceptInd
 
 async function exportSelectedImage() {
   if (selectedConcept === null) {
-    showToast("Pilih satu konsep dulu", "Klik poster yang paling kamu suka sebelum mengekspor.", "↓");
+    showToast("Pilih satu variasi dulu", "Klik gambar yang paling kamu suka sebelum mengekspor.", "↓");
     return;
   }
 
   const image = generatedImages[selectedConcept];
   if (!image || !image.url) {
-    showToast("Belum ada file AI", "Buat konsep melalui server AI agar dapat mengunduh gambar asli.", "!");
+    showToast("Belum ada file AI", "Buat gambar melalui server AI agar dapat mengunduh hasilnya.", "!");
     return;
   }
 
@@ -2487,7 +2470,7 @@ async function exportSelectedImage() {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   try {
-    await downloadComposedPoster(image.url, getWorkspacePosterCopy(selectedConcept), `${safeName}-konsep-${String(selectedConcept + 1).padStart(2, "0")}`, selectedConcept);
+    await downloadComposedPoster(image.url, getWorkspacePosterCopy(selectedConcept), `${safeName}-variasi-${String(selectedConcept + 1).padStart(2, "0")}`, selectedConcept);
     showToast("Poster siap", "Key visual dan teks poster sudah digabungkan sebagai PNG.", "↓");
   } catch (error) {
     showToast("Ekspor gagal", error.message || "Poster tidak dapat disusun.", "!");
@@ -2502,7 +2485,7 @@ async function downloadLibraryVersion(itemId) {
     return;
   }
   const versionIndex = item.versions.findIndex((candidate) => candidate.id === version.id) + 1;
-  const safeName = `${item.projectName || "kanvas"}-${item.conceptName || "desain"}`
+  const safeName = `${item.projectName || "kanvas"}-${variationName(variationIndex(item.conceptIndex))}`
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
@@ -2729,6 +2712,8 @@ function bindEvents() {
       brandLogo: "",
       logoPositions: {},
       headlineMode: "ai",
+      styleExplicit: Boolean(accountPreferences?.defaultStyle && accountPreferences.defaultStyle !== "Eksploratif"),
+      primaryColorExplicit: Boolean(accountPreferences?.primaryColor && accountPreferences.primaryColor !== "#5a3529"),
       quality: "1mp",
       generationCount: 1,
       agentTier: isSubscriber() ? "pro" : "free",
@@ -2867,6 +2852,7 @@ function bindEvents() {
     button.addEventListener("click", () => {
       $$(".style-option").forEach((option) => option.classList.remove("selected"));
       button.classList.add("selected");
+      if (activeProject) activeProject.styleExplicit = true;
       markSaving();
     }),
   );
@@ -2895,11 +2881,16 @@ function bindEvents() {
     $("#format-select").value = accountPreferences?.defaultFormat || "Instagram Post · 4:5";
     $("#color-control").value = accountPreferences?.primaryColor || "#5a3529";
     $("#color-value").textContent = $("#color-control").value.toUpperCase();
+    if (activeProject) {
+      activeProject.styleExplicit = false;
+      activeProject.primaryColorExplicit = false;
+    }
     markSaving();
     if (activeProject?.hasResults) renderConcepts(false, generatedImages);
   });
   $("#color-control").addEventListener("input", () => {
     $("#color-value").textContent = $("#color-control").value.toUpperCase();
+    if (activeProject) activeProject.primaryColorExplicit = true;
     markSaving();
   });
   $("#generate-button").addEventListener("click", startGeneration);
