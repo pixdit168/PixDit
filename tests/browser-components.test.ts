@@ -27,6 +27,7 @@ test("compiled classic browser script preserves image gallery helpers without a 
       legacyPosterLogo: getPosterLogos({ logo: first, logoPosition: { x: 0.2, y: 0.3, width: 0.2 } }),
       posterLogos: posterBeforeRemoval.logos,
       posterMarkup: posterCopyMarkup(posterBeforeRemoval),
+      aiPosterMarkup: posterCopyMarkup(getPosterCopy({ name: "Brand lama", brandLogo: first, generatedImages: [{ compositionMode: "ai" }] })),
       remainingProduct: getProductImages(project),
       remainingLogos: getBrandLogos(project),
       remainingLogoPosition: getProjectLogoPosition(project, 0, 0),
@@ -42,6 +43,7 @@ test("compiled classic browser script preserves image gallery helpers without a 
   assert.equal(result.posterLogos[0].position.x, 0.1);
   assert.equal(result.posterLogos[1].position.x, 0.6);
   assert.equal((result.posterMarkup.match(/class="poster-brand-logo"/g) || []).length, 2);
+  assert.equal(result.aiPosterMarkup, "");
   assert.deepEqual(result.remainingProduct, ["data:image/png;base64,AQ=="]);
   assert.deepEqual(result.remainingLogos, ["data:image/png;base64,AQ=="]);
   assert.equal(result.remainingLogoPosition.x, 0.6);

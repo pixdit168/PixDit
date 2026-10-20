@@ -10,7 +10,7 @@ function renderConcepts(loading = false, images = generatedImages) {
       const imageSource = image && (image.displayUrl || image.url);
       const isLoading = loading && !imageSource && !(image && image.error);
       const hasApiImage = Boolean(imageSource);
-      const posterCopy = getWorkspacePosterCopy(index);
+      const posterCopy = isLoading ? { brand: "", headline: "", cta: "", logos: [] } : getWorkspacePosterCopy(index);
       return `
         <article class="concept-card ${selectedConcept === index ? "selected" : ""} ${isLoading ? "loading" : ""} ${image && image.error ? "generation-error" : ""}" data-concept="${index}" tabindex="${isLoading ? -1 : 0}" role="button" aria-label="Pilih variasi ${index + 1}: ${escapeHtml(conceptName)}">
           <span class="concept-check">✓</span>
@@ -234,8 +234,6 @@ async function startGeneration() {
     return;
   }
 
-  if (activeProject?.headlineMode === "ai") await suggestHeadline({ silent: true });
-
   const requestedQuality = $("#quality-select").value;
   const requestedCount = selectedGenerationCount === 10 ? 10 : 1;
   const requestedAgentTier = selectedAgentTier;
@@ -246,8 +244,9 @@ async function startGeneration() {
     $("#product-image-input").focus();
     return;
   }
-  if (creationMode === "product" && !selectedModelSupportsProductImages()) {
-    showToast("Model tidak mendukung foto produk", "Pilih Agent Pro atau minta admin mengganti model Agent Free.", "!");
+  const brandLogo = getBrandLogos(activeProject)[0] || "";
+  if ((productImages.length || brandLogo) && !selectedModelSupportsReferenceImages()) {
+    showToast("Model tidak mendukung gambar referensi", "Pilih Agent Pro atau model Agent Free yang menerima foto produk dan logo.", "!");
     return;
   }
   const requestedCreditCost = requestedCount * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
@@ -255,15 +254,6 @@ async function startGeneration() {
     openUpgradeModal();
     return;
   }
-  if (getBrandLogos(activeProject).length) {
-    const storedPositions = activeProject.logoPositions && typeof activeProject.logoPositions === "object" ? activeProject.logoPositions : {};
-    Array.from({ length: requestedCount }, (_, index) => index).forEach((index) => {
-      if (!Object.prototype.hasOwnProperty.call(storedPositions, String(index))) {
-        setProjectLogoPosition(activeProject, index, inferLogoPositionFromPrompt(prompt, getProjectLogoPosition(activeProject, index)));
-      }
-    });
-  }
-
   if (window.location.protocol === "file:") {
     showToast("Server AI belum berjalan", "Jalankan npm start lalu buka http://localhost:8000.", "!");
     return;
@@ -290,7 +280,7 @@ async function startGeneration() {
   setGenerationProgress(3, `Menyiapkan ${imageModelLabel} untuk ${requestedCount} gambar`);
 
   try {
-    const selectedStyle = $(".style-option.selected strong")?.textContent || "Eksploratif";
+    const selectedStyle = activeProject?.style || "Eksploratif";
     const response = await fetch("/api/generate", {
       method: "POST",
       signal: generationAbortController.signal,
@@ -302,14 +292,16 @@ async function startGeneration() {
         category: activeProject?.category || "Bisnis lokal",
         format: $("#format-select").value,
         style: selectedStyle,
-        styleExplicit: activeProject?.styleExplicit === true || (activeProject?.styleExplicit === undefined && selectedStyle !== "Eksploratif"),
+        styleExplicit: false,
         primaryColor: $("#color-control").value,
-        primaryColorExplicit: activeProject?.primaryColorExplicit === true || (activeProject?.primaryColorExplicit === undefined && Boolean(activeProject?.primaryColor && activeProject.primaryColor !== "#5a3529")),
+        primaryColorExplicit: false,
         imageCount: requestedCount,
         quality: requestedQuality,
         agentTier: requestedAgentTier,
         creationMode,
+        compositionMode: "ai",
         productImages,
+        brandLogo,
         brandName: $("#brand-input").value.trim() || activeProject?.name || "",
       }),
     });
@@ -365,6 +357,7 @@ async function startGeneration() {
             displayUrl: event.displayUrl,
             name: variationName(event.index),
             agentTier: event.agentTier || requestedAgentTier,
+            compositionMode: "ai",
           };
           renderConcepts(true, generatedImages);
           completedImages += 1;
@@ -452,11 +445,7 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
     activeProject.updated = "Baru saja";
     activeProject.prompt = $("#prompt-input").value.trim();
     activeProject.format = $("#format-select").value;
-    activeProject.style = $(".style-option.selected")?.dataset.style || "Eksploratif";
-    const posterCopy = getWorkspacePosterCopy();
-    activeProject.brandName = posterCopy.brand;
-    activeProject.headline = posterCopy.headline;
-    activeProject.cta = posterCopy.cta;
+    activeProject.style = activeProject.style || "Eksploratif";
     activeProject.primaryColor = $("#color-control").value;
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogos = getBrandLogos(activeProject);
@@ -471,6 +460,7 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
       displayUrl: image.displayUrl || image.url,
       name: image.name || "",
       agentTier: image.agentTier || selectedAgentTier,
+      compositionMode: image.compositionMode || "legacy",
     } : null));
     saveProjects();
   }
@@ -548,12 +538,14 @@ function markSaving() {
   saveTimer = setTimeout(() => {
     activeProject.prompt = $("#prompt-input").value;
     activeProject.format = $("#format-select").value;
-    activeProject.style = $(".style-option.selected")?.dataset.style || "Eksploratif";
-    const posterCopy = getWorkspacePosterCopy();
-    activeProject.brandName = posterCopy.brand;
-    activeProject.headline = posterCopy.headline;
-    activeProject.headlineMode = activeProject.headlineMode === "ai" ? "ai" : "manual";
-    activeProject.cta = posterCopy.cta;
+    activeProject.style = activeProject.style || "Eksploratif";
+    if (!generatedImages.some((image) => image?.compositionMode === "ai")) {
+      const posterCopy = getWorkspacePosterCopy();
+      activeProject.brandName = posterCopy.brand;
+      activeProject.headline = posterCopy.headline;
+      activeProject.headlineMode = activeProject.headlineMode === "ai" ? "ai" : "manual";
+      activeProject.cta = posterCopy.cta;
+    }
     activeProject.primaryColor = $("#color-control").value;
     activeProject.quality = $("#quality-select").value;
     activeProject.brandLogos = getBrandLogos(activeProject);

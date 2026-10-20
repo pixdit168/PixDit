@@ -221,6 +221,21 @@ export class ReplicateImageProvider {
     return `data:image/jpeg;base64,${buffer.toString("base64")}`;
   }
 
+  async prepareLogoReferenceImage(source) {
+    const sharpInput = getSharpInput(source);
+    const metadata = await sharp(sharpInput, { limitInputPixels: 40_000_000 }).metadata();
+    if (!metadata.width || !metadata.height) throw new Error("Dimensi logo tidak dapat dibaca.");
+    for (const maxEdge of [768, 512, 320]) {
+      const buffer = await sharp(sharpInput, { limitInputPixels: 40_000_000 })
+        .rotate()
+        .resize({ width: maxEdge, height: maxEdge, fit: "inside", withoutEnlargement: true })
+        .png({ compressionLevel: 9 })
+        .toBuffer();
+      if (buffer.length <= 900_000) return `data:image/png;base64,${buffer.toString("base64")}`;
+    }
+    throw new Error("Logo tidak dapat diperkecil ke ukuran aman.");
+  }
+
   async run({ prompt, format, quality, sourcePath = "", preparedReferenceImage = "", preparedReferenceImages = [], signal }: { prompt: string; format: string; quality: string; sourcePath?: string; preparedReferenceImage?: string; preparedReferenceImages?: string[]; signal?: AbortSignal }) {
     if (!this.configured) throw new Error("REPLICATE_API_TOKEN belum diatur pada environment server Node.js.");
     const referenceImages = preparedReferenceImages.length ? preparedReferenceImages : (preparedReferenceImage ? [preparedReferenceImage] : (sourcePath ? [await this.prepareReferenceImage(sourcePath)] : []));

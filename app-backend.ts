@@ -509,8 +509,12 @@ async function handleGeneration(request, response, input, auth) {
   if (productImages.length > 5 || productImages.some((image) => typeof image !== "string" || image.length > 1_400_000)) {
     return sendJson(response, 400, { error: "invalid_product_images", message: "Gunakan maksimal 5 gambar produk berukuran aman." });
   }
-  if (productImages.length && imageProvider.model.toLowerCase() === "prunaai/z-image-turbo") {
-    return sendJson(response, 400, { error: "model_no_image_input", message: "Agent Free saat ini memakai model teks-ke-gambar yang tidak menerima foto produk. Pilih Agent Pro atau atur REPLICATE_FREE_MODEL ke model yang mendukung gambar referensi." });
+  const brandLogo = String(input.brandLogo || "");
+  if (brandLogo && (!/^data:image\/(?:png|jpeg);base64,[a-z0-9+/=]+$/i.test(brandLogo) || brandLogo.length > 520_000)) {
+    return sendJson(response, 400, { error: "invalid_brand_logo", message: "Gunakan satu logo PNG atau JPG berukuran aman." });
+  }
+  if ((productImages.length || brandLogo) && imageProvider.model.toLowerCase() === "prunaai/z-image-turbo") {
+    return sendJson(response, 400, { error: "model_no_image_input", message: "Model Agent Free saat ini tidak menerima gambar produk maupun logo. Pilih Agent Pro atau atur REPLICATE_FREE_MODEL ke model yang mendukung gambar referensi." });
   }
   let quality = String(input.quality || "1mp").toLowerCase();
   if (!["1mp", "2mp", "4mp"].includes(quality)) quality = "1mp";
@@ -542,6 +546,14 @@ async function handleGeneration(request, response, input, auth) {
       return sendJson(response, 400, { error: "invalid_product_image", message: safeClientError(error) });
     }
   }
+  let preparedLogoReference = "";
+  if (brandLogo) {
+    try {
+      preparedLogoReference = await imageProvider.prepareLogoReferenceImage(brandLogo);
+    } catch (error) {
+      return sendJson(response, 400, { error: "invalid_brand_logo", message: safeClientError(error) });
+    }
+  }
   const abortController = new AbortController();
   response.on("close", () => { if (!response.writableEnded) abortController.abort(new Error("Koneksi browser terputus.")); });
   activeUserJobs.add(auth.user.id);
@@ -563,10 +575,9 @@ async function handleGeneration(request, response, input, auth) {
     for (const { slot, name } of generationJobs) {
       try {
         sendNdjson(response, { type: "progress", index: slot, name });
-        const basePrompt = newImagePrompt({ brief, style, styleExplicit: input.styleExplicit === true, primaryColor, primaryColorExplicit: input.primaryColorExplicit === true, hasProductReference: preparedReferenceImages.length > 0 });
-        const prompt = preparedReferenceImages.length > 1 ? `${basePrompt} Use all supplied product images as visual references for varied design; preserve each product's recognizable features and do not invent unrelated products.` : basePrompt;
+        const prompt = newImagePrompt({ brief, style, styleExplicit: input.styleExplicit === true, primaryColor, primaryColorExplicit: input.primaryColorExplicit === true, hasProductReference: preparedReferenceImages.length > 0, hasMultipleProductReferences: preparedReferenceImages.length > 1, hasBrandLogo: Boolean(preparedLogoReference), aiComposed: input.compositionMode === "ai" });
         const orderedReferences = preparedReferenceImages.length > 1 ? [...preparedReferenceImages.slice(slot % preparedReferenceImages.length), ...preparedReferenceImages.slice(0, slot % preparedReferenceImages.length)] : preparedReferenceImages;
-        const result = await imageProvider.run({ prompt, format, quality, preparedReferenceImages: orderedReferences, signal: abortController.signal });
+        const result = await imageProvider.run({ prompt, format, quality, preparedReferenceImages: preparedLogoReference ? [...orderedReferences, preparedLogoReference] : orderedReferences, signal: abortController.signal });
         const safeJobId = String(jobId).replace(/[^a-zA-Z0-9-]/g, "");
         const fileName = `variation-${String(slot + 1).padStart(2, "0")}.${result.extension}`;
         const imageId = `${safeJobId}/${fileName}`;

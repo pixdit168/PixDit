@@ -271,7 +271,6 @@ function bindEvents() {
     setHeadlineMode(button.dataset.headlineMode);
     if (button.dataset.headlineMode === "ai" && $("#prompt-input").value.trim()) void suggestHeadline();
   }));
-  $("#generate-headline").addEventListener("click", () => suggestHeadline());
   $$(".creation-mode-option").forEach((button) => {
     button.addEventListener("click", () => selectCreationMode(button.dataset.creationMode));
   });
@@ -309,8 +308,7 @@ function bindEvents() {
       addBrandLogos(activeProject, optimized);
       renderBrandLogoPreview();
       markSaving();
-      if (activeProject.hasResults) renderConcepts(false, generatedImages);
-      showToast("Logo siap digunakan", `${activeProject.brandLogos.length} logo akan tampil pada poster.`, "✓");
+      showToast("Logo siap digunakan", "AI akan menempatkannya saat gambar baru dibuat.", "✓");
     } catch (error) {
       showToast("Logo belum dapat digunakan", error.message, "!");
     } finally {
@@ -324,7 +322,6 @@ function bindEvents() {
     removeBrandLogo(activeProject, Number(removeButton.dataset.removeBrandLogo));
     renderBrandLogoPreview();
     markSaving();
-    if (activeProject.hasResults) renderConcepts(false, generatedImages);
   });
   $("#magic-prompt").addEventListener("click", async () => {
     const button = $("#magic-prompt");
@@ -339,11 +336,11 @@ function bindEvents() {
           prompt: prompt.value.trim(),
           projectName: activeProject?.name || "",
           category: activeProject?.category || "Lainnya",
-          style: $(".style-option.selected")?.dataset.style || "Eksploratif",
+          style: "",
           format: $("#format-select").value,
-          brand: $("#brand-input").value.trim(),
-          headline: $("#headline-input").value.trim(),
-          cta: $("#cta-input").value.trim(),
+          brand: activeProject?.brandName || activeProject?.name || "",
+          headline: "",
+          cta: "",
         }),
       });
       prompt.value = String(data.prompt || "").slice(0, 1000);
@@ -357,14 +354,6 @@ function bindEvents() {
       button.textContent = originalLabel;
     }
   });
-  $$(".style-option").forEach((button) =>
-    button.addEventListener("click", () => {
-      $$(".style-option").forEach((option) => option.classList.remove("selected"));
-      button.classList.add("selected");
-      if (activeProject) activeProject.styleExplicit = true;
-      markSaving();
-    }),
-  );
   $("#format-select").addEventListener("change", () => {
     markSaving();
     if (activeProject?.hasResults) renderConcepts(false, generatedImages);
@@ -383,24 +372,6 @@ function bindEvents() {
   $("#agent-trigger").addEventListener("click", toggleAgentMenu);
   $$(".agent-option").forEach((button) => {
     button.addEventListener("click", () => selectAgentTier(button.dataset.agentTier));
-  });
-  $("#reset-controls").addEventListener("click", () => {
-    const preferredStyle = accountPreferences?.defaultStyle || "Eksploratif";
-    $$(".style-option").forEach((option) => option.classList.toggle("selected", option.dataset.style === preferredStyle));
-    $("#format-select").value = accountPreferences?.defaultFormat || "Instagram Post · 4:5";
-    $("#color-control").value = accountPreferences?.primaryColor || "#5a3529";
-    $("#color-value").textContent = $("#color-control").value.toUpperCase();
-    if (activeProject) {
-      activeProject.styleExplicit = false;
-      activeProject.primaryColorExplicit = false;
-    }
-    markSaving();
-    if (activeProject?.hasResults) renderConcepts(false, generatedImages);
-  });
-  $("#color-control").addEventListener("input", () => {
-    $("#color-value").textContent = $("#color-control").value.toUpperCase();
-    if (activeProject) activeProject.primaryColorExplicit = true;
-    markSaving();
   });
   $("#generate-button").addEventListener("click", startGeneration);
   $("#cancel-generation").addEventListener("click", cancelGeneration);

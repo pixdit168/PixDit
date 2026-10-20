@@ -80,6 +80,7 @@ function getPosterFormatClass(format = "") {
 }
 
 function getPosterCopy(project = activeProject, conceptIndex = 0) {
+  if (project?.generatedImages?.[conceptIndex]?.compositionMode === "ai") return { brand: "", headline: "", cta: "", logos: [] };
   const defaults = copyDefaults[project?.category] || copyDefaults.Lainnya;
   const hasValue = (key) => project && Object.prototype.hasOwnProperty.call(project, key);
   return {
@@ -91,6 +92,7 @@ function getPosterCopy(project = activeProject, conceptIndex = 0) {
 }
 
 function getWorkspacePosterCopy(conceptIndex = selectedConcept ?? 0) {
+  if (generatedImages[conceptIndex]?.compositionMode === "ai") return { brand: "", headline: "", cta: "", logos: [] };
   if (!$("#brand-input")) return getPosterCopy(activeProject, conceptIndex);
   return {
     brand: $("#brand-input").value.trim().slice(0, 60),

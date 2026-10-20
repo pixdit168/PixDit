@@ -24,6 +24,16 @@ test("product reference is acknowledged without replacing the prompt", () => {
   assert.match(prompt, /supplied product image/);
 });
 
+test("AI receives the logo as the final reference and chooses its composition", () => {
+  const brief = "Create a premium coffee campaign with the supplied product.";
+  const prompt = newImagePrompt({ brief, hasProductReference: true, hasMultipleProductReferences: true, hasBrandLogo: true, aiComposed: true });
+  assert.ok(prompt.startsWith(brief));
+  assert.ok(prompt.indexOf("product images before the logo") < prompt.indexOf("LAST supplied reference image"));
+  assert.match(prompt, /Choose its placement, size, and color treatment/);
+  assert.match(prompt, /complete ready-to-use campaign visual/);
+  assert.doesNotMatch(prompt, /draggable|post-process the logo/i);
+});
+
 test("refinement uses the existing image and only the requested edit", () => {
   const prompt = newImagePrompt({ brief: "Old campaign about coffee", refinement: "Change the glass to blue and keep the lettering." });
   assert.match(prompt, /Edit the supplied image/);

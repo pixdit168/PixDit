@@ -324,6 +324,8 @@
                       <label class="logo-upload-button source-upload-tile" for="brand-logo-input"><span>+</span><strong id="brand-logo-upload-label">Upload logo</strong></label>
                       <div id="brand-logo-preview" class="brand-logo-preview-list is-hidden" aria-label="Logo brand terunggah"></div>
                     </div>
+                    <p class="source-logo-note">AI akan menyesuaikan warna dan menempatkan logo dalam desain baru. Logo pada hasil lama tidak berubah.</p>
+                    <p id="logo-model-notice" class="product-model-notice is-hidden"></p>
                   </div>
                 </div>
               </div>
@@ -363,39 +365,16 @@
                 </div>
               </div>
 
-              <div class="control-section">
-                <div class="control-title"><span><svg viewBox="0 0 24 24"><path d="M4 7h16M7 7V4M17 7v3M4 17h16M9 17v3M15 17v-3"/></svg> Arah Visual</span><button id="reset-controls" type="button">Atur Ulang</button></div>
-                <div id="style-options" class="style-options">
-                  <button class="style-option selected" data-style="Eksploratif" type="button"><i class="swatch swatch-one"></i><span><strong>Eksploratif</strong><small>Variasi kreatif dinamis</small></span><b>✓</b></button>
-                  <button class="style-option" data-style="Minimal" type="button"><i class="swatch swatch-two"></i><span><strong>Minimal</strong><small>Bersih dan Elegan</small></span><b>✓</b></button>
-                  <button class="style-option" data-style="Berani" type="button"><i class="swatch swatch-three"></i><span><strong>Berani</strong><small>Kontras dan Ekspresif</small></span><b>✓</b></button>
-                </div>
+              <div class="is-hidden" aria-hidden="true">
+                <input id="brand-input" type="text" maxlength="60" />
+                <textarea id="headline-input" maxlength="100"></textarea>
+                <input id="cta-input" type="text" maxlength="50" />
+                <input id="color-control" type="color" value="#5a3529" />
+                <span id="color-value"></span>
               </div>
 
-              <details id="poster-advanced" class="copy-section">
-                <summary class="copy-section-head"><span>Pengaturan Lanjutan</span><small>Teks poster · opsional</small></summary>
-                <div class="copy-section-body">
-                  <p class="copy-auto-note">Headline dibuat otomatis dari brief dan kategori saat gambar digenerasi. Buka pengaturan ini untuk mengubah teks.</p>
-                  <label for="brand-input">Nama Brand:</label>
-                  <input id="brand-input" type="text" maxlength="60" value="Rumah Seduh" placeholder="Contoh: Rumah Seduh" />
-                  <div class="headline-control-head">
-                    <label for="headline-input">Headline:</label>
-                    <div id="headline-mode-toggle" class="headline-mode-toggle" role="group" aria-label="Cara membuat headline">
-                      <button type="button" data-headline-mode="manual">Tulis manual</button>
-                      <button class="active" type="button" data-headline-mode="ai">Otomatis</button>
-                    </div>
-                  </div>
-                  <textarea id="headline-input" maxlength="100" rows="2" readonly placeholder="Contoh: Rasa pulang di setiap tegukan">Rasa pulang di setiap tegukan.</textarea>
-                  <button id="generate-headline" class="headline-ai-button is-hidden" type="button"><span>✦</span><strong>Buat headline dari brief</strong></button>
-                  <label for="cta-input">Call to Action:</label>
-                  <input id="cta-input" type="text" maxlength="50" value="Nikmati sekarang" placeholder="Contoh: Pesan sekarang" />
-                  <p>Key visual dibuat tanpa tulisan; teks ditambahkan setelahnya. Pilih Tulis manual untuk mengedit, mengganti, atau menambahkan teks sendiri. Kosongkan kolom yang tidak ingin ditampilkan.</p>
-                </div>
-              </details>
-
-              <div class="form-row">
+              <div class="form-row format-only">
                 <div><label for="format-select">Format</label><select id="format-select"><option>Instagram Post · 4:5</option><option>Instagram Story · 9:16</option><option>Persegi · 1:1</option></select></div>
-                <div><label for="color-control">Warna Utama</label><div class="color-control"><input id="color-control" type="color" value="#5a3529" /><span id="color-value">#5A3529</span></div></div>
               </div>
 
               <div class="quality-control">

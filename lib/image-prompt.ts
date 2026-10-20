@@ -27,7 +27,7 @@ function describeColor(hex: string) {
   return `${tone} ${color}`;
 }
 
-export function newImagePrompt({ brief, style = "", styleExplicit = false, primaryColor = "", primaryColorExplicit = false, refinement = "", hasProductReference = false }: {
+export function newImagePrompt({ brief, style = "", styleExplicit = false, primaryColor = "", primaryColorExplicit = false, refinement = "", hasProductReference = false, hasMultipleProductReferences = false, hasBrandLogo = false, aiComposed = false }: {
   brief: string;
   style?: string;
   styleExplicit?: boolean;
@@ -35,13 +35,19 @@ export function newImagePrompt({ brief, style = "", styleExplicit = false, prima
   primaryColorExplicit?: boolean;
   refinement?: string;
   hasProductReference?: boolean;
+  hasMultipleProductReferences?: boolean;
+  hasBrandLogo?: boolean;
+  aiComposed?: boolean;
 }) {
   if (refinement.trim()) {
     return `Edit the supplied image according to this request: ${refinement.trim()}\nKeep all elements not mentioned in the request unchanged.`;
   }
 
   const parts = [brief.trim()];
+  if (aiComposed) parts.push("Create the complete ready-to-use campaign visual, with typography integrated into the composition. If the brief specifies exact text, reproduce it faithfully; otherwise use only concise, relevant ad copy in the brief's language when appropriate. Do not add technical labels or prompt instructions as visible text.");
   if (hasProductReference) parts.push("Use the supplied product image as the reference for the product's recognizable appearance, unless the user's prompt asks to change it.");
+  if (hasMultipleProductReferences) parts.push("Use all supplied product images before the logo as visual references for varied design; preserve each product's recognizable features and do not invent unrelated products.");
+  if (hasBrandLogo) parts.push("The LAST supplied reference image is the brand logo, not a product photo. Integrate one recognizable version of that logo into the finished advertisement. Choose its placement, size, and color treatment to suit the composition; preserve the mark's core identity while adapting it naturally to the design. Do not copy the logo's source background as a rectangular badge. Render the complete poster as one image; the app will not add or move the logo afterward.");
   const styleHints: Record<string, string> = {
     Minimal: "If compatible with the user's prompt, use a minimal and uncluttered style.",
     Berani: "If compatible with the user's prompt, use a bold, high-contrast style.",

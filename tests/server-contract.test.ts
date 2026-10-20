@@ -143,6 +143,22 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(fiveProductImages.response.status, 503);
   assert.equal(fiveProductImages.payload.error, "provider_not_configured");
 
+  const invalidLogo = await request("/api/generate", {
+    method: "POST",
+    csrf: true,
+    body: { prompt: "Poster kopi premium dengan logo brand", brandLogo: "https://example.test/logo.png" },
+  });
+  assert.equal(invalidLogo.response.status, 400);
+  assert.equal(invalidLogo.payload.error, "invalid_brand_logo");
+
+  const validLogo = await request("/api/generate", {
+    method: "POST",
+    csrf: true,
+    body: { prompt: "Poster kopi premium dengan logo brand", brandLogo: "data:image/png;base64,AA==" },
+  });
+  assert.equal(validLogo.response.status, 503);
+  assert.equal(validLogo.payload.error, "provider_not_configured");
+
   const legacyRefinement = await request("/api/refine", {
     method: "POST",
     csrf: true,

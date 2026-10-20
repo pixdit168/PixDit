@@ -37,7 +37,7 @@ function createProjectFromInspiration(inspirationId) {
   saveProjects();
   renderProjects();
   openProject(project.id);
-  showToast("Inspirasi siap dikembangkan", "Teks poster dibuat otomatis saat generasi; kamu bisa mengubahnya di Pengaturan Lanjutan.", "✦");
+  showToast("Inspirasi siap dikembangkan", "AI akan menyusun desain langsung dari brief-mu.", "✦");
 }
 
 const promptSuggestionSets = {
@@ -188,16 +188,19 @@ function renderAgentSelector() {
   renderProductModelNotice();
 }
 
-function selectedModelSupportsProductImages() {
+function selectedModelSupportsReferenceImages() {
   return String(getSelectedAgentHealth()?.model || "").toLowerCase() !== "prunaai/z-image-turbo";
 }
 
 function renderProductModelNotice() {
-  const notice = $("#product-model-notice");
-  if (!notice) return;
-  const unsupported = !selectedModelSupportsProductImages();
-  notice.classList.toggle("is-hidden", !unsupported);
-  notice.textContent = unsupported ? "Model Agent Free saat ini tidak mendukung foto produk. Pilih Agent Pro atau minta admin mengganti model Free ke model yang menerima gambar." : "";
+  const unsupported = !selectedModelSupportsReferenceImages();
+  const message = unsupported ? "Model ini tidak menerima gambar referensi, termasuk foto produk dan logo. Pilih Agent Pro atau model Free lain yang mendukung gambar." : "";
+  for (const selector of ["#product-model-notice", "#logo-model-notice"]) {
+    const notice = $(selector);
+    if (!notice) continue;
+    notice.classList.toggle("is-hidden", !unsupported);
+    notice.textContent = message;
+  }
 }
 
 function selectAgentTier(value) {
@@ -317,7 +320,6 @@ async function optimizeProductImage(file) {
     URL.revokeObjectURL(sourceUrl);
   }
 }
-
 function openUpgradeModal(message = "") {
   if (message) {
     $("#upgrade-modal-message").textContent = message;
@@ -365,7 +367,6 @@ async function optimizeBrandLogo(file) {
       canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
       const context = canvas.getContext("2d", { willReadFrequently: true });
       context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      removeConnectedLogoBackground(context, canvas.width, canvas.height);
       return canvas.toDataURL("image/png");
     };
 
@@ -376,99 +377,4 @@ async function optimizeBrandLogo(file) {
   } finally {
     URL.revokeObjectURL(sourceUrl);
   }
-}
-
-function removeConnectedLogoBackground(context, width, height) {
-  const imageData = context.getImageData(0, 0, width, height);
-  const pixels = imageData.data;
-  const borderSamples = [];
-  const step = Math.max(1, Math.floor(Math.min(width, height) / 80));
-  const addSample = (x, y) => {
-    const offset = (y * width + x) * 4;
-    borderSamples.push([pixels[offset], pixels[offset + 1], pixels[offset + 2], pixels[offset + 3]]);
-  };
-  for (let x = 0; x < width; x += step) {
-    addSample(x, 0);
-    if (height > 1) addSample(x, height - 1);
-  }
-  for (let y = step; y < height - 1; y += step) {
-    addSample(0, y);
-    if (width > 1) addSample(width - 1, y);
-  }
-
-  const transparentShare = borderSamples.filter((sample) => sample[3] < 32).length / Math.max(1, borderSamples.length);
-  if (transparentShare > 0.55) return false;
-  const opaqueSamples = borderSamples.filter((sample) => sample[3] >= 192);
-  if (opaqueSamples.length < Math.max(8, borderSamples.length * 0.5)) return false;
-  const median = (channel) => {
-    const values = opaqueSamples.map((sample) => sample[channel]).sort((a, b) => a - b);
-    return values[Math.floor(values.length / 2)];
-  };
-  const background = [median(0), median(1), median(2)];
-  const distanceSquaredAt = (pixelIndex) => {
-    const offset = pixelIndex * 4;
-    const red = pixels[offset] - background[0];
-    const green = pixels[offset + 1] - background[1];
-    const blue = pixels[offset + 2] - background[2];
-    return red * red + green * green + blue * blue;
-  };
-  const borderDistances = opaqueSamples
-    .map((sample) => Math.hypot(sample[0] - background[0], sample[1] - background[1], sample[2] - background[2]))
-    .sort((a, b) => a - b);
-  const typicalVariation = borderDistances[Math.floor(borderDistances.length * 0.8)] || 0;
-  const tolerance = Math.min(72, Math.max(24, typicalVariation + 12));
-  const toleranceSquared = tolerance * tolerance;
-  const uniformShare = borderDistances.filter((distance) => distance <= tolerance).length / borderDistances.length;
-  if (uniformShare < 0.68) return false;
-
-  const pixelCount = width * height;
-  const connectedBackground = new Uint8Array(pixelCount);
-  const queue = new Int32Array(pixelCount);
-  let queueStart = 0;
-  let queueEnd = 0;
-  const enqueue = (pixelIndex) => {
-    if (connectedBackground[pixelIndex]) return;
-    const alpha = pixels[pixelIndex * 4 + 3];
-    if (alpha > 20 && distanceSquaredAt(pixelIndex) > toleranceSquared) return;
-    connectedBackground[pixelIndex] = 1;
-    queue[queueEnd++] = pixelIndex;
-  };
-  for (let x = 0; x < width; x++) {
-    enqueue(x);
-    enqueue((height - 1) * width + x);
-  }
-  for (let y = 1; y < height - 1; y++) {
-    enqueue(y * width);
-    enqueue(y * width + width - 1);
-  }
-  while (queueStart < queueEnd) {
-    const pixelIndex = queue[queueStart++];
-    const x = pixelIndex % width;
-    if (x > 0) enqueue(pixelIndex - 1);
-    if (x < width - 1) enqueue(pixelIndex + 1);
-    if (pixelIndex >= width) enqueue(pixelIndex - width);
-    if (pixelIndex < pixelCount - width) enqueue(pixelIndex + width);
-  }
-
-  if (queueEnd < Math.max(4, pixelCount * 0.005)) return false;
-  const featherLimit = tolerance + 36;
-  const featherLimitSquared = featherLimit * featherLimit;
-  for (let pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++) {
-    const offset = pixelIndex * 4;
-    if (connectedBackground[pixelIndex]) {
-      pixels[offset + 3] = 0;
-      continue;
-    }
-    const x = pixelIndex % width;
-    const touchesBackground = (x > 0 && connectedBackground[pixelIndex - 1])
-      || (x < width - 1 && connectedBackground[pixelIndex + 1])
-      || (pixelIndex >= width && connectedBackground[pixelIndex - width])
-      || (pixelIndex < pixelCount - width && connectedBackground[pixelIndex + width]);
-    if (!touchesBackground || distanceSquaredAt(pixelIndex) >= featherLimitSquared) continue;
-    const distance = Math.sqrt(distanceSquaredAt(pixelIndex));
-    const opacity = Math.max(0, Math.min(1, (distance - tolerance) / (featherLimit - tolerance)));
-    pixels[offset + 3] = Math.round(pixels[offset + 3] * opacity);
-  }
-  context.putImageData(imageData, 0, 0);
-  return true;
 }

@@ -30,6 +30,19 @@ test("reference image is resized before it is sent to Replicate", async (context
   assert.ok(metadata.width < 3200 && metadata.height < 2400);
 });
 
+test("logo reference keeps its transparent background for AI composition", async () => {
+  const transparentLogo = await sharp({
+    create: { width: 40, height: 40, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  }).composite([{ input: await sharp({ create: { width: 16, height: 16, channels: 4, background: { r: 20, g: 100, b: 210, alpha: 1 } } }).png().toBuffer(), left: 12, top: 12 }]).png().toBuffer();
+  const provider = new ReplicateImageProvider({ token: "test-token" });
+  const dataUri = await provider.prepareLogoReferenceImage(`data:image/png;base64,${transparentLogo.toString("base64")}`);
+  const pixels = await sharp(Buffer.from(dataUri.split(",")[1], "base64")).raw().toBuffer({ resolveWithObject: true });
+  assert.match(dataUri, /^data:image\/png;base64,/);
+  assert.equal(pixels.info.channels, 4);
+  assert.equal(pixels.data[3], 0);
+  assert.equal(pixels.data[(20 * 40 + 20) * 4 + 3], 255);
+});
+
 test("Flux 2 Pro prediction is created, polled, and downloaded", async () => {
   const outputImage = await sharp({
     create: { width: 64, height: 80, channels: 3, background: { r: 25, g: 45, b: 70 } },
@@ -124,11 +137,12 @@ test("Riverflow 2.0 Pro receives its native instruction and init_images fields",
     fetchImpl: fakeFetch,
   });
   const preparedReferenceImage = await provider.prepareReferenceImage(referenceDataUrl);
+  const preparedLogo = await provider.prepareLogoReferenceImage(`data:image/png;base64,${(await sharp({ create: { width: 50, height: 50, channels: 4, background: { r: 30, g: 80, b: 160, alpha: 0.5 } } }).png().toBuffer()).toString("base64")}`);
   const result = await provider.run({
     prompt: "Develop this product into a premium campaign visual",
     format: "Persegi · 1:1",
     quality: "4mp",
-    preparedReferenceImages: [preparedReferenceImage, preparedReferenceImage],
+    preparedReferenceImages: [preparedReferenceImage, preparedReferenceImage, preparedLogo],
   });
 
   assert.equal(result.mimeType, "image/jpeg");
@@ -137,7 +151,7 @@ test("Riverflow 2.0 Pro receives its native instruction and init_images fields",
   assert.equal(body.input.instruction, "Develop this product into a premium campaign visual");
   assert.equal(body.input.resolution, "4K");
   assert.equal(body.input.aspect_ratio, "1:1");
-  assert.deepEqual(body.input.init_images, [preparedReferenceImage, preparedReferenceImage]);
+  assert.deepEqual(body.input.init_images, [preparedReferenceImage, preparedReferenceImage, preparedLogo]);
   assert.equal(body.input.enhance_prompt, false);
   assert.equal(body.input.max_iterations, 3);
   assert.equal(body.input.prompt, undefined);

@@ -24,7 +24,7 @@ Layera is an Indonesian-language campaign image generator. It is a TypeScript/No
 - Users may start from a written prompt or upload up to five product images. The browser resizes each image, and the server normalizes them again before sending all references to image-capable Replicate models. `prunaai/z-image-turbo` is text-only; product-image mode must clearly reject it rather than silently ignoring references.
 - Generated images are stored in a private Supabase Storage bucket and served through authenticated `/generated/*` requests. Edits read their source image from that storage, not a local directory.
 - The Generate progress panel has a Cancel button. Browser cancellation aborts the request; after Replicate returns a prediction ID, the adapter requests cancellation from Replicate. Results completed before cancellation can remain available.
-- Poster text and the uploaded brand logo are added by the app after the image is generated. New projects accept one logo; older projects with multiple saved logos retain them, with independent position and size. A logo's light/dark backing is chosen from local pixel contrast, not a separate AI call. Do not silently put default brand text into a user's blank fields.
+- New generations are complete AI-composed posters: the uploaded logo is sent as the final image reference, with its original transparency preserved, and the AI chooses its placement, scale, and colors. The browser does not add poster text or a movable logo on new results. New projects accept one logo; older saved posters retain their historical text/logo overlay and independent logo positioning. Do not silently put default brand text into a user's blank fields.
 
 ## Local workflow
 
