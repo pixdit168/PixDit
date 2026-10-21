@@ -254,7 +254,17 @@ function showAuthMode(mode = "login") {
   $("#register-heading").classList.toggle("is-hidden", !registering);
   $("#register-form").classList.toggle("is-hidden", !registering);
   setAuthError();
-  setTimeout(() => $(registering ? "#register-name" : "#email").focus(), 50);
+  if (!$("#auth-panel").classList.contains("is-hidden")) setTimeout(() => $(registering ? "#register-name" : "#email").focus(), 50);
+}
+
+function openAuthPanel(mode = "login") {
+  $("#auth-panel").classList.remove("is-hidden");
+  showAuthMode(mode);
+}
+
+function closeAuthPanel() {
+  $("#auth-panel").classList.add("is-hidden");
+  setAuthError();
 }
 
 function showAuthScreen(message = "") {
@@ -277,11 +287,16 @@ function showAuthScreen(message = "") {
   closeAccountModal();
   $("#app-shell").classList.add("is-hidden");
   $("#auth-screen").classList.remove("is-hidden");
+  closeAuthPanel();
   showAuthMode("login");
-  if (message) setAuthError(message);
+  if (message) {
+    openAuthPanel("login");
+    setAuthError(message);
+  }
 }
 
 async function enterApp(sessionData, { loadState = true } = {}) {
+  closeAuthPanel();
   currentUser = sessionData.user;
   csrfToken = sessionData.csrfToken || "";
   accountPreferences = sessionData.preferences || {

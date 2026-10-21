@@ -3,8 +3,14 @@ function bindEvents() {
   $$('[data-auth-home]').forEach((brandLink) => {
     brandLink.addEventListener("click", (event) => {
       event.preventDefault();
-      showAuthMode("login");
+      closeAuthPanel();
     });
+  });
+  $("#auth-open").addEventListener("click", () => openAuthPanel());
+  $("#hero-login").addEventListener("click", () => openAuthPanel());
+  $("#auth-panel-close").addEventListener("click", closeAuthPanel);
+  $("#auth-panel").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeAuthPanel();
   });
   $("#login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -414,6 +420,7 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
+    closeAuthPanel();
     closeAccountMenu({ restoreFocus: true });
     closeAgentMenu({ restoreFocus: true });
     closeProjectModal();

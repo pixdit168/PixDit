@@ -56,3 +56,25 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.ok((await fs.stat(path.join(projectRoot, "dist/favicon.svg"))).isFile());
   assert.ok((await fs.stat(path.join(projectRoot, "dist/assets/kopi-gula-aren.png"))).isFile());
 });
+
+test("reference-led studio layout keeps login and project actions accessible", async () => {
+  const html = await fs.readFile(path.join(projectRoot, "index.html"), "utf8");
+  const css = await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8");
+  const authSource = await fs.readFile(path.join(projectRoot, "public/components/02-state-auth.ts"), "utf8");
+  const eventsSource = await fs.readFile(path.join(projectRoot, "public/components/08-events.ts"), "utf8");
+
+  assert.match(html, /id="auth-open"/);
+  assert.match(html, /id="hero-login"/);
+  assert.match(html, /id="auth-panel" class="auth-panel is-hidden" role="dialog"/);
+  assert.match(html, /id="auth-panel-close"/);
+  assert.match(html, /class="art-ribbon"/);
+  assert.match(html, /id="quick-create"/);
+  assert.match(css, /\.auth-screen \{ display:block; position:relative; min-height:100vh; \}/);
+  assert.match(css, /@media \(min-width:821px\) \{[\s\S]*?\.sidebar \{ inset:0 0 auto; width:100%; height:78px;/);
+  assert.match(css, /@media \(max-width:820px\) \{/);
+  assert.match(authSource, /function openAuthPanel\(mode/);
+  assert.match(authSource, /function closeAuthPanel\(\)/);
+  assert.match(eventsSource, /\$\("#auth-open"\)\.addEventListener\("click", \(\) => openAuthPanel\(\)\)/);
+  assert.match(eventsSource, /\$\("#hero-login"\)\.addEventListener\("click", \(\) => openAuthPanel\(\)\)/);
+  assert.match(eventsSource, /event\.key !== "Escape"/);
+});

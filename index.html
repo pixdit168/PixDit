@@ -21,36 +21,41 @@
           <span class="brand-mark"><i></i><i></i></span>
           <span>Layera</span>
         </a>
+        <div class="auth-header-actions"><span class="auth-live-badge"><i></i> STUDIO KREATIF AKTIF</span><button id="auth-open" type="button">Masuk / Daftar <span>↗</span></button></div>
 
         <div class="auth-copy">
-          <span class="eyebrow eyebrow-light"><b></b> Studio kreatif bertenaga AI</span>
-          <h1>Imajinasi jadi<br /><em>visual nyata.</em></h1>
+          <span class="eyebrow eyebrow-light"><b></b> ERA BARU KREASI VISUAL</span>
+          <h1>IDE JADI<br /><em>LUAR BIASA.</em></h1>
           <p>
-            Dari satu ide menjadi visual kampanye yang berani. Buat, jelajahi,
-            dan sempurnakan karya untuk bisnismu.
+            Satu gagasan, tak terbatas kemungkinan. Wujudkan materi kampanye
+            yang berani dan khas untuk bisnismu bersama Layera.
           </p>
+          <button id="hero-login" class="hero-entry-button" type="button">Mulai berkarya <span>↗</span></button>
+          <span class="auth-signature">LAYERA / IMAJINASI JADI KARYA</span>
         </div>
 
         <div class="auth-art" aria-hidden="true">
-          <div class="float-tag tag-one">10 variasi <span>✦</span></div>
-          <div class="auth-poster poster-photo">
-            <div class="mini-kicker">RUMAH SEDUH</div>
-            <div class="mini-title">Rasa pulang,<br />di setiap tegukan.</div>
-            <div class="mini-pill">COBA SEKARANG →</div>
-          </div>
-          <div class="auth-poster poster-type">
-            <small>AKHIR PEKAN</small>
-            <strong>DUA<br />PULUH<br />PERSEN</strong>
-            <span>untuk semua varian favoritmu</span>
-          </div>
-          <div class="float-tag tag-two"><span class="avatar-dots">AI</span> Dibuat hanya dalam ±2 menit</div>
+          <div class="art-orbit art-orbit-outer"></div>
+          <div class="art-orbit art-orbit-inner"></div>
+          <svg class="art-ribbon" viewBox="0 0 600 440" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="layera-ribbon" x1="60" y1="80" x2="550" y2="370" gradientUnits="userSpaceOnUse"><stop stop-color="#8468ff"/><stop offset=".5" stop-color="#eb9ee8"/><stop offset="1" stop-color="#82b9ff"/></linearGradient>
+              <filter id="layera-glow" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="20"/></filter>
+            </defs>
+            <path d="M520 220C520 80 370 80 300 220C230 360 80 360 80 220C80 80 230 80 300 220C370 360 520 360 520 220Z" stroke="url(#layera-ribbon)" stroke-width="62" stroke-linecap="round" filter="url(#layera-glow)" opacity=".55"/>
+            <path d="M520 220C520 80 370 80 300 220C230 360 80 360 80 220C80 80 230 80 300 220C370 360 520 360 520 220Z" stroke="url(#layera-ribbon)" stroke-width="45" stroke-linecap="round"/>
+            <path d="M520 220C520 80 370 80 300 220C230 360 80 360 80 220C80 80 230 80 300 220C370 360 520 360 520 220Z" stroke="#fff" stroke-opacity=".46" stroke-width="3" stroke-linecap="round" stroke-dasharray="18 15"/>
+          </svg>
+          <span class="art-pixel art-pixel-one"></span><span class="art-pixel art-pixel-two"></span><span class="art-pixel art-pixel-three"></span>
+          <span class="art-caption">CREATE / EXPLORE / REFINE</span>
         </div>
 
-        <p class="auth-footnote">Dibuat untuk bisnis lokal Indonesia.</p>
+        <p class="auth-footnote">Dibuat untuk bisnis lokal Indonesia. <span>LAYERA / STUDIO KREATIF</span></p>
       </section>
 
-      <section class="auth-panel">
+      <section id="auth-panel" class="auth-panel is-hidden" role="dialog" aria-modal="true" aria-label="Masuk atau daftar Layera">
         <div class="auth-form-wrap">
+          <button id="auth-panel-close" class="auth-panel-close" type="button" aria-label="Tutup formulir masuk">×</button>
           <a class="mobile-brand brand" href="#login" data-auth-home aria-label="Kembali ke halaman masuk Layera">
             <span class="brand-mark"><i></i><i></i></span>
             <span>Layera</span>
@@ -211,12 +216,14 @@
 
           <section class="quick-start">
             <div class="quick-copy">
-              <span class="mini-label">MULAI BERKREASI</span>
-              <h2>Satu ide.<br />Banyak kemungkinan.</h2>
-              <p>Ceritakan bisnismu, biarkan tim kreatif AI kami menerjemahkannya menjadi visual.</p>
+              <span class="mini-label">LAYERA / STUDIO KREATIF</span>
+              <h2>BUAT SESUATU<br /><em>YANG BERBEDA.</em></h2>
+              <p>Tulis ide, tambahkan gambar jika ada, lalu lihat kampanyemu menjadi visual yang siap dikembangkan.</p>
               <button id="quick-create" class="cream-button" type="button">Mulai Proyek <span>↗</span></button>
             </div>
             <div class="quick-visual" aria-hidden="true">
+              <div class="quick-orbit quick-orbit-outer"></div>
+              <div class="quick-orbit quick-orbit-inner"></div>
               <div class="idea-card card-a"><span>01</span><strong>Berani</strong><small>Editorial</small></div>
               <div class="idea-card card-b"><span>02</span><strong>Hangat</strong><small>Organik</small></div>
               <div class="idea-card card-c"><span>03</span><strong>Segar</strong><small>Playful</small></div>
