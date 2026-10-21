@@ -1,13 +1,13 @@
-# Layera Node.js — Replicate Agents
+# Pixgin Node.js — Replicate Agents
 
-Source backend aktif Layera adalah `app-backend.ts`; `npm install` atau `npm run build` menghasilkan `app-backend.js` untuk dijalankan oleh Node. Backend menyajikan frontend, akun, sesi, proyek, kredit, file hasil, image generation, dan image editing.
+Source backend aktif Pixgin adalah `app-backend.ts`; `npm install` atau `npm run build` menghasilkan `app-backend.js` untuk dijalankan oleh Node. Backend menyajikan frontend, akun, sesi, proyek, kredit, file hasil, image generation, dan image editing.
 
 Kedua agent berjalan melalui Replicate dan dipilih dari workspace:
 
 - Agent Free: `sourceful/riverflow-2.0-pro`, tersedia untuk semua plan.
-- Agent Pro: `openai/gpt-image-2`, khusus Layera Pro. Pilihan kualitas Standar/Detail/Maksimal dipetakan ke preset model `low`/`medium`/`high`; model tidak menjamin jumlah piksel persis. Untuk format 4:5, hasil 3:4 dipotong ke 4:5 setelah diunduh.
+- Agent Pro: `openai/gpt-image-2`, khusus Pixgin Pro. Pilihan kualitas Standar/Detail/Maksimal dipetakan ke preset model `low`/`medium`/`high`; model tidak menjamin jumlah piksel persis. Untuk format 4:5, hasil 3:4 dipotong ke 4:5 setelah diunduh.
 - Paket Gratis: 1 gambar per permintaan dan kualitas Standar.
-- Layera Pro: Agent Free atau Agent Pro, pilihan 1 atau 10 gambar, kualitas Standar/Detail/Maksimal.
+- Pixgin Pro: Agent Free atau Agent Pro, pilihan 1 atau 10 gambar, kualitas Standar/Detail/Maksimal.
 
 Generasi gambar mengikuti prompt asli pengguna. Pilihan 10 gambar mengirim prompt yang sama untuk tiap variasi; model Replicate dapat menghasilkan variasi alami tanpa arah kreatif bawaan. Gaya dan warna hanya menjadi petunjuk tambahan jika dipilih secara eksplisit. Edit gambar memakai gambar tersimpan dan instruksi edit pengguna.
 
@@ -30,7 +30,7 @@ Gunakan Node.js 20.9 atau lebih baru.
 
 Token dan secret hanya dibaca oleh proses Node. File `.env` diabaikan Git; jangan menaruh secret di `public/app.ts`, `index.html`, atau repository. `public/app.js` adalah hasil build, bukan source yang diedit.
 
-Supabase Auth menangani registrasi, login, perubahan email, nama profil, dan kata sandi. State proyek, kredit, sesi Layera, dan metadata file disimpan di Supabase Postgres. Jalankan `supabase/schema.sql` sebelum server pertama kali dimulai.
+Supabase Auth menangani registrasi, login, perubahan email, nama profil, dan kata sandi. State proyek, kredit, sesi Pixgin, dan metadata file disimpan di Supabase Postgres. Jalankan `supabase/schema.sql` sebelum server pertama kali dimulai.
 
 ## Environment production
 

@@ -149,7 +149,7 @@ async function refreshUsage() {
 
 function updatePlanInterface() {
   const subscriber = isSubscriber();
-  const planLabel = usageState?.planLabel || (subscriber ? "Layera Pro" : "Paket Gratis");
+  const planLabel = usageState?.planLabel || (subscriber ? "Pixgin Pro" : "Paket Gratis");
   $("#sidebar-plan-name").textContent = planLabel;
   $("#account-menu-plan").textContent = planLabel;
   const credits = usageState?.credits;
@@ -176,7 +176,7 @@ function updateGenerationControls() {
   const unitCost = { "1mp": 2, "2mp": 4, "4mp": 8 }[quality] || 2;
   const totalCost = count * unitCost;
   $("#generate-button-label").textContent = `Buat ${count} gambar`;
-  $("#generation-count-plan-note").textContent = subscriber ? `Layera Pro: ${count} gambar dipilih` : "Paket gratis: 1 gambar";
+  $("#generation-count-plan-note").textContent = subscriber ? `Pixgin Pro: ${count} gambar dipilih` : "Paket gratis: 1 gambar";
   const note = $("#generation-cost-note");
   if (!note) return;
   const remaining = usageState?.credits?.remaining;

@@ -84,7 +84,7 @@ function sendJson(response, statusCode, data, extraHeaders = {}) {
 }
 
 function sendUnauthorized(response) {
-  sendJson(response, 401, { ok: false, authenticated: false, error: "unauthorized", message: "Silakan masuk kembali ke akun Layera." });
+  sendJson(response, 401, { ok: false, authenticated: false, error: "unauthorized", message: "Silakan masuk kembali ke akun Pixgin." });
 }
 
 function parseCookies(request) {
@@ -196,7 +196,7 @@ function createUserProfile({ id, email, displayName, plan = "free", createdAt = 
   return {
     id,
     email: String(email || "").toLowerCase(),
-    displayName: String(displayName || "Kreator Layera").trim() || "Kreator Layera",
+    displayName: String(displayName || "Kreator Pixgin").trim() || "Kreator Pixgin",
     createdAt,
     updatedAt: createdAt,
     preferences: defaultPreferences(),
@@ -309,7 +309,7 @@ function getUsageStatus(userId) {
   const brand = store.data.accountBrands[userId] || null;
   return {
     plan,
-    planLabel: isPremium ? "Layera Pro" : "Paket Gratis",
+    planLabel: isPremium ? "Pixgin Pro" : "Paket Gratis",
     isPremium,
     isSubscriber: isPremium,
     allowedImageCounts: isPremium ? [1, 10] : [1],
@@ -371,7 +371,7 @@ function quotaExceeded(response, userId, eventType, requiredCredits) {
   const usage = getUsageStatus(userId);
   const resetDate = new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: "Asia/Jakarta" }).format(new Date(usage.credits.resetAt));
   const message = usage.isPremium
-    ? `Kredit Layera Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
+    ? `Kredit Pixgin Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
     : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.`;
   sendJson(response, 429, { ok: false, error: "quota_exhausted", quotaType: eventType, requiredCredits, upgradeRequired: !usage.isPremium, upgradeLabel: "Upgrade ke pro - Rp. 199.999/bln", message, usage });
 }
@@ -478,7 +478,7 @@ async function recordGeneratedFile(userId, urlPath) {
 
 async function resolveGeneratedSource(sourceUrl, userId) {
   const cleanUrl = String(sourceUrl || "").split("?")[0];
-  if (!/^\/generated\/[a-zA-Z0-9-]+\/concept-\d{2}\.(?:jpg|jpeg|png|webp)$/i.test(cleanUrl)) throw new Error("Gambar sumber edit harus berasal dari Library Layera.");
+  if (!/^\/generated\/[a-zA-Z0-9-]+\/concept-\d{2}\.(?:jpg|jpeg|png|webp)$/i.test(cleanUrl)) throw new Error("Gambar sumber edit harus berasal dari Koleksi Pixgin.");
   if (store.data.generatedFiles[cleanUrl]?.userId !== userId) throw new Error("Gambar sumber tidak ditemukan untuk akun ini.");
   const imageId = decodeURIComponent(cleanUrl.slice("/generated/".length));
   const image = await store.getImage(imageId, userId);
@@ -500,7 +500,7 @@ async function handleGeneration(request, response, input, auth) {
   const requestedAgentTier = String(input.agentTier || "").trim().toLowerCase();
   if (requestedAgentTier && !["free", "pro"].includes(requestedAgentTier)) return sendJson(response, 400, { error: "invalid_agent_tier", message: "Pilihan agent hanya dapat berupa free atau pro." });
   const agentTier = getAgentTier(auth.user.id, requestedAgentTier);
-  if (agentTier === "pro" && !usage.isPremium) return sendJson(response, 403, { error: "agent_tier_limit", upgradeRequired: true, message: "Agent Pro hanya tersedia untuk pelanggan Layera Pro.", usage });
+  if (agentTier === "pro" && !usage.isPremium) return sendJson(response, 403, { error: "agent_tier_limit", upgradeRequired: true, message: "Agent Pro hanya tersedia untuk pelanggan Pixgin Pro.", usage });
   const imageProvider = getImageProvider(auth.user.id, agentTier);
   const creationMode = input.creationMode === "product" ? "product" : "prompt";
   const productImages = creationMode === "product"
@@ -522,7 +522,7 @@ async function handleGeneration(request, response, input, auth) {
   const requestedImageCount = Number(input.imageCount ?? 1);
   if (![1, 10].includes(requestedImageCount)) return sendJson(response, 400, { error: "invalid_image_count", message: "Jumlah gambar hanya dapat dipilih 1 atau 10." });
   const imageCount = requestedImageCount;
-  if (!usage.allowedImageCounts.includes(imageCount)) return sendJson(response, 403, { error: "image_count_limit", upgradeRequired: true, message: "Paket Gratis hanya dapat membuat 1 gambar. Upgrade ke Layera Pro untuk membuat 10 gambar sekaligus.", usage });
+  if (!usage.allowedImageCounts.includes(imageCount)) return sendJson(response, 403, { error: "image_count_limit", upgradeRequired: true, message: "Paket Gratis hanya dapat membuat 1 gambar. Upgrade ke Pixgin Pro untuk membuat 10 gambar sekaligus.", usage });
   if (!imageProvider.configured) {
     const message = "REPLICATE_API_TOKEN belum diatur pada environment server Node.js.";
     return sendJson(response, 503, { error: "provider_not_configured", provider: imageProvider.name, message });
@@ -609,7 +609,7 @@ async function handleRefinement(request, response, input, auth) {
   const requestedAgentTier = String(input.agentTier || "").trim().toLowerCase();
   if (requestedAgentTier && !["free", "pro"].includes(requestedAgentTier)) return sendJson(response, 400, { error: "invalid_agent_tier", message: "Pilihan agent hanya dapat berupa free atau pro." });
   const agentTier = getAgentTier(auth.user.id, requestedAgentTier);
-  if (agentTier === "pro" && !usage.isPremium) return sendJson(response, 403, { error: "agent_tier_limit", upgradeRequired: true, message: "Agent Pro hanya tersedia untuk pelanggan Layera Pro.", usage });
+  if (agentTier === "pro" && !usage.isPremium) return sendJson(response, 403, { error: "agent_tier_limit", upgradeRequired: true, message: "Agent Pro hanya tersedia untuk pelanggan Pixgin Pro.", usage });
   const imageProvider = getImageProvider(auth.user.id, agentTier);
   if (!imageProvider.configured) {
     const message = "REPLICATE_API_TOKEN belum diatur pada environment server Node.js.";
@@ -1008,7 +1008,7 @@ if (!process.env.VERCEL) {
   });
 
   server.listen(port, host, () => {
-    console.log(`Layera Node.js berjalan di http://localhost:${port}`);
+    console.log(`Pixgin Node.js berjalan di http://localhost:${port}`);
     console.log(`Agent Pro: Replicate ${premiumImageProvider.model}`);
     console.log(premiumImageProvider.configured ? "REPLICATE_API_TOKEN terdeteksi." : "REPLICATE_API_TOKEN belum diatur; UI tetap dapat dibuka.");
     console.log(`Agent Free: Replicate ${freeImageProvider.model}`);

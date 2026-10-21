@@ -48,4 +48,4 @@ setEnv("SUPABASE_PUBLISHABLE_KEY", publishable);
 setEnv("SUPABASE_SECRET_KEY", secret);
 await fs.writeFile(envPath, `${lines.filter((line, index) => line || index < lines.length - 1).join("\n")}\n`, { encoding: "utf8", mode: 0o600 });
 
-console.log("Schema Supabase dan runtime environment Layera berhasil dikonfigurasi.");
+console.log("Schema Supabase dan runtime environment Pixgin berhasil dikonfigurasi.");

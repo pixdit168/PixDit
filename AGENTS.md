@@ -1,10 +1,10 @@
-# Agent guide for Layera
+# Agent guide for Pixgin
 
 This file is for coding agents working in this repository. Read the user's current request first, then inspect the relevant files and `git status` before editing. Preserve unrelated work and explain any consequential assumptions.
 
 ## Project at a glance
 
-Layera is an Indonesian-language campaign image generator. It is a TypeScript/Node.js ESM application with a browser frontend, Replicate image generation, and Supabase for authentication, application data, and private generated images. Node.js 20.9 or newer is required.
+Pixgin is an Indonesian-language campaign image generator. It is a TypeScript/Node.js ESM application with a browser frontend, Replicate image generation, and Supabase for authentication, application data, and private generated images. Node.js 20.9 or newer is required.
 
 - `app-backend.ts`: HTTP server and API; authentication, sessions, plans, credits, prompts, generation, refinement, and authenticated image serving.
 - `api/index.ts` and `vercel.json`: Vercel entry point and routes. `/generated/*` must reach the backend, not the SPA fallback. `npm run vercel-build` compiles TypeScript and packages only the public assets in ignored `dist/`; Vercel publishes that directory through `@vercel/static-build`.
@@ -17,6 +17,7 @@ Layera is an Indonesian-language campaign image generator. It is a TypeScript/No
 
 ## Current behavior to preserve
 
+- The user-facing brand is Pixgin. Existing technical identifiers (`layera_session`, `layera_device_id`, `layera_app_store`, and `layera-generated`) remain unchanged for session and stored-data compatibility; do not rename them as part of a visual rebrand.
 - Agent Free uses `sourceful/riverflow-2.0-pro`; Agent Pro uses `openai/gpt-image-2`. The environment overrides are `REPLICATE_FREE_MODEL` and `REPLICATE_PRO_MODEL`. The UI labels are Agent Free and Agent Pro.
 - Image generation passes the user's original prompt first, with only explicitly selected optional style/color hints. Ten-image jobs use the same prompt and neutral `Variasi 01`–`Variasi 10` labels; no behavioral creative agents are involved.
 - Image refinement uses the stored source image and the user's edit request, not historical creative-agent metadata. Older projects may retain that metadata without affecting new generation or editing.

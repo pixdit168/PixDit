@@ -1,10 +1,10 @@
 {
-  "name": "layera",
+  "name": "pixgin",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "main": "api/index.js",
-  "description": "Layera image campaign generator with Agent Free and Agent Pro on Replicate.",
+  "description": "Pixgin image campaign generator with Agent Free and Agent Pro on Replicate.",
   "engines": {
     "node": ">=20.9.0"
   },

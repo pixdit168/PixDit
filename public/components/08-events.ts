@@ -367,7 +367,7 @@ function bindEvents() {
   $("#quality-select").addEventListener("change", () => {
     if (!isSubscriber() && $("#quality-select").value !== "1mp") {
       $("#quality-select").value = "1mp";
-      openUpgradeModal("Kualitas Detail dan Maksimal tersedia pada Layera Pro.");
+      openUpgradeModal("Kualitas Detail dan Maksimal tersedia pada Pixgin Pro.");
     }
     updateGenerationControls();
     markSaving();

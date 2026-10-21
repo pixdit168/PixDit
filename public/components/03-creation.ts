@@ -121,7 +121,7 @@ function selectGenerationCount(value) {
   if (generationInProgress) return;
   const count = Number(value) === 10 ? 10 : 1;
   if (count === 10 && !isSubscriber()) {
-    openUpgradeModal("Pembuatan 10 gambar sekaligus tersedia pada Layera Pro. Paket Gratis tetap dapat membuat 1 gambar.");
+    openUpgradeModal("Pembuatan 10 gambar sekaligus tersedia pada Pixgin Pro. Paket Gratis tetap dapat membuat 1 gambar.");
     return;
   }
   selectedGenerationCount = count;
@@ -175,7 +175,7 @@ function renderAgentSelector() {
   if (!trigger) return;
   $("#agent-label").textContent = proSelected ? "Agent Pro" : "Agent Free";
   $("#agent-description").textContent = proSelected ? "Reasoning dan presisi lebih tinggi" : "Eksplorasi cepat untuk semua plan";
-  $("#agent-plan-note").textContent = isSubscriber() ? "Pilih Agent Free atau Agent Pro" : "Agent Pro khusus Layera Pro";
+  $("#agent-plan-note").textContent = isSubscriber() ? "Pilih Agent Free atau Agent Pro" : "Agent Pro khusus Pixgin Pro";
   trigger.disabled = generationInProgress;
   $$(".agent-option").forEach((button) => {
     const selected = button.dataset.agentTier === selectedAgentTier;
@@ -208,7 +208,7 @@ function selectAgentTier(value) {
   const tier = value === "pro" ? "pro" : "free";
   if (tier === "pro" && !isSubscriber()) {
     closeAgentMenu();
-    openUpgradeModal("Agent Pro tersedia pada Layera Pro. Kamu tetap dapat memakai Agent Free untuk membuat satu gambar.");
+    openUpgradeModal("Agent Pro tersedia pada Pixgin Pro. Kamu tetap dapat memakai Agent Free untuk membuat satu gambar.");
     return;
   }
   selectedAgentTier = tier;
@@ -326,7 +326,7 @@ function openUpgradeModal(message = "") {
   } else if (usageState?.credits?.resetAt) {
     const resetDate = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(new Date(usageState.credits.resetAt));
     $("#upgrade-modal-message").textContent = isSubscriber()
-      ? `Kredit Layera Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
+      ? `Kredit Pixgin Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
       : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.`;
   }
   $("#upgrade-modal").classList.remove("is-hidden");

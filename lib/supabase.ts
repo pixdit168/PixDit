@@ -73,7 +73,7 @@ export class SupabaseStore {
       .select("payload")
       .eq("id", STORE_ROW_ID)
       .maybeSingle();
-    if (error) throw operationError(error, "Data Layera tidak dapat dibaca dari Supabase.");
+    if (error) throw operationError(error, "Data Pixgin tidak dapat dibaca dari Supabase.");
     const store = new SupabaseStore(client, normalizeStore(data?.payload), imageBucket);
     if (!data) await store.persist();
     await store.ensureImageBucket();
@@ -109,7 +109,7 @@ export class SupabaseStore {
     const { error } = await this.client
       .from("layera_app_store")
       .upsert({ id: STORE_ROW_ID, payload: snapshot, updated_at: new Date().toISOString() }, { onConflict: "id" });
-    if (error) throw operationError(error, "Data Layera tidak dapat disimpan ke Supabase.");
+    if (error) throw operationError(error, "Data Pixgin tidak dapat disimpan ke Supabase.");
   }
 
   async persist() {

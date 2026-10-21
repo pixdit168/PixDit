@@ -87,7 +87,7 @@ let temporaryPasswordCount = 0;
 for (const localUser of Object.values(source.users)) {
   const email = String(localUser.email || "").trim().toLowerCase();
   if (!email) throw new Error(`User lokal ${localUser.id} tidak memiliki email.`);
-  const displayName = String(localUser.displayName || "Kreator Layera").trim();
+  const displayName = String(localUser.displayName || "Kreator Pixgin").trim();
   const suppliedPassword = passwordMap[email];
   if (suppliedPassword && (suppliedPassword.length < 8 || suppliedPassword.length > 128)) throw new Error(`Kata sandi migrasi untuk ${email} harus 8-128 karakter.`);
   let authUser = await auth.findUserByEmail(email);

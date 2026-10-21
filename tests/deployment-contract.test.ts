@@ -78,3 +78,19 @@ test("reference-led studio layout keeps login and project actions accessible", a
   assert.match(eventsSource, /\$\("#hero-login"\)\.addEventListener\("click", \(\) => openAuthPanel\(\)\)/);
   assert.match(eventsSource, /event\.key !== "Escape"/);
 });
+
+test("Pixgin branding and mobile library controls remain readable", async () => {
+  const html = await fs.readFile(path.join(projectRoot, "index.html"), "utf8");
+  const css = await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8");
+  const backend = await fs.readFile(path.join(projectRoot, "app-backend.ts"), "utf8");
+
+  assert.match(html, /<title>Pixgin - Studio kreatif untuk bisnismu<\/title>/);
+  assert.match(html, /<span>Pixgin<\/span>/);
+  assert.match(html, /id="library-to-projects" class="secondary-button"/);
+  assert.match(backend, /planLabel: isPremium \? "Pixgin Pro"/);
+  assert.match(css, /\.secondary-button \{[^}]*color: #281946;[^}]*background: white;/);
+  assert.match(css, /\.library-heading \{ flex-direction:column; align-items:stretch;/);
+  assert.match(css, /\.library-grid \{ grid-template-columns:minmax\(0,1fr\);/);
+  assert.match(css, /\.library-card-actions button \{ min-height:42px; \}/);
+  assert.match(css, /@media \(max-width:380px\) \{[\s\S]*?\.creation-mode-options,\.generation-count-selector,\.results-grid \{ grid-template-columns:minmax\(0,1fr\); \}/);
+});

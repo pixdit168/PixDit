@@ -1,10 +1,10 @@
-# Layera Public Deployment (Node.js)
+# Pixgin Public Deployment (Node.js)
 
 ## Arsitektur
 
 ```text
 Browser -> HTTPS hosting -> app-backend.js (dari app-backend.ts) -> Replicate Agent Free
-                                      |----> Replicate Agent Pro (Layera Pro)
+                                      |----> Replicate Agent Pro (Pixgin Pro)
                                       |----> Supabase Auth + Postgres
                                       `----> Supabase Storage (private images)
 ```
@@ -31,6 +31,6 @@ Untuk memeriksa aset sebelum deploy Vercel, jalankan `npm run vercel-build`. Has
 - Backup Supabase dan hasil gambar dijalankan secara berkala.
 - CAPTCHA atau verifikasi email dipasang kembali sebelum peluncuran komersial.
 
-State Layera saat ini di-cache oleh adapter sebagai satu dokumen JSONB dan cocok untuk satu instance/private beta. Sebelum horizontal scaling, normalisasi state atau tambahkan locking/transaksi, gunakan shared rate-limit store, dan jalankan generation melalui background job queue.
+State Pixgin saat ini di-cache oleh adapter sebagai satu dokumen JSONB dan cocok untuk satu instance/private beta. Sebelum horizontal scaling, normalisasi state atau tambahkan locking/transaksi, gunakan shared rate-limit store, dan jalankan generation melalui background job queue.
 
 Panduan environment dan testing tersedia di [NODE-DEPLOYMENT.md](NODE-DEPLOYMENT.md).
