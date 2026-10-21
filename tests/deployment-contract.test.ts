@@ -27,6 +27,9 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   const browserScript = await fs.readFile(path.join(projectRoot, "public/app.js"), "utf8");
   const publishedScript = await fs.readFile(path.join(projectRoot, "dist/app.js"), "utf8");
   assert.match(html, /<script src="\/app\.js"><\/script>/);
+  assert.doesNotMatch(html, /id="(?:login|register)-remember"/);
+  assert.match(browserSource, /const session = await requestJson\("\/api\/auth\/me"\);[\s\S]*?await requestJson\("\/api\/auth\/logout", \{ method: "POST" \}\);[\s\S]*?showAuthScreen\(\)/);
+  assert.doesNotMatch(browserSource, /const session = await requestJson\("\/api\/auth\/me"\);\s*await enterApp\(session\)/);
   assert.doesNotMatch(html, /Arah Visual|Pengaturan Lanjutan|id="poster-advanced"/);
   assert.match(html, /id="brand-logo-input"[\s\S]*?AI akan menyesuaikan warna dan menempatkan logo/);
   assert.match(html, /class="is-hidden" aria-hidden="true">[\s\S]*?id="brand-input"/);
@@ -49,6 +52,7 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.equal(await fs.readFile(path.join(projectRoot, "dist/styles.css"), "utf8"), await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8"));
   assert.match(await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8"), /#library-preview-poster\.api-poster \.poster-copy \{ background:none !important; \}/);
   assert.match(await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8"), /\.poster\.api-poster \.poster-copy\.no-text \{ background:transparent !important; \}/);
+  assert.match(await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8"), /\.poster\.api-poster \.generated-image \{ object-fit: contain; \}/);
   assert.ok((await fs.stat(path.join(projectRoot, "dist/favicon.svg"))).isFile());
   assert.ok((await fs.stat(path.join(projectRoot, "dist/assets/kopi-gula-aren.png"))).isFile());
 });

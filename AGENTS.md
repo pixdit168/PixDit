@@ -25,6 +25,7 @@ Layera is an Indonesian-language campaign image generator. It is a TypeScript/No
 - Generated images are stored in a private Supabase Storage bucket and served through authenticated `/generated/*` requests. Edits read their source image from that storage, not a local directory.
 - The Generate progress panel has a Cancel button. Browser cancellation aborts the request; after Replicate returns a prediction ID, the adapter requests cancellation from Replicate. Results completed before cancellation can remain available.
 - New generations are complete AI-composed posters: the uploaded logo is sent as the final image reference, with its original transparency preserved, and the AI chooses its placement, scale, and colors. The browser does not add poster text or a movable logo on new results. New projects accept one logo; older saved posters retain their historical text/logo overlay and independent logo positioning. Do not silently put default brand text into a user's blank fields.
+- Loading the website ends any existing server session and presents the login screen; registering or logging in still enters the app in that page load. Generated output is fitted to its requested frame without cropping source pixels, and poster previews use contain. Old files that were previously cropped cannot be reconstructed.
 
 ## Local workflow
 

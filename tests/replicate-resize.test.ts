@@ -166,10 +166,14 @@ test("text-only Z-Image Turbo rejects product references instead of ignoring the
   );
 });
 
-test("GPT Image 2 uses its native inputs, array output, and a 4:5 final crop", async () => {
-  const outputImage = await sharp({
+test("GPT Image 2 uses native inputs and fits the complete 3:4 output into a 4:5 frame", async () => {
+  const baseImage = await sharp({
     create: { width: 300, height: 400, channels: 3, background: { r: 50, g: 90, b: 140 } },
-  }).jpeg().toBuffer();
+  }).png().toBuffer();
+  const bottomBand = await sharp({
+    create: { width: 300, height: 50, channels: 3, background: { r: 225, g: 35, b: 45 } },
+  }).png().toBuffer();
+  const outputImage = await sharp(baseImage).composite([{ input: bottomBand, left: 0, top: 350 }]).jpeg().toBuffer();
   const referenceImage = `data:image/jpeg;base64,${outputImage.toString("base64")}`;
   const requests = [];
   const fakeFetch = async (url, options = {}) => {
@@ -209,6 +213,8 @@ test("GPT Image 2 uses its native inputs, array output, and a 4:5 final crop", a
   assert.equal(body.input.seed, undefined);
   assert.equal(result.mimeType, "image/jpeg");
   const metadata = await sharp(result.buffer).metadata();
-  assert.equal(metadata.width, 300);
-  assert.equal(metadata.height, 375);
+  assert.equal(metadata.width, 320);
+  assert.equal(metadata.height, 400);
+  const bottomPixel = await sharp(result.buffer).extract({ left: 160, top: 390, width: 1, height: 1 }).raw().toBuffer();
+  assert.ok(bottomPixel[0] > 170 && bottomPixel[1] < 90, "The source image's bottom edge must remain visible");
 });

@@ -17,7 +17,7 @@ function bindEvents() {
         body: JSON.stringify({
           email: $("#email").value.trim(),
           password: $("#password").value,
-          remember: $("#login-remember").checked,
+          remember: false,
         }),
       });
       await enterApp(session);
@@ -45,7 +45,7 @@ function bindEvents() {
           displayName: $("#register-name").value.trim(),
           email: $("#register-email").value.trim(),
           password,
-          remember: $("#register-remember").checked,
+          remember: false,
           ...getSignupDeviceIdentity(),
         }),
       });
@@ -437,7 +437,9 @@ async function bootstrap() {
 
   try {
     const session = await requestJson("/api/auth/me");
-    await enterApp(session);
+    csrfToken = session.csrfToken || "";
+    await requestJson("/api/auth/logout", { method: "POST" });
+    showAuthScreen();
   } catch (error) {
     const message = error.status && error.status !== 401 ? error.message : "";
     showAuthScreen(message);

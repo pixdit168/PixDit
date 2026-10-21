@@ -31,6 +31,7 @@ test("AI receives the logo as the final reference and chooses its composition", 
   assert.ok(prompt.indexOf("product images before the logo") < prompt.indexOf("LAST supplied reference image"));
   assert.match(prompt, /Choose its placement, size, and color treatment/);
   assert.match(prompt, /complete ready-to-use campaign visual/);
+  assert.match(prompt, /safe margins, especially at the bottom edge/);
   assert.doesNotMatch(prompt, /draggable|post-process the logo/i);
 });
 

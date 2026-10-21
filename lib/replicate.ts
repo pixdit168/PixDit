@@ -174,20 +174,29 @@ export class ReplicateImageProvider {
     if (contentLength > 25 * 1024 * 1024) throw new Error("File hasil Replicate melebihi batas 25 MB.");
     const buffer = Buffer.from(await response.arrayBuffer());
     if (!buffer.length || buffer.length > 25 * 1024 * 1024) throw new Error("Ukuran file hasil Replicate tidak valid.");
-    let image = sharp(buffer).rotate();
+    let imageBuffer = await sharp(buffer).rotate().toBuffer();
     if (cropToAspectRatio) {
-      const metadata = await sharp(buffer).metadata();
+      const metadata = await sharp(imageBuffer).metadata();
       if (!metadata.width || !metadata.height) throw new Error("Dimensi gambar hasil tidak dapat dibaca.");
-      const rotated = metadata.orientation >= 5 && metadata.orientation <= 8;
-      const width = rotated ? metadata.height : metadata.width;
-      const height = rotated ? metadata.width : metadata.height;
+      const { width, height } = metadata;
       const [ratioWidth, ratioHeight] = cropToAspectRatio.split(":").map(Number);
       const ratio = ratioWidth / ratioHeight;
-      const cropWidth = width / height > ratio ? Math.round(height * ratio) : width;
-      const cropHeight = width / height < ratio ? Math.round(width / ratio) : height;
-      image = image.resize({ width: cropWidth, height: cropHeight, fit: "cover" });
+      if (!Number.isFinite(ratio) || ratio <= 0) throw new Error("Rasio gambar hasil tidak valid.");
+      const frameWidth = width / height < ratio ? Math.round(height * ratio) : width;
+      const frameHeight = width / height > ratio ? Math.round(width / ratio) : height;
+      if (frameWidth !== width || frameHeight !== height) {
+        const background = await sharp(imageBuffer)
+          .resize({ width: frameWidth, height: frameHeight, fit: "cover" })
+          .blur(30)
+          .toBuffer();
+        imageBuffer = await sharp(background).composite([{
+          input: imageBuffer,
+          left: Math.floor((frameWidth - width) / 2),
+          top: Math.floor((frameHeight - height) / 2),
+        }]).toBuffer();
+      }
     }
-    const normalized = await image.jpeg({ quality: this.outputQuality, mozjpeg: true }).toBuffer();
+    const normalized = await sharp(imageBuffer).jpeg({ quality: this.outputQuality, mozjpeg: true }).toBuffer();
     return { buffer: normalized, extension: "jpg", mimeType: "image/jpeg" };
   }
 
@@ -288,7 +297,7 @@ export class ReplicateImageProvider {
         body: JSON.stringify({ input }),
       });
       const completed = getOutputUrl(prediction.output) ? prediction : await this.waitForPrediction(prediction, signal);
-      return await this.downloadOutput(completed.output, signal, isGptImage2 && aspectRatio === "4:5" ? "4:5" : "");
+      return await this.downloadOutput(completed.output, signal, aspectRatio);
     } catch (error) {
       if (signal?.aborted && prediction?.id) {
         try { await this.cancelPrediction(prediction); } catch { /* Pembatalan lokal tetap diteruskan. */ }
