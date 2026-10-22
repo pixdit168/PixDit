@@ -154,7 +154,7 @@ svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; strok
 .nav-count { min-width: 22px; height: 22px; display: grid; place-items: center; margin-left: auto; padding: 0 6px; border-radius: 12px; background: #e3e9d0; color: #627716; font-size: 11px; font-weight: 800; }
 .soon-badge { margin-left: auto; padding: 3px 5px; border-radius: 4px; background: #eeede7; font-size: 7px; font-weight: 800; letter-spacing: .6px; }
 .side-spacer { flex: 1; }
-.plan-card { margin: 15px 14px 11px; padding: 13px; border-radius: 11px; background: #30392b; color: white; }
+.plan-card { margin: 13px 12px 9px; padding: 13px; border-radius: 11px; background: #30392b; color: white; }
 .plan-icon { color: var(--lime); font-size: 14px; margin-bottom: 7px; }
 .plan-card strong, .plan-card > span { display: block; }
 .plan-card strong { font-size: 10px; }
@@ -1055,7 +1055,8 @@ body { background:var(--paper); }
 .sidebar .side-create { width:100%; margin-left:0; background:linear-gradient(100deg,#8e6cf2,#ca83e9); }
 .sidebar .side-create span { color:#fff; }
 .sidebar .nav-count,.sidebar .soon-badge { color:#e4d6ff; background:#372858; }
-.sidebar .plan-card { border:1px solid #4a356d; background:linear-gradient(145deg,#312153,#21183e); }
+.sidebar .plan-card { display:grid; grid-template-columns:20px minmax(0,1fr); column-gap:8px; align-items:center; align-content:start; height:auto; min-height:0; flex:0 0 auto; border:1px solid #4a356d; background:linear-gradient(145deg,#312153,#21183e); }
+.sidebar .plan-card > span,.sidebar .plan-progress,.sidebar .plan-card button { grid-column:1/-1; }
 .sidebar .plan-icon,.sidebar .plan-card button { color:#d1adff; }
 .sidebar .plan-progress { background:#584573; }
 .sidebar .plan-progress i { background:linear-gradient(90deg,#8e6cf2,#eca1ea); }
@@ -1152,23 +1153,23 @@ body { background:var(--paper); }
 
 @media (min-width:821px) {
   .sidebar { inset:0 auto 0 0; width:248px; height:100vh; flex-direction:column; align-items:stretch; gap:0; overflow-y:auto; padding:0; border-right:1px solid rgba(185,155,250,.23); border-bottom:0; box-shadow:12px 0 32px rgba(4,2,15,.18); }
-  .sidebar-top { display:block; flex:0 0 auto; padding:29px 19px 18px; }
+  .sidebar-top { display:block; flex:0 0 auto; padding:29px 19px 32px; }
   .sidebar-top .brand { display:inline-flex; margin:0 0 0 8px; font-size:23px; }
   .sidebar .side-create { width:100%; min-width:0; height:48px; margin:30px 0 0; padding:0 14px; font-size:14px; }
   .sidebar .side-create span { font-size:21px; }
-  .side-nav { display:grid; gap:5px; padding:0 13px; }
+  .side-nav { display:grid; gap:10px; padding:0 13px; }
   .sidebar .nav-item { width:100%; min-height:48px; height:auto; padding:11px 13px; white-space:normal; font-size:14px; }
   .sidebar .nav-item.active::before { width:3px; height:23px; left:0; right:auto; top:50%; bottom:auto; transform:translateY(-50%); }
   .sidebar .nav-item svg { width:20px; height:20px; flex:0 0 20px; }
   .sidebar .nav-count { min-width:25px; height:25px; font-size:12px; }
   .sidebar .soon-badge { font-size:9px; }
   .side-spacer { flex:1 0 24px; min-width:0; }
-  .sidebar .plan-card { width:auto; flex:0 0 auto; margin:16px 13px 12px; padding:18px 16px 16px; border-color:#7454ac; background:linear-gradient(145deg,#442a75,#2c1e52); box-shadow:0 12px 28px rgba(5,2,22,.24); }
-  .sidebar .plan-icon { display:block; margin:0 0 8px; color:#dcabff; font-size:22px; }
+  .sidebar .plan-card { width:auto; flex:0 0 auto; margin:16px 13px 12px; padding:13px 14px 10px; border-color:#7454ac; background:linear-gradient(145deg,#442a75,#2c1e52); box-shadow:0 12px 28px rgba(5,2,22,.24); }
+  .sidebar .plan-icon { display:block; margin:0; color:#dcabff; font-size:20px; line-height:1; }
   .sidebar .plan-card strong { font-size:17px; line-height:1.2; }
   .sidebar .plan-card > span { margin-top:7px; color:#e0d3f1; font-size:12px; line-height:1.35; }
-  .sidebar .plan-progress { height:7px; margin:14px 0 12px; background:#62487e; }
-  .sidebar .plan-card button { display:inline-flex; min-height:32px; align-items:center; color:#eed4ff; font-size:13px; }
+  .sidebar .plan-progress { height:6px; margin:9px 0 4px; background:#62487e; }
+  .sidebar .plan-card button { display:inline-flex; justify-self:start; min-height:28px; align-items:center; color:#eed4ff; font-size:13px; }
   .sidebar-bottom { flex:0 0 auto; padding:0 13px 17px; }
   .sidebar-bottom > #help-button { display:flex; }
   .sidebar .profile-button { width:100%; min-height:64px; margin-top:6px; padding:10px 7px; border-top:1px solid #40345b; border-left:0; border-radius:0 0 9px 9px; }
@@ -1180,17 +1181,17 @@ body { background:var(--paper); }
 }
 @media (max-width:1100px) and (min-width:821px) {
   .sidebar { width:220px; }
-  .sidebar .plan-card { padding:16px 13px; }
+  .sidebar .plan-card { padding:13px 13px 10px; }
   .account-popover { left:230px; }
   .app-main { width:calc(100% - 220px); margin-left:220px; }
 }
 @media (max-height:700px) and (min-width:821px) {
-  .sidebar-top { padding-top:16px; padding-bottom:10px; }
+  .sidebar-top { padding-top:16px; padding-bottom:22px; }
   .sidebar .side-create { margin-top:17px; }
-  .side-nav { gap:1px; }
+  .side-nav { gap:6px; }
   .sidebar .nav-item { min-height:42px; padding-block:8px; }
-  .sidebar .plan-card { margin-block:8px; padding-block:12px; }
-  .sidebar .plan-icon { margin-bottom:4px; }
+  .sidebar .plan-card { margin-block:8px; padding-block:10px; }
+  .sidebar .plan-icon { margin-bottom:0; }
   .sidebar-bottom > #help-button { display:none; }
 }
 
@@ -1302,18 +1303,18 @@ body { background:var(--paper); }
   .auth-form-wrap { padding:30px 23px; }
   .sidebar { inset:0 auto 0 0; width:min(290px,83vw); height:100vh; flex-direction:column; align-items:stretch; gap:0; overflow-y:auto; padding:0; border-bottom:0; border-right:1px solid #4e3a69; transform:translateX(-105%); }
   .sidebar.mobile-open { transform:translateX(0); }
-  .sidebar-top { display:block; padding:26px 19px 20px; }
+  .sidebar-top { display:block; padding:26px 19px 32px; }
   .sidebar .side-create { width:100%; height:48px; margin-top:25px; font-size:14px; }
-  .side-nav { display:block; padding:0 12px; }
+  .side-nav { display:grid; gap:8px; padding:0 12px; }
   .sidebar .nav-item { width:100%; min-height:46px; height:auto; font-size:14px; }
   .sidebar .nav-item svg { width:19px; height:19px; flex:0 0 19px; }
   .side-spacer { flex:1; }
-  .sidebar .plan-card { display:block; margin:15px 14px 11px; padding:17px 15px; border-color:#7454ac; background:linear-gradient(145deg,#442a75,#2c1e52); }
-  .sidebar .plan-icon { font-size:20px; }
+  .sidebar .plan-card { display:grid; margin:15px 14px 11px; padding:13px 14px 10px; border-color:#7454ac; background:linear-gradient(145deg,#442a75,#2c1e52); }
+  .sidebar .plan-icon { margin:0; font-size:20px; line-height:1; }
   .sidebar .plan-card strong { font-size:16px; }
   .sidebar .plan-card > span { color:#e0d3f1; font-size:12px; }
-  .sidebar .plan-progress { height:7px; }
-  .sidebar .plan-card button { min-height:32px; font-size:13px; }
+  .sidebar .plan-progress { height:6px; margin:9px 0 4px; }
+  .sidebar .plan-card button { justify-self:start; min-height:28px; font-size:13px; }
   .sidebar-bottom { padding:0 12px 16px; }
   .sidebar-bottom > #help-button { display:flex; }
   .sidebar .profile-button { width:100%; }
