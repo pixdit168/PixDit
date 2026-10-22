@@ -496,6 +496,17 @@
       </div>
     </div>
 
+    <div id="delete-library-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="delete-library-title" aria-describedby="delete-library-description" aria-hidden="true">
+      <div class="modal delete-library-modal">
+        <button id="delete-library-close" class="icon-button modal-close" type="button" aria-label="Tutup konfirmasi hapus desain">×</button>
+        <span class="modal-kicker">HAPUS DARI KOLEKSI</span>
+        <h2 id="delete-library-title">Hapus desain ini?</h2>
+        <p id="delete-library-description"><strong id="delete-library-name"></strong> beserta semua versi editnya akan dihapus dari Koleksi. Hasil gambar di proyek tetap tersimpan. Tindakan ini tidak dapat dibatalkan.</p>
+        <p id="delete-library-error" class="is-hidden" role="alert"></p>
+        <div class="modal-actions"><button id="cancel-delete-library" class="secondary-button" type="button">Batal</button><button id="confirm-delete-library" class="danger-button" type="button">Hapus desain</button></div>
+      </div>
+    </div>
+
     <div id="account-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
       <div class="modal account-modal">
         <button id="account-modal-close" class="icon-button modal-close" type="button" aria-label="Tutup pengaturan">×</button>
@@ -594,7 +605,7 @@ Ayo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membua
     </div>
 
     <aside id="refine-drawer" class="refine-drawer" aria-hidden="true">
-      <div class="drawer-head"><div><span class="modal-kicker">EDIT DI LIBRARY</span><h2>Buat versi baru.</h2><p id="drawer-version-meta">Versi awal akan tetap tersimpan.</p></div><button id="close-drawer" class="icon-button" type="button">×</button></div>
+      <div class="drawer-head"><div><span class="modal-kicker">EDIT DI LIBRARY</span><h2>Buat versi baru.</h2><p id="drawer-version-meta">Versi awal akan tetap tersimpan.</p></div><button id="close-drawer" class="icon-button" type="button" aria-label="Tutup edit salinan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
       <div class="drawer-preview"><div id="drawer-poster" class="poster poster-1"><div class="poster-copy"><small>BRAND LOKAL</small><strong>Headline Promosimu.</strong><span>Pelajari Sekarang</span></div></div></div>
       <label for="refine-input">Apa yang ingin kamu ubah?</label>
       <textarea id="refine-input" maxlength="500" placeholder="Contoh: Buat latar lebih terang dan ukuran produk sedikit lebih besar..."></textarea>

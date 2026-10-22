@@ -4,6 +4,8 @@ Pixgin membuat gambar kampanye dari prompt pengguna dengan Agent Free atau Agent
 
 Identitas teknis lama untuk cookie, local storage, tabel, dan bucket Supabase sengaja tetap menggunakan nama `layera` agar sesi dan data yang sudah ada tetap kompatibel setelah pergantian merek. Alamat bantuan lama juga tetap aktif sampai alamat Pixgin yang baru dikonfirmasi.
 
+Di Koleksi, tombol **Hapus** meminta konfirmasi sebelum menghapus desain tersimpan beserta semua versi editnya. Hasil gambar di proyek tetap tersedia. Penghapusan disimpan ke akun sebelum kartu dihilangkan; jika penyimpanan gagal, desain tetap tersedia untuk dicoba kembali. Tidak ada perubahan schema Supabase yang diperlukan.
+
 Paket Gratis dapat membuat satu gambar; pelanggan Pro dapat memilih satu atau sepuluh variasi dari prompt yang sama. Hasil diberi nama netral `Variasi 01` hingga `Variasi 10`. Edit memakai gambar tersimpan sebagai referensi dan instruksi edit pengguna. Proyek baru dapat mengunggah maksimal lima gambar produk dan satu logo. Logo diberikan sebagai referensi terakhir kepada AI tanpa penghapusan latar otomatis. Hasil baru adalah komposisi utuh tanpa lapisan teks/logo tambahan dari browser; poster lama tetap memakai lapisan sebelumnya.
 
 Setiap halaman Pixgin dibuka ulang, sesi sebelumnya diakhiri dan pengguna diminta masuk kembali. Hasil gambar baru disesuaikan dengan rasio poster tanpa memotong konten sumber; jika model menghasilkan rasio yang berbeda, sisi kosong diisi dengan latar buram dari gambar yang sama. Pratinjau juga menampilkan keseluruhan gambar. Hasil lama yang sudah terpotong saat dibuat tidak dapat dipulihkan otomatis dan perlu digenerasi ulang.

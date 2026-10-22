@@ -56,6 +56,7 @@ function renderLibrary() {
               <button class="secondary-button library-preview-button" type="button">Preview</button>
               <button class="secondary-button library-download" type="button">Unduh</button>
               <button class="dark-button library-edit" type="button">✦ Edit salinan</button>
+              <button class="library-delete" type="button" aria-label="Hapus ${escapeHtml(label)} dari Koleksi">Hapus</button>
             </div>
           </div>
         </article>`;
@@ -70,7 +71,78 @@ function renderLibrary() {
     $(".library-preview-button", card).addEventListener("click", () => openLibraryPreview(itemId));
     $(".library-edit", card).addEventListener("click", () => openRefineDrawer(itemId));
     $(".library-download", card).addEventListener("click", () => downloadLibraryVersion(itemId));
+    $(".library-delete", card).addEventListener("click", () => openDeleteLibraryModal(itemId));
   });
+}
+
+function openDeleteLibraryModal(itemId) {
+  const item = getLibraryItem(itemId);
+  if (!item || libraryDeletionInProgress) return;
+  pendingDeleteLibraryId = itemId;
+  $("#delete-library-name").textContent = `${item.projectName || "Desain"} · ${variationName(variationIndex(item.conceptIndex))}`;
+  $("#delete-library-error").textContent = "";
+  $("#delete-library-error").classList.add("is-hidden");
+  $("#delete-library-modal").classList.remove("is-hidden");
+  $("#delete-library-modal").setAttribute("aria-hidden", "false");
+  setTimeout(() => $("#cancel-delete-library").focus(), 50);
+}
+
+function closeDeleteLibraryModal({ restoreFocus = false, force = false } = {}) {
+  if (libraryDeletionInProgress && !force) return;
+  const itemId = pendingDeleteLibraryId;
+  pendingDeleteLibraryId = null;
+  $("#delete-library-modal")?.classList.add("is-hidden");
+  $("#delete-library-modal")?.setAttribute("aria-hidden", "true");
+  if (restoreFocus && itemId) setTimeout(() => $(`.library-card[data-library-id="${CSS.escape(itemId)}"] .library-delete`)?.focus(), 0);
+}
+
+async function deletePendingLibraryItem() {
+  const itemId = pendingDeleteLibraryId;
+  const item = getLibraryItem(itemId);
+  if (libraryDeletionInProgress) return;
+  if (!item) return closeDeleteLibraryModal();
+  libraryDeletionInProgress = true;
+  const button = $("#confirm-delete-library");
+  button.disabled = true;
+  button.textContent = "Menghapus...";
+  $("#cancel-delete-library").disabled = true;
+  $("#delete-library-close").disabled = true;
+  $("#delete-library-error").classList.add("is-hidden");
+  clearTimeout(accountStateTimer);
+  const account = currentUser;
+  try {
+    await queueAccountStateWrite(async () => {
+      await requestJson("/api/state", {
+        method: "PUT",
+        body: JSON.stringify({ projects, library: libraryItems.filter((candidate) => candidate.id !== itemId) }),
+      });
+      if (currentUser === account) libraryItems = libraryItems.filter((candidate) => candidate.id !== itemId);
+    });
+    if (currentUser !== account) return;
+    if (activeLibraryPreviewId === itemId) closeLibraryPreview();
+    if (activeLibraryItemId === itemId) closeRefineDrawer();
+    renderLibrary();
+    showToast("Desain dihapus", "Desain dan versi editnya dihapus dari Koleksi. Hasil di proyek tetap tersimpan.", "✓");
+    libraryDeletionInProgress = false;
+    closeDeleteLibraryModal();
+    $("#library-to-projects").focus();
+  } catch (error) {
+    if (currentUser !== account) return;
+    if (error.status === 401) {
+      libraryDeletionInProgress = false;
+      showAuthScreen("Sesi kamu telah berakhir. Silakan masuk kembali.");
+      return;
+    }
+    $("#delete-library-error").textContent = error.message || "Desain belum dapat dihapus. Silakan coba kembali.";
+    $("#delete-library-error").classList.remove("is-hidden");
+  } finally {
+    libraryDeletionInProgress = false;
+    button.disabled = false;
+    button.textContent = "Hapus desain";
+    $("#cancel-delete-library").disabled = false;
+    $("#delete-library-close").disabled = false;
+    if (currentUser !== account) closeDeleteLibraryModal();
+  }
 }
 
 function selectLibraryVersion(itemId, versionId) {

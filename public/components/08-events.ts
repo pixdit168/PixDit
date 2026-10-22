@@ -176,6 +176,12 @@ function bindEvents() {
   $("#delete-project-modal").addEventListener("click", (event) => {
     if (event.target === event.currentTarget) closeDeleteProjectModal();
   });
+  $("#delete-library-close").addEventListener("click", () => closeDeleteLibraryModal({ restoreFocus: true }));
+  $("#cancel-delete-library").addEventListener("click", () => closeDeleteLibraryModal({ restoreFocus: true }));
+  $("#confirm-delete-library").addEventListener("click", deletePendingLibraryItem);
+  $("#delete-library-modal").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeDeleteLibraryModal({ restoreFocus: true });
+  });
   $("#help-button").addEventListener("click", openHelpModal);
   $("#help-modal-close").addEventListener("click", () => closeHelpModal({ restoreFocus: true }));
   $("#help-modal").addEventListener("click", (event) => {
@@ -419,6 +425,23 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (event) => {
+    const deleteLibraryModal = $("#delete-library-modal");
+    if (!deleteLibraryModal.classList.contains("is-hidden")) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeDeleteLibraryModal({ restoreFocus: true });
+      }
+      if (event.key === "Tab") {
+        const buttons = $$("button:not(:disabled)", deleteLibraryModal);
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        const outsideDialog = !deleteLibraryModal.contains(document.activeElement);
+        if (!buttons.length) event.preventDefault();
+        else if (event.shiftKey && (document.activeElement === first || outsideDialog)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || outsideDialog)) { event.preventDefault(); first.focus(); }
+      }
+      return;
+    }
     if (event.key !== "Escape") return;
     closeAuthPanel();
     closeAccountMenu({ restoreFocus: true });

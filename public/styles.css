@@ -312,6 +312,11 @@ svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; strok
 .version-pill.active { border-color: #91a940; background: white; color: #5f7417; font-weight: 800; box-shadow: 0 2px 7px rgba(61,76,16,.1); }
 .library-card-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 13px; }
 .library-card-actions button { justify-content: center; font-size: 13px; }
+.library-delete { grid-column:1/-1; min-height:34px; padding:6px 12px; border:1px solid #a45c78; border-radius:9px; color:#ffcada; background:#40253c; font-weight:700; cursor:pointer; }
+.library-delete:hover { color:#fff; background:#64304d; border-color:#e491ae; }
+.library-delete:focus-visible { outline:3px solid #e6a4ea; outline-offset:3px; }
+#delete-library-error { color:#ffb6c8; }
+.delete-library-modal button:disabled { opacity:.6; cursor:wait; }
 .drawer-head p { max-width: 270px; margin: 7px 0 0; color: #85847e; font-size: 13px; line-height: 1.45; }
 
 /* Project workspace */
@@ -597,6 +602,9 @@ svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; strok
 /* Modal, refinement and notifications */
 .modal-backdrop { position:fixed; z-index:100; inset:0; display:grid; place-items:center; padding:20px; background:rgba(20,20,17,.52); backdrop-filter:blur(5px); }
 .modal { position:relative; width:min(100%,485px); padding:34px; border-radius:17px; background:#fbfaf7; box-shadow:0 30px 80px rgba(0,0,0,.25); animation:modal-in .25s ease; }
+.modal.delete-library-modal { width:min(100%,465px); color:#f7f2ff; border:1px solid #665080; background:#211838; }
+.modal.delete-library-modal > p { color:#d2c6e4; line-height:1.55; }
+.delete-library-modal .modal-close { color:#281946; background:#f2e8ff; }
 #project-modal .modal { max-height:calc(100vh - 40px); overflow:auto; }
 @keyframes modal-in { from { opacity:0; transform:translateY(12px) scale(.98); } }
 .modal-close { position:absolute; right:17px; top:17px; width:30px; height:30px; border-radius:50%; background:#efeee9; font-size:18px; }
@@ -652,9 +660,13 @@ svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; strok
 .drawer-scrim { position:fixed; z-index:80; inset:0; background:rgba(20,20,17,.35); backdrop-filter:blur(2px); }
 .refine-drawer { position:fixed; z-index:90; top:0; right:0; width:min(390px,100%); height:100vh; overflow:auto; padding:25px; background:#faf9f6; box-shadow:-18px 0 55px rgba(0,0,0,.15); transform:translateX(105%); transition:transform .3s cubic-bezier(.2,.8,.2,1); }
 .refine-drawer.open { transform:translateX(0); }
-.drawer-head { display:flex; justify-content:space-between; align-items:flex-start; }
+.drawer-head { display:flex; justify-content:space-between; align-items:flex-start; gap:14px; }
+.drawer-head > div { min-width:0; }
 .drawer-head h2 { margin:7px 0 0; font:400 26px Georgia,serif; }
-.drawer-head .icon-button { width:32px; height:32px; border-radius:50%; background:#eeede8; font-size:19px; }
+.drawer-head .icon-button { width:40px; height:40px; flex:0 0 40px; border:1px solid #c9b3e7; border-radius:50%; color:#281946; background:#f2e8ff; }
+.drawer-head .icon-button:hover { color:#1d1030; background:#ddc6fb; }
+.drawer-head .icon-button:focus-visible { outline:3px solid #b58af3; outline-offset:3px; }
+.drawer-head .icon-button svg { width:20px; height:20px; stroke-width:2.5; }
 .drawer-preview { display:grid; place-items:center; margin:25px 0; padding:20px; border-radius:12px; background:#e6e4dd; }
 .drawer-preview .poster { width:210px; box-shadow:0 13px 29px rgba(0,0,0,.2); }
 .refine-drawer textarea { width:100%; height:105px; resize:none; outline:0; padding:12px; border:1px solid #d8d7d1; border-radius:9px; background:white; font-size:10px; line-height:1.5; }
@@ -1272,6 +1284,8 @@ body { background:var(--paper); }
 .account-menu-item,.project-action-menu button { color:#f3ebff; }
 .account-menu-item small,.account-popover-head small,.account-popover-email { color:#b7aaca; }
 .refine-drawer { color:#f8f3ff; background:#211838; }
+.refine-drawer .modal-kicker,.delete-library-modal .modal-kicker { color:#c9a6ff; }
+.refine-drawer .drawer-head p { color:#c3b7d2; }
 .refine-drawer textarea { color:#f8f3ff; border-color:#5d4975; background:#302449; }
 .library-preview-modal,.library-preview-head,.grading-panel { color:#f7f2ff; border-color:#53416d; background:#211838; }
 .library-preview-head h2 { font-family:"Segoe UI",Arial,sans-serif; font-weight:700; }

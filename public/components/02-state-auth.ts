@@ -12,6 +12,7 @@ let generationAbortController = null;
 let generationCancelRequested = false;
 let saveTimer = null;
 let accountStateTimer = null;
+let accountStateWriteQueue: Promise<void> = Promise.resolve();
 let accountStateReady = false;
 let currentUser = null;
 let accountPreferences = null;
@@ -21,6 +22,8 @@ let usageState = null;
 let selectedGenerationCount = 1;
 let selectedAgentTier = "free";
 let pendingDeleteProjectId = null;
+let pendingDeleteLibraryId = null;
+let libraryDeletionInProgress = false;
 let csrfToken = "";
 function cloneInspirationProjects() {
   return JSON.parse(JSON.stringify(inspirationProjects));
@@ -75,12 +78,27 @@ function getSignupDeviceIdentity() {
   };
 }
 
+function queueAccountStateWrite(write: () => Promise<void>): Promise<void> {
+  const account = currentUser;
+  const sessionToken = csrfToken;
+  const pendingWrite = accountStateWriteQueue.then(async () => {
+    if (!accountStateReady || !account || currentUser !== account || csrfToken !== sessionToken) {
+      throw new Error("Sesi akun telah berubah. Silakan coba kembali.");
+    }
+    await write();
+  });
+  accountStateWriteQueue = pendingWrite.catch(() => {});
+  return pendingWrite;
+}
+
 async function persistAccountState() {
   if (!accountStateReady || !currentUser) return;
   try {
-    await requestJson("/api/state", {
-      method: "PUT",
-      body: JSON.stringify({ projects, library: libraryItems }),
+    await queueAccountStateWrite(async () => {
+      await requestJson("/api/state", {
+        method: "PUT",
+        body: JSON.stringify({ projects, library: libraryItems }),
+      });
     });
   } catch (error) {
     if (error.status === 401) {
@@ -268,6 +286,7 @@ function closeAuthPanel() {
 }
 
 function showAuthScreen(message = "") {
+  closeDeleteLibraryModal({ force: true });
   clearTimeout(accountStateTimer);
   accountStateReady = false;
   currentUser = null;

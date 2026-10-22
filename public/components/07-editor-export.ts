@@ -88,6 +88,11 @@ async function regenerateSelected() {
       updatePlanInterface();
     }
 
+    if (getLibraryItem(libraryItem.id) !== libraryItem) {
+      showToast("Desain sudah dihapus", "Hasil edit tidak ditambahkan karena desain telah dihapus dari Koleksi.", "!");
+      return;
+    }
+
     const versionNumber = libraryItem.versions.length + 1;
     const versionId = `${libraryItem.id}-v${versionNumber}-${Date.now()}`;
     libraryItem.versions.push({
