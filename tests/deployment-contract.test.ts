@@ -70,7 +70,12 @@ test("reference-led studio layout keeps login and project actions accessible", a
   assert.match(html, /class="art-ribbon"/);
   assert.match(html, /id="quick-create"/);
   assert.match(css, /\.auth-screen \{ display:block; position:relative; min-height:100vh; \}/);
-  assert.match(css, /@media \(min-width:821px\) \{[\s\S]*?\.sidebar \{ inset:0 0 auto; width:100%; height:78px;/);
+  assert.match(css, /@media \(min-width:821px\) \{[\s\S]*?\.sidebar \{ inset:0 auto 0 0; width:248px; height:100vh; flex-direction:column;/);
+  assert.match(css, /\.sidebar \.plan-card strong \{ font-size:17px; line-height:1\.2; \}/);
+  assert.match(css, /\.sidebar \.plan-card > span \{ margin-top:7px; color:#e0d3f1; font-size:12px;/);
+  assert.match(css, /\.sidebar \.plan-card button \{ display:inline-flex;/);
+  assert.match(css, /\.app-main \{ width:calc\(100% - 248px\); margin-left:248px; padding-top:0; \}/);
+  assert.match(css, /@media \(max-width:820px\) \{[\s\S]*?\.sidebar \.plan-card strong \{ font-size:16px; \}/);
   assert.match(css, /@media \(max-width:820px\) \{/);
   assert.match(authSource, /function openAuthPanel\(mode/);
   assert.match(authSource, /function closeAuthPanel\(\)/);
