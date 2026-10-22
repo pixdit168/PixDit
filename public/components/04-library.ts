@@ -19,6 +19,43 @@ function getCurrentLibraryVersion(item) {
   return item.versions.find((version) => version.id === item.currentVersionId) || item.versions[0];
 }
 
+function updateLibrarySelectionInterface() {
+  const availableIds = new Set(libraryItems.map((item) => item.id));
+  for (const id of selectedLibraryIds) if (!availableIds.has(id)) selectedLibraryIds.delete(id);
+  const count = selectedLibraryIds.size;
+  const selectAll = $("#library-select-all");
+  selectAll.checked = libraryItems.length > 0 && count === availableIds.size;
+  selectAll.indeterminate = count > 0 && count < availableIds.size;
+  selectAll.disabled = libraryDeletionInProgress || libraryItems.length === 0;
+  $("#library-selection-toolbar").classList.toggle("is-hidden", libraryItems.length === 0);
+  $("#library-selection-count").textContent = `${count} dipilih`;
+  $("#library-clear-selection").disabled = libraryDeletionInProgress || count === 0;
+  const deleteButton = $("#library-delete-selected");
+  deleteButton.disabled = libraryDeletionInProgress || count === 0;
+  deleteButton.textContent = count ? `Hapus terpilih (${count})` : "Hapus terpilih";
+  $$(".library-card").forEach((card) => {
+    const selected = selectedLibraryIds.has(card.dataset.libraryId);
+    card.classList.toggle("is-selected", selected);
+    const checkbox = $(".library-select-input", card);
+    checkbox.checked = selected;
+    checkbox.disabled = libraryDeletionInProgress;
+  });
+}
+
+function toggleLibrarySelection(itemId, selected) {
+  if (!getLibraryItem(itemId) || libraryDeletionInProgress) return;
+  if (selected) selectedLibraryIds.add(itemId);
+  else selectedLibraryIds.delete(itemId);
+  updateLibrarySelectionInterface();
+}
+
+function selectAllLibraryItems(selected) {
+  if (libraryDeletionInProgress) return;
+  selectedLibraryIds.clear();
+  if (selected) libraryItems.forEach((item) => selectedLibraryIds.add(item.id));
+  updateLibrarySelectionInterface();
+}
+
 function renderLibrary() {
   const grid = $("#library-grid");
   if (!grid) return;
@@ -38,13 +75,14 @@ function renderLibrary() {
       const originalId = versions[0]?.id;
       const isOriginal = current.id === originalId;
       return `
-        <article class="library-card" data-library-id="${escapeHtml(item.id)}">
+        <article class="library-card ${selectedLibraryIds.has(item.id) ? "is-selected" : ""}" data-library-id="${escapeHtml(item.id)}">
           <div class="library-card-preview">
             <div class="poster poster-${conceptIndex + 1} ${formatClass} ${imageSource ? "api-poster" : ""}">
               ${imageSource ? `<img class="generated-image" src="${escapeHtml(imageSource)}" alt="${escapeHtml(label)}" style="filter:${escapeHtml(getColorGradeFilter(current.colorGrade))}" />` : ""}
               <div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy)}</div>
             </div>
             <span class="library-version-badge">${isOriginal ? "ORIGINAL" : `VERSI ${versions.indexOf(current) + 1}`}</span>
+            <label class="library-card-select"><input class="library-select-input" type="checkbox" aria-label="Pilih ${escapeHtml(item.projectName || "Desain")} · ${escapeHtml(label)}" ${selectedLibraryIds.has(item.id) ? "checked" : ""} /><span>Pilih</span></label>
           </div>
           <div class="library-card-body">
             <div class="library-card-title"><div><small>${escapeHtml(item.projectName || "Proyek Kanvas")}</small><h3>${escapeHtml(label)}</h3></div><span class="original-lock" title="Gambar awal terkunci">◆ Aman</span></div>
@@ -56,7 +94,6 @@ function renderLibrary() {
               <button class="secondary-button library-preview-button" type="button">Preview</button>
               <button class="secondary-button library-download" type="button">Unduh</button>
               <button class="dark-button library-edit" type="button">✦ Edit salinan</button>
-              <button class="library-delete" type="button" aria-label="Hapus ${escapeHtml(label)} dari Koleksi">Hapus</button>
             </div>
           </div>
         </article>`;
@@ -71,15 +108,19 @@ function renderLibrary() {
     $(".library-preview-button", card).addEventListener("click", () => openLibraryPreview(itemId));
     $(".library-edit", card).addEventListener("click", () => openRefineDrawer(itemId));
     $(".library-download", card).addEventListener("click", () => downloadLibraryVersion(itemId));
-    $(".library-delete", card).addEventListener("click", () => openDeleteLibraryModal(itemId));
+    $(".library-select-input", card).addEventListener("change", (event) => toggleLibrarySelection(itemId, event.target.checked));
   });
+  updateLibrarySelectionInterface();
 }
 
-function openDeleteLibraryModal(itemId) {
-  const item = getLibraryItem(itemId);
-  if (!item || libraryDeletionInProgress) return;
-  pendingDeleteLibraryId = itemId;
-  $("#delete-library-name").textContent = `${item.projectName || "Desain"} · ${variationName(variationIndex(item.conceptIndex))}`;
+function openDeleteLibraryModal() {
+  if (libraryDeletionInProgress) return;
+  pendingDeleteLibraryIds = libraryItems.filter((item) => selectedLibraryIds.has(item.id)).map((item) => item.id);
+  if (!pendingDeleteLibraryIds.length) return;
+  const count = pendingDeleteLibraryIds.length;
+  $("#delete-library-title").textContent = `Hapus ${count} desain?`;
+  $("#delete-library-name").textContent = `${count} desain terpilih`;
+  $("#confirm-delete-library").textContent = `Hapus ${count} desain`;
   $("#delete-library-error").textContent = "";
   $("#delete-library-error").classList.add("is-hidden");
   $("#delete-library-modal").classList.remove("is-hidden");
@@ -89,19 +130,19 @@ function openDeleteLibraryModal(itemId) {
 
 function closeDeleteLibraryModal({ restoreFocus = false, force = false } = {}) {
   if (libraryDeletionInProgress && !force) return;
-  const itemId = pendingDeleteLibraryId;
-  pendingDeleteLibraryId = null;
+  const hadSelection = pendingDeleteLibraryIds.length > 0;
+  pendingDeleteLibraryIds = [];
   $("#delete-library-modal")?.classList.add("is-hidden");
   $("#delete-library-modal")?.setAttribute("aria-hidden", "true");
-  if (restoreFocus && itemId) setTimeout(() => $(`.library-card[data-library-id="${CSS.escape(itemId)}"] .library-delete`)?.focus(), 0);
+  if (restoreFocus && hadSelection) setTimeout(() => $("#library-delete-selected")?.focus(), 0);
 }
 
-async function deletePendingLibraryItem() {
-  const itemId = pendingDeleteLibraryId;
-  const item = getLibraryItem(itemId);
+async function deletePendingLibraryItems() {
   if (libraryDeletionInProgress) return;
-  if (!item) return closeDeleteLibraryModal();
+  const itemIds = new Set(pendingDeleteLibraryIds.filter((id) => getLibraryItem(id)));
+  if (!itemIds.size) return closeDeleteLibraryModal();
   libraryDeletionInProgress = true;
+  updateLibrarySelectionInterface();
   const button = $("#confirm-delete-library");
   button.disabled = true;
   button.textContent = "Menghapus...";
@@ -114,18 +155,21 @@ async function deletePendingLibraryItem() {
     await queueAccountStateWrite(async () => {
       await requestJson("/api/state", {
         method: "PUT",
-        body: JSON.stringify({ projects, library: libraryItems.filter((candidate) => candidate.id !== itemId) }),
+        body: JSON.stringify({ projects, library: libraryItems.filter((candidate) => !itemIds.has(candidate.id)) }),
       });
-      if (currentUser === account) libraryItems = libraryItems.filter((candidate) => candidate.id !== itemId);
+      if (currentUser === account) {
+        libraryItems = libraryItems.filter((candidate) => !itemIds.has(candidate.id));
+        itemIds.forEach((id) => selectedLibraryIds.delete(id));
+      }
     });
     if (currentUser !== account) return;
-    if (activeLibraryPreviewId === itemId) closeLibraryPreview();
-    if (activeLibraryItemId === itemId) closeRefineDrawer();
-    renderLibrary();
-    showToast("Desain dihapus", "Desain dan versi editnya dihapus dari Koleksi. Hasil di proyek tetap tersimpan.", "✓");
+    if (itemIds.has(activeLibraryPreviewId)) closeLibraryPreview();
+    if (itemIds.has(activeLibraryItemId)) closeRefineDrawer();
     libraryDeletionInProgress = false;
+    renderLibrary();
+    showToast(`${itemIds.size} desain dihapus`, "Desain terpilih dan versi editnya dihapus dari Koleksi. Hasil di proyek tetap tersimpan.", "✓");
     closeDeleteLibraryModal();
-    $("#library-to-projects").focus();
+    $(libraryItems.length ? "#library-select-all" : "#library-empty-projects").focus();
   } catch (error) {
     if (currentUser !== account) return;
     if (error.status === 401) {
@@ -138,9 +182,10 @@ async function deletePendingLibraryItem() {
   } finally {
     libraryDeletionInProgress = false;
     button.disabled = false;
-    button.textContent = "Hapus desain";
+    button.textContent = pendingDeleteLibraryIds.length ? `Hapus ${pendingDeleteLibraryIds.length} desain` : "Hapus desain";
     $("#cancel-delete-library").disabled = false;
     $("#delete-library-close").disabled = false;
+    updateLibrarySelectionInterface();
     if (currentUser !== account) closeDeleteLibraryModal();
   }
 }

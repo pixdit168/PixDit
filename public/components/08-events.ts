@@ -178,7 +178,10 @@ function bindEvents() {
   });
   $("#delete-library-close").addEventListener("click", () => closeDeleteLibraryModal({ restoreFocus: true }));
   $("#cancel-delete-library").addEventListener("click", () => closeDeleteLibraryModal({ restoreFocus: true }));
-  $("#confirm-delete-library").addEventListener("click", deletePendingLibraryItem);
+  $("#confirm-delete-library").addEventListener("click", deletePendingLibraryItems);
+  $("#library-select-all").addEventListener("change", (event) => selectAllLibraryItems(event.target.checked));
+  $("#library-clear-selection").addEventListener("click", () => selectAllLibraryItems(false));
+  $("#library-delete-selected").addEventListener("click", openDeleteLibraryModal);
   $("#delete-library-modal").addEventListener("click", (event) => {
     if (event.target === event.currentTarget) closeDeleteLibraryModal({ restoreFocus: true });
   });

@@ -91,7 +91,7 @@ async function libraryDeletionContext(fetch: (...args: any[]) => Promise<any>) {
       const classes = new Set(["is-hidden"]);
       nodes.set(selector, {
         textContent: "", disabled: false,
-        classList: { add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name), contains: (name: string) => classes.has(name) },
+        classList: { add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name), contains: (name: string) => classes.has(name), toggle: (name: string, force?: boolean) => { const enabled = force ?? !classes.has(name); if (enabled) classes.add(name); else classes.delete(name); return enabled; } },
         setAttribute() {}, focus() {},
       });
     }
@@ -99,7 +99,7 @@ async function libraryDeletionContext(fetch: (...args: any[]) => Promise<any>) {
   };
   const context = vm.createContext({ fetch, setTimeout: () => 0, clearTimeout() {} });
   vm.runInContext(script, context);
-  context.document = { querySelector: node };
+  context.document = { querySelector: node, querySelectorAll: () => [] };
   vm.runInContext(`
     currentUser = { id: "user-1" };
     csrfToken = "test-csrf";
@@ -107,9 +107,10 @@ async function libraryDeletionContext(fetch: (...args: any[]) => Promise<any>) {
     projects = [{ id: "project-1", generatedImages: [{ url: "/generated/shared.jpg" }] }];
     libraryItems = [
       { id: "delete-me", projectName: "Kopi", conceptIndex: 0, versions: [{ id: "original", url: "/generated/shared.jpg" }, { id: "edit", url: "/generated/edit.jpg" }] },
+      { id: "delete-too", projectName: "Roti", conceptIndex: 1, versions: [{ id: "bread", url: "/generated/bread.jpg" }] },
       { id: "keep-me", projectName: "Teh", versions: [{ id: "keep", url: "/generated/keep.jpg" }] }
     ];
-    renderLibrary = () => updateLibraryCount();
+    renderLibrary = () => { updateLibraryCount(); updateLibrarySelectionInterface(); };
     closeLibraryPreview = () => { activeLibraryPreviewId = null; };
     closeRefineDrawer = () => { activeLibraryItemId = null; };
     showToast = () => {};
@@ -117,7 +118,7 @@ async function libraryDeletionContext(fetch: (...args: any[]) => Promise<any>) {
   return { context, node };
 }
 
-test("confirmed collection deletion persists after queued saves and preserves project images", async () => {
+test("confirmed bulk deletion removes only the confirmed selection after queued saves", async () => {
   const writes: any[] = [];
   let releaseFirst!: () => void;
   let firstStarted!: () => void;
@@ -132,43 +133,79 @@ test("confirmed collection deletion persists after queued saves and preserves pr
     return { ok: true, json: async () => ({ ok: true }) };
   });
 
-  vm.runInContext(`openDeleteLibraryModal("delete-me"); closeDeleteLibraryModal();`, context);
-  assert.equal(vm.runInContext("libraryItems.length", context), 2);
+  vm.runInContext(`toggleLibrarySelection("delete-me", true); toggleLibrarySelection("delete-too", true); openDeleteLibraryModal(); closeDeleteLibraryModal();`, context);
+  assert.equal(vm.runInContext("libraryItems.length", context), 3);
+  assert.equal(vm.runInContext("selectedLibraryIds.size", context), 2);
   assert.equal(writes.length, 0);
 
   const autosave = vm.runInContext("persistAccountState()", context);
   await firstWrite;
-  vm.runInContext(`activeLibraryItemId = "delete-me"; activeLibraryPreviewId = "delete-me"; openDeleteLibraryModal("delete-me");`, context);
-  const deletion = vm.runInContext("deletePendingLibraryItem()", context);
+  vm.runInContext(`activeLibraryItemId = "delete-too"; activeLibraryPreviewId = "delete-me"; openDeleteLibraryModal(); toggleLibrarySelection("keep-me", true);`, context);
+  assert.equal(node("#delete-library-title").textContent, "Hapus 2 desain?");
+  const deletion = vm.runInContext("deletePendingLibraryItems()", context);
   const laterSave = vm.runInContext("persistAccountState()", context);
   assert.equal(writes.length, 1);
   assert.equal(node("#confirm-delete-library").disabled, true);
   releaseFirst();
   await Promise.all([autosave, deletion, laterSave]);
 
-  assert.deepEqual(writes.map((write) => write.library.map((item: any) => item.id)), [["delete-me", "keep-me"], ["keep-me"], ["keep-me"]]);
+  assert.deepEqual(writes.map((write) => write.library.map((item: any) => item.id)), [["delete-me", "delete-too", "keep-me"], ["keep-me"], ["keep-me"]]);
   assert.deepEqual(JSON.parse(vm.runInContext("JSON.stringify(libraryItems.map(item => item.id))", context)), ["keep-me"]);
   assert.equal(vm.runInContext("projects[0].generatedImages[0].url", context), "/generated/shared.jpg");
   assert.equal(vm.runInContext("activeLibraryItemId", context), null);
   assert.equal(vm.runInContext("activeLibraryPreviewId", context), null);
   assert.equal(node("#library-count").textContent, "1 desain");
+  assert.deepEqual(JSON.parse(vm.runInContext("JSON.stringify([...selectedLibraryIds])", context)), ["keep-me"]);
   assert.equal(node("#delete-library-modal").classList.contains("is-hidden"), true);
 });
 
-test("failed collection deletion keeps the item and all versions available for retry", async () => {
+test("failed bulk deletion keeps every selected item and its versions available for retry", async () => {
   let fail = true;
   const { context, node } = await libraryDeletionContext(async () => ({
     ok: !fail, status: fail ? 500 : 200,
     json: async () => fail ? { message: "Penyimpanan gagal" } : { ok: true },
   }));
-  vm.runInContext(`openDeleteLibraryModal("delete-me")`, context);
-  await vm.runInContext("deletePendingLibraryItem()", context);
-  assert.equal(vm.runInContext("libraryItems.length", context), 2);
+  vm.runInContext(`toggleLibrarySelection("delete-me", true); toggleLibrarySelection("delete-too", true); openDeleteLibraryModal()`, context);
+  await vm.runInContext("deletePendingLibraryItems()", context);
+  assert.equal(vm.runInContext("libraryItems.length", context), 3);
+  assert.equal(vm.runInContext("selectedLibraryIds.size", context), 2);
   assert.equal(vm.runInContext("libraryItems[0].versions.length", context), 2);
   assert.equal(node("#delete-library-modal").classList.contains("is-hidden"), false);
   assert.equal(node("#delete-library-error").textContent, "Penyimpanan gagal");
   assert.equal(node("#confirm-delete-library").disabled, false);
   fail = false;
-  await vm.runInContext("deletePendingLibraryItem()", context);
+  await vm.runInContext("deletePendingLibraryItems()", context);
   assert.equal(vm.runInContext("libraryItems.length", context), 1);
+  assert.equal(vm.runInContext("selectedLibraryIds.size", context), 0);
+});
+
+test("collection selection supports select all, clear, stale IDs, and deleting all items in one save", async () => {
+  const writes: any[] = [];
+  const { context, node } = await libraryDeletionContext(async (_url, options) => {
+    writes.push(JSON.parse(options.body));
+    return { ok: true, json: async () => ({ ok: true }) };
+  });
+  vm.runInContext("updateLibrarySelectionInterface(); openDeleteLibraryModal()", context);
+  assert.equal(node("#library-delete-selected").disabled, true);
+  assert.equal(vm.runInContext("pendingDeleteLibraryIds.length", context), 0);
+  vm.runInContext("selectAllLibraryItems(true)", context);
+  assert.equal(node("#library-select-all").checked, true);
+  assert.equal(node("#library-selection-count").textContent, "3 dipilih");
+  vm.runInContext(`toggleLibrarySelection("keep-me", false); toggleLibrarySelection("missing-id", true); renderLibrary()`, context);
+  assert.equal(vm.runInContext("selectedLibraryIds.size", context), 2);
+  assert.equal(node("#library-select-all").indeterminate, true);
+  vm.runInContext(`selectedLibraryIds.add("stale-id"); renderLibrary()`, context);
+  assert.equal(vm.runInContext("selectedLibraryIds.has('stale-id')", context), false);
+  vm.runInContext("selectAllLibraryItems(false)", context);
+  assert.equal(vm.runInContext("selectedLibraryIds.size", context), 0);
+  assert.equal(node("#library-delete-selected").disabled, true);
+  assert.equal(writes.length, 0);
+  vm.runInContext("selectAllLibraryItems(true); openDeleteLibraryModal()", context);
+  await vm.runInContext("deletePendingLibraryItems()", context);
+  assert.equal(writes.length, 1);
+  assert.deepEqual(writes[0].library, []);
+  assert.equal(vm.runInContext("libraryItems.length", context), 0);
+  assert.equal(vm.runInContext("selectedLibraryIds.size", context), 0);
+  assert.equal(node("#library-selection-toolbar").classList.contains("is-hidden"), true);
+  assert.equal(node("#library-select-all").indeterminate, false);
 });

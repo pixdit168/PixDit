@@ -22,7 +22,8 @@ let usageState = null;
 let selectedGenerationCount = 1;
 let selectedAgentTier = "free";
 let pendingDeleteProjectId = null;
-let pendingDeleteLibraryId = null;
+const selectedLibraryIds = new Set<string>();
+let pendingDeleteLibraryIds: string[] = [];
 let libraryDeletionInProgress = false;
 let csrfToken = "";
 function cloneInspirationProjects() {
@@ -287,6 +288,7 @@ function closeAuthPanel() {
 
 function showAuthScreen(message = "") {
   closeDeleteLibraryModal({ force: true });
+  selectedLibraryIds.clear();
   clearTimeout(accountStateTimer);
   accountStateReady = false;
   currentUser = null;

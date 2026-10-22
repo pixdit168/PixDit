@@ -312,9 +312,19 @@ svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; strok
 .version-pill.active { border-color: #91a940; background: white; color: #5f7417; font-weight: 800; box-shadow: 0 2px 7px rgba(61,76,16,.1); }
 .library-card-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 13px; }
 .library-card-actions button { justify-content: center; font-size: 13px; }
-.library-delete { grid-column:1/-1; min-height:34px; padding:6px 12px; border:1px solid #a45c78; border-radius:9px; color:#ffcada; background:#40253c; font-weight:700; cursor:pointer; }
-.library-delete:hover { color:#fff; background:#64304d; border-color:#e491ae; }
-.library-delete:focus-visible { outline:3px solid #e6a4ea; outline-offset:3px; }
+.library-selection-toolbar { position:sticky; top:12px; z-index:15; display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin:0 0 20px; padding:13px 16px; border:1px solid #665080; border-radius:12px; color:#f8f3ff; background:#281d43; box-shadow:0 6px 22px rgba(5,2,20,.25); }
+.library-select-all { display:inline-flex; align-items:center; gap:9px; min-height:38px; font-size:14px; font-weight:700; cursor:pointer; }
+.library-select-all input,.library-select-input { width:20px; height:20px; flex:0 0 20px; margin:0; accent-color:#c29af9; cursor:pointer; }
+#library-selection-count { color:#d6c6eb; font-size:13px; }
+.library-selection-actions { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; }
+.library-selection-actions button { min-height:40px; font-size:13px; }
+.library-bulk-delete { padding:8px 14px; border:1px solid #ce809b; border-radius:9px; color:#ffe1eb; background:#64304d; font-weight:700; cursor:pointer; }
+.library-bulk-delete:hover:not(:disabled) { color:#fff; background:#823e62; border-color:#f1adc7; }
+.library-bulk-delete:focus-visible,.library-card-select:focus-within { outline:3px solid #e6a4ea; outline-offset:3px; }
+.library-selection-toolbar button:disabled { opacity:.5; cursor:not-allowed; }
+.library-card.is-selected { border-color:#cc9fff; box-shadow:0 0 0 2px #b68aea; }
+.library-card-select { position:absolute; z-index:8; top:23px; right:23px; display:flex; align-items:center; gap:8px; min-height:40px; padding:8px 10px; border:1px solid #a991c5; border-radius:9px; color:#fff; background:rgba(33,21,53,.94); font-size:12px; font-weight:700; cursor:pointer; }
+.library-select-input:disabled { cursor:wait; }
 #delete-library-error { color:#ffb6c8; }
 .delete-library-modal button:disabled { opacity:.6; cursor:wait; }
 .drawer-head p { max-width: 270px; margin: 7px 0 0; color: #85847e; font-size: 13px; line-height: 1.45; }
@@ -1395,6 +1405,10 @@ body { background:var(--paper); }
   .library-grid { grid-template-columns:minmax(0,1fr); gap:16px; }
   .library-card-preview { padding:12px 12px 0; }
   .library-card-body { padding:15px 14px; }
+  .library-selection-toolbar { gap:8px 14px; top:8px; padding:11px 12px; }
+  .library-selection-actions { width:100%; margin-left:0; display:grid; grid-template-columns:1fr 1fr; }
+  .library-selection-actions button { min-width:0; min-height:44px; padding:8px; }
+  .library-card-select { top:19px; right:19px; }
   .library-card-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .library-card-actions button { min-height:42px; }
   .library-card-actions .library-edit { grid-column:1/-1; }

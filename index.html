@@ -272,6 +272,15 @@
             <button id="library-to-projects" class="secondary-button" type="button">Kembali ke proyek</button>
           </div>
 
+          <div id="library-selection-toolbar" class="library-selection-toolbar is-hidden" role="group" aria-label="Pilih desain untuk dihapus">
+            <label class="library-select-all"><input id="library-select-all" type="checkbox" />Pilih semua</label>
+            <span id="library-selection-count" role="status" aria-live="polite">0 dipilih</span>
+            <div class="library-selection-actions">
+              <button id="library-clear-selection" class="secondary-button" type="button" disabled>Batalkan pilihan</button>
+              <button id="library-delete-selected" class="library-bulk-delete" type="button" disabled>Hapus terpilih</button>
+            </div>
+          </div>
+
           <div id="library-empty" class="library-empty">
             <div class="library-empty-icon">◇</div>
             <h3>Librarymu Masih Kosong.</h3>
@@ -500,7 +509,7 @@
       <div class="modal delete-library-modal">
         <button id="delete-library-close" class="icon-button modal-close" type="button" aria-label="Tutup konfirmasi hapus desain">×</button>
         <span class="modal-kicker">HAPUS DARI KOLEKSI</span>
-        <h2 id="delete-library-title">Hapus desain ini?</h2>
+        <h2 id="delete-library-title">Hapus desain terpilih?</h2>
         <p id="delete-library-description"><strong id="delete-library-name"></strong> beserta semua versi editnya akan dihapus dari Koleksi. Hasil gambar di proyek tetap tersimpan. Tindakan ini tidak dapat dibatalkan.</p>
         <p id="delete-library-error" class="is-hidden" role="alert"></p>
         <div class="modal-actions"><button id="cancel-delete-library" class="secondary-button" type="button">Batal</button><button id="confirm-delete-library" class="danger-button" type="button">Hapus desain</button></div>
