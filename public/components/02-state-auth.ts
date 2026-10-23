@@ -266,14 +266,40 @@ function setAuthError(message = "") {
   error.classList.toggle("is-hidden", !message);
 }
 
+let verificationEmail = "";
+let verificationResendUntil = 0;
+let verificationResendTimer: ReturnType<typeof setTimeout>;
+
+function updateVerificationResend() {
+  clearTimeout(verificationResendTimer);
+  const remaining = Math.max(0, Math.ceil((verificationResendUntil - Date.now()) / 1000));
+  const button = $("#resend-verification");
+  button.disabled = remaining > 0;
+  button.textContent = remaining ? `Kirim ulang dalam ${remaining} detik` : "Kirim ulang kode";
+  if (remaining) verificationResendTimer = setTimeout(updateVerificationResend, 1000);
+}
+
+function showEmailVerification(email: string, cooldown = 0) {
+  verificationEmail = email;
+  $("#verification-email").textContent = email;
+  $("#verification-code").value = "";
+  $("#verification-status").textContent = "Periksa kotak masuk dan folder spam. Jangan bagikan kode ini kepada siapa pun.";
+  if (cooldown) verificationResendUntil = Date.now() + cooldown * 1000;
+  updateVerificationResend();
+  showAuthMode("verify");
+}
+
 function showAuthMode(mode = "login") {
   const registering = mode === "register";
-  $("#login-heading").classList.toggle("is-hidden", registering);
-  $("#login-form").classList.toggle("is-hidden", registering);
+  const verifying = mode === "verify";
+  $("#login-heading").classList.toggle("is-hidden", registering || verifying);
+  $("#login-form").classList.toggle("is-hidden", registering || verifying);
   $("#register-heading").classList.toggle("is-hidden", !registering);
   $("#register-form").classList.toggle("is-hidden", !registering);
+  $("#verification-heading").classList.toggle("is-hidden", !verifying);
+  $("#verification-form").classList.toggle("is-hidden", !verifying);
   setAuthError();
-  if (!$("#auth-panel").classList.contains("is-hidden")) setTimeout(() => $(registering ? "#register-name" : "#email").focus(), 50);
+  if (!$("#auth-panel").classList.contains("is-hidden")) setTimeout(() => $(verifying ? "#verification-code" : registering ? "#register-name" : "#email").focus(), 50);
 }
 
 function openAuthPanel(mode = "login") {

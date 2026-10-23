@@ -195,6 +195,29 @@ export class SupabaseAuth {
     return createClient(this.url, this.publishableKey, clientOptions());
   }
 
+  // Website signup must use Supabase's confirmation flow, not admin auto-confirm.
+  async signUp({ email, password, displayName }) {
+    const { data, error } = await this.createPublicClient().auth.signUp({
+      email, password, options: { data: { display_name: displayName } },
+    });
+    if (error) throw operationError(error, "Email verifikasi belum dapat dikirim. Coba lagi nanti.");
+    if (!data.user || data.user.identities?.length === 0) {
+      throw operationError({ code: "email_exists", status: 409 }, "Email tersebut sudah terdaftar.");
+    }
+    return { user: data.user, confirmationRequired: !data.session && !data.user.email_confirmed_at };
+  }
+
+  async verifyEmail(email, token) {
+    const { data, error } = await this.createPublicClient().auth.verifyOtp({ email, token, type: "email" });
+    if (error) throw operationError(error, "Kode tidak valid atau sudah kedaluwarsa.");
+    return data.user;
+  }
+
+  async resendVerification(email) {
+    const { error } = await this.createPublicClient().auth.resend({ type: "signup", email });
+    if (error) throw operationError(error, "Email verifikasi belum dapat dikirim ulang.");
+  }
+
   async createUser({ email, password, displayName }) {
     const { data, error } = await this.admin.auth.admin.createUser({
       email,
@@ -248,6 +271,8 @@ export class MemoryStore {
     return mutator(this.data);
   }
 
+  async persist() {}
+
   async saveImage(id, userId, buffer, mimeType) {
     this.images.set(id, { buffer, mimeType, userId });
   }
@@ -260,6 +285,9 @@ export class MemoryStore {
 
 export class MemoryAuth {
   users: Map<string, any>;
+  pendingCodes = new Map<string, { token: string; expiresAt: number }>();
+  // This adapter is instantiated only by NODE_ENV=test. Never used for real email.
+  testOtp = "123456";
   constructor() {
     this.users = new Map();
   }
@@ -270,8 +298,29 @@ export class MemoryAuth {
       error.code = "email_exists";
       throw error;
     }
-    const user = { id: randomUUID(), email, password, user_metadata: { display_name: displayName } };
+    const user = { id: randomUUID(), email, password, email_confirmed_at: new Date().toISOString(), user_metadata: { display_name: displayName } };
     this.users.set(user.id, user);
+    return user;
+  }
+
+  async signUp(input) {
+    const user = await this.createUser(input);
+    user.email_confirmed_at = null;
+    await this.resendVerification(user.email);
+    return { user, confirmationRequired: true };
+  }
+
+  async resendVerification(email) {
+    const user = await this.findUserByEmail(email);
+    if (user && !user.email_confirmed_at) this.pendingCodes.set(email, { token: this.testOtp, expiresAt: Date.now() + 10 * 60_000 });
+  }
+
+  async verifyEmail(email, token) {
+    const code = this.pendingCodes.get(email);
+    if (!code || code.token !== token || code.expiresAt <= Date.now()) throw new Error("Kode tidak valid atau sudah kedaluwarsa.");
+    this.pendingCodes.delete(email);
+    const user = await this.findUserByEmail(email);
+    user.email_confirmed_at = new Date().toISOString();
     return user;
   }
 
@@ -282,6 +331,7 @@ export class MemoryAuth {
   async signIn(email, password) {
     const user = [...this.users.values()].find((candidate) => candidate.email === email && candidate.password === password);
     if (!user) throw new Error("Email atau kata sandi tidak cocok.");
+    if (!user.email_confirmed_at) throw operationError({ code: "email_not_confirmed", status: 403 }, "Verifikasi email terlebih dahulu.");
     return user;
   }
 

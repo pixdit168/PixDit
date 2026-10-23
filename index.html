@@ -108,6 +108,22 @@
             <button class="primary-button auth-submit" type="submit">Buat akun <span>→</span></button>
           </form>
 
+          <div id="verification-heading" class="form-heading is-hidden">
+            <span class="mini-label">VERIFIKASI EMAIL</span>
+            <h2>Satu langkah lagi.</h2>
+            <p>Masukkan kode yang dikirim ke <strong id="verification-email"></strong>.</p>
+          </div>
+          <form id="verification-form" class="is-hidden">
+            <label for="verification-code">Kode verifikasi</label>
+            <div class="input-wrap"><input id="verification-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}" minlength="6" maxlength="8" placeholder="Kode dari email" aria-describedby="verification-status" required /></div>
+            <p id="verification-status" class="verification-status" role="status" aria-live="polite"></p>
+            <button class="primary-button auth-submit" type="submit">Verifikasi dan masuk <span>→</span></button>
+            <div class="verification-actions">
+              <button id="resend-verification" class="text-button" type="button">Kirim ulang kode</button>
+              <button id="verification-back" class="text-button" type="button">Kembali ke masuk</button>
+            </div>
+          </form>
+
           <p id="auth-error" class="auth-error is-hidden" role="alert"></p>
           <p class="terms">Dengan melanjutkan, kamu menyetujui <a href="#">Ketentuan</a> dan <a href="#">Privasi</a> kami.</p>
         </div>

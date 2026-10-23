@@ -23,7 +23,7 @@
     "preverify:supabase-storage": "npm run build",
     "verify:supabase-storage": "node scripts/verify-supabase-storage.mjs",
     "pretest": "npm run vercel-build",
-    "test": "node --test tests/browser-components.test.js tests/generation-jobs.test.js tests/deployment-contract.test.js tests/image-prompt.test.js tests/replicate-resize.test.js tests/server-contract.test.js tests/supabase-storage.test.js"
+    "test": "node --test tests/browser-components.test.js tests/generation-jobs.test.js tests/deployment-contract.test.js tests/image-prompt.test.js tests/replicate-resize.test.js tests/server-contract.test.js tests/supabase-storage.test.js tests/supabase-auth.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

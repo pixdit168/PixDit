@@ -29,6 +29,10 @@ function bindEvents() {
       await enterApp(session);
       $("#password").value = "";
     } catch (error) {
+      if (error.data?.verificationRequired) {
+        $("#password").value = "";
+        showEmailVerification(error.data.email);
+      }
       setAuthError(error.message || "Kanvas belum dapat menghubungi server akun.");
     } finally {
       button.disabled = false;
@@ -55,14 +59,50 @@ function bindEvents() {
           ...getSignupDeviceIdentity(),
         }),
       });
-      await enterApp(session);
+      showEmailVerification(session.email, session.resendAfterSeconds || 60);
       $("#register-form").reset();
-      showToast("Akun berhasil dibuat", "Ruang kreatif pribadimu sudah siap digunakan.", "✓");
     } catch (error) {
       setAuthError(error.message || "Akun belum dapat dibuat.");
     } finally {
       button.disabled = false;
     }
+  });
+  $("#verification-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = $("#verification-form .auth-submit");
+    button.disabled = true;
+    setAuthError();
+    try {
+      const session = await requestJson("/api/auth/verify-email", {
+        method: "POST", body: JSON.stringify({ email: verificationEmail, token: $("#verification-code").value.trim() }),
+      });
+      $("#verification-code").value = "";
+      await enterApp(session);
+      showToast("Email terverifikasi", "Ruang kreatif pribadimu siap digunakan.", "✓");
+    } catch (error) {
+      setAuthError(error.message || "Email belum dapat diverifikasi.");
+    } finally {
+      button.disabled = false;
+    }
+  });
+  $("#resend-verification").addEventListener("click", async () => {
+    $("#resend-verification").disabled = true;
+    setAuthError();
+    try {
+      const result = await requestJson("/api/auth/resend-verification", { method: "POST", body: JSON.stringify({ email: verificationEmail }) });
+      verificationResendUntil = Date.now() + (result.resendAfterSeconds || 60) * 1000;
+      $("#verification-status").textContent = "Kode baru telah diminta. Periksa kotak masuk dan folder spam, lalu gunakan kode terbaru.";
+    } catch (error) {
+      verificationResendUntil = Date.now() + (error.data?.resendAfterSeconds || 60) * 1000;
+      setAuthError(error.message || "Kode belum dapat dikirim ulang.");
+    } finally {
+      updateVerificationResend();
+    }
+  });
+  $("#verification-back").addEventListener("click", () => {
+    $("#email").value = verificationEmail;
+    $("#verification-code").value = "";
+    showAuthMode("login");
   });
   $("#show-register").addEventListener("click", () => showAuthMode("register"));
   $("#show-login").addEventListener("click", () => showAuthMode("login"));

@@ -321,13 +321,17 @@ async function optimizeProductImage(file) {
   }
 }
 function openUpgradeModal(message = "") {
+  const exhausted = usageState?.credits && usageState.credits.remaining <= 0;
+  $("#upgrade-modal-title").textContent = !message && exhausted ? "Kredit kreatifmu sudah habis." : "Buka lebih banyak dengan Pixgin Pro.";
   if (message) {
     $("#upgrade-modal-message").textContent = message;
-  } else if (usageState?.credits?.resetAt) {
+  } else if (exhausted && usageState?.credits?.resetAt) {
     const resetDate = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(new Date(usageState.credits.resetAt));
     $("#upgrade-modal-message").textContent = isSubscriber()
       ? `Kredit Pixgin Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
       : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.`;
+  } else {
+    $("#upgrade-modal-message").textContent = "Buka Agent Pro, pilihan kualitas lebih tinggi, dan hingga 10 variasi gambar sekaligus dengan Pixgin Pro.";
   }
   $("#upgrade-modal").classList.remove("is-hidden");
   $("#upgrade-modal").setAttribute("aria-hidden", "false");

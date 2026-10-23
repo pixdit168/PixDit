@@ -106,10 +106,32 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
       deviceId: "test-device",
     },
   });
-  assert.equal(registration.response.status, 201);
-  assert.equal(registration.payload.user.displayName, "Ayu Pratama");
+  assert.equal(registration.response.status, 202);
+  assert.equal(registration.payload.authenticated, false);
+  assert.equal(registration.payload.verificationRequired, true);
+  assert.equal(registration.payload.email, "ayu@example.test");
+  assert.equal(registration.response.headers.get("set-cookie"), null);
+  assert.equal(registration.payload.token, undefined);
+  assert.equal((await request("/api/state")).response.status, 401);
+  assert.equal((await request("/api/usage")).response.status, 401);
+  const unverifiedLogin = await request("/api/auth/login", { method: "POST", body: { email: "ayu@example.test", password: "aman-sekali-123" } });
+  assert.equal(unverifiedLogin.response.status, 403);
+  assert.equal(unverifiedLogin.payload.error, "email_verification_required");
+  assert.equal(unverifiedLogin.response.headers.get("set-cookie"), null);
+  const earlyResend = await request("/api/auth/resend-verification", { method: "POST", body: { email: "ayu@example.test" } });
+  assert.equal(earlyResend.response.status, 429);
+  const wrongCode = await request("/api/auth/verify-email", { method: "POST", body: { email: "ayu@example.test", token: "999999" } });
+  assert.equal(wrongCode.response.status, 400);
+  assert.equal(wrongCode.payload.error, "invalid_verification_code");
+  assert.equal((await request("/api/state")).response.status, 401);
+  const verified = await request("/api/auth/verify-email", { method: "POST", body: { email: " AYU@example.test ", token: "123456" } });
+  assert.equal(verified.response.status, 200);
+  assert.equal(verified.payload.user.displayName, "Ayu Pratama");
   assert.ok(cookie.startsWith("layera_session="));
   assert.ok(csrfToken.length >= 32);
+  const replay = await request("/api/auth/verify-email", { method: "POST", body: { email: "ayu@example.test", token: "123456" } });
+  assert.equal(replay.response.status, 400);
+  assert.equal(replay.response.headers.get("set-cookie"), null);
 
   const freeHealth = await request("/api/health");
   assert.equal(freeHealth.response.status, 200);
@@ -330,4 +352,14 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   });
   assert.equal(loginWithNewPassword.response.status, 200);
   assert.equal(loginWithNewPassword.payload.user.displayName, "Ayu Santoso");
+
+  const pending = await request("/api/auth/register", { method: "POST", body: { displayName: "Budi Santoso", email: "budi@example.test", password: "aman-sekali-456", deviceId: "another-test-device" } });
+  assert.equal(pending.response.status, 202);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const rejected = await request("/api/auth/verify-email", { method: "POST", body: { email: "budi@example.test", token: "000000" } });
+    assert.equal(rejected.response.status, 400);
+  }
+  const throttled = await request("/api/auth/verify-email", { method: "POST", body: { email: "budi@example.test", token: "123456" } });
+  assert.equal(throttled.response.status, 429);
+  assert.equal(throttled.response.headers.get("set-cookie"), null);
 });

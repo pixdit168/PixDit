@@ -241,7 +241,7 @@ async function getAuthenticatedUser(request) {
   const session = await getSessionRecord(request);
   if (!session) return null;
   const user = store.data.users[session.userId];
-  return user ? { user, session } : null;
+  return user && !user.emailVerificationRequired ? { user, session } : null;
 }
 
 function hasValidCsrf(request, session) {
@@ -659,9 +659,9 @@ async function handleAuthAndAccount(request, response, pathname) {
     if (deviceAccounts >= 3) return sendJson(response, 429, { error: "device_signup_limit", message: "Batas akun gratis untuk perangkat ini sudah tercapai. Hubungi bantuan jika ini keliru." });
     if (findUserByEmail(email)) return sendJson(response, 409, { error: "email_exists", message: "Email tersebut sudah terdaftar." });
     const now = new Date().toISOString();
-    let authUser;
+    let registration;
     try {
-      authUser = await accountAuth.createUser({ email, password, displayName });
+      registration = await accountAuth.signUp({ email, password, displayName });
     } catch (error) {
       await store.persist();
       if (/already|registered|exists/i.test(String(error.message)) || /exists/i.test(String(error.code))) {
@@ -669,36 +669,49 @@ async function handleAuthAndAccount(request, response, pathname) {
       }
       throw error;
     }
-    const user = createUserProfile({ id: authUser.id, email, displayName, createdAt: now });
-    let sessionObj;
-    try {
-      await store.mutate((data) => {
-        if ((Object.values(data.users) as any[]).some((existing) => existing.email === email)) throw new Error("Email tersebut sudah terdaftar.");
-        data.users[user.id] = user;
-        data.signupSignals.push({ id: randomUUID(), userId: user.id, ...signal, createdAt: now });
-        
-        const token = randomBytes(32).toString("base64");
-        const tokenHash = sha256(token);
-        const csrfToken = randomBytes(32).toString("base64");
-        sessionObj = {
-          userId: user.id,
-          csrfToken,
-          createdAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + (Boolean(input.remember) ? 30 : 1) * 24 * 60 * 60 * 1000).toISOString(),
-          token
-        };
-        data.sessions[tokenHash] = {
-          userId: sessionObj.userId,
-          csrfToken: sessionObj.csrfToken,
-          createdAt: sessionObj.createdAt,
-          expiresAt: sessionObj.expiresAt
-        };
-      });
-    } catch (error) {
-      await accountAuth.deleteUser(user.id).catch(() => {});
-      throw error;
+    const user = { ...createUserProfile({ id: registration.user.id, email, displayName, createdAt: now }), emailVerificationRequired: true };
+    await store.mutate((data) => {
+      if ((Object.values(data.users) as any[]).some((existing) => existing.email === email)) throw new Error("Email tersebut sudah terdaftar.");
+      data.users[user.id] = user;
+      data.signupSignals.push({ id: randomUUID(), userId: user.id, ...signal, createdAt: now });
+      data.securityEvents.push({ id: randomUUID(), key: sha256(`email:${email}`), eventType: "verification_resend_minute", createdAt: now });
+    });
+    if (!registration.confirmationRequired) {
+      // Fail closed if Confirm email is disabled in the hosted Supabase project.
+      return sendJson(response, 503, { error: "verification_not_configured", message: "Verifikasi email belum diaktifkan. Hubungi pengelola untuk mengaktifkan Confirm email di Supabase." });
     }
-    return sendJson(response, 201, { ok: true, authenticated: true, csrfToken: sessionObj.csrfToken, user: getPublicUser(user), preferences: user.preferences || defaultPreferences() }, { "Set-Cookie": getSessionCookie(sessionObj) });
+    return sendJson(response, 202, { ok: true, authenticated: false, verificationRequired: true, email, resendAfterSeconds: 60 });
+  }
+
+  if (request.method === "POST" && ["/api/auth/verify-email", "/api/auth/resend-verification"].includes(pathname)) {
+    const input = await readJsonBody(request);
+    const email = String(input.email || "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) return sendJson(response, 400, { error: "invalid_email", message: "Alamat email tidak valid." });
+    const resending = pathname.endsWith("resend-verification");
+    const token = String(input.token || "").trim();
+    if (!resending && !/^\d{6,8}$/.test(token)) return sendJson(response, 400, { error: "invalid_verification_code", message: "Masukkan kode 6-8 digit dari email." });
+    const limits = resending
+      ? [[sha256(`ip:${getClientAddress(request)}`), "verification_resend_ip", 10, 60], [sha256(`email:${email}`), "verification_resend_minute", 1, 1], [sha256(`email:${email}`), "verification_resend_hour", 5, 60]]
+      : [[sha256(`ip:${getClientAddress(request)}`), "verification_ip", 30, 15], [sha256(`email:${email}`), "verification_email", 10, 15]];
+    const allowed = await Promise.all(limits.map(([key, event, limit, minutes]) => allowSecurityEvent(key, event, limit, minutes)));
+    await store.persist();
+    if (allowed.includes(false)) return sendJson(response, 429, { error: "verification_rate_limit", resendAfterSeconds: 60, message: resending ? "Tunggu sebentar sebelum meminta kode lagi." : "Terlalu banyak percobaan kode. Tunggu 15 menit lalu coba lagi." });
+    const user = findUserByEmail(email);
+    if (resending) {
+      if (user?.emailVerificationRequired) {
+        try { await accountAuth.resendVerification(email); }
+        catch { return sendJson(response, 503, { error: "verification_delivery_failed", message: "Kode belum dapat dikirim. Coba lagi nanti atau hubungi bantuan." }); }
+      }
+      return sendJson(response, 200, { ok: true, resendAfterSeconds: 60, message: "Jika akun menunggu verifikasi, kode baru akan dikirim ke email tersebut." });
+    }
+    if (!user?.emailVerificationRequired) return sendJson(response, 400, { error: "invalid_verification_code", message: "Kode tidak valid atau sudah digunakan. Silakan masuk atau minta kode baru." });
+    let authUser;
+    try { authUser = await accountAuth.verifyEmail(email, token); }
+    catch { return sendJson(response, 400, { error: "invalid_verification_code", message: "Kode tidak valid atau sudah kedaluwarsa. Periksa email atau kirim ulang kode." }); }
+    if (!authUser?.email_confirmed_at || authUser.id !== user.id || authUser.email?.toLowerCase() !== email) return sendJson(response, 400, { error: "invalid_verification_code", message: "Verifikasi email tidak cocok dengan akun ini." });
+    await store.mutate(() => { user.emailVerificationRequired = false; user.updatedAt = new Date().toISOString(); });
+    const session = await createSession(user.id);
+    return sendJson(response, 200, { ok: true, authenticated: true, csrfToken: session.csrfToken, user: getPublicUser(user), preferences: user.preferences || defaultPreferences() }, { "Set-Cookie": getSessionCookie(session) });
   }
 
   if (request.method === "POST" && pathname === "/api/auth/login") {
@@ -712,10 +725,12 @@ async function handleAuthAndAccount(request, response, pathname) {
     let authUser;
     try {
       authUser = await accountAuth.signIn(email, String(input.password || ""));
-    } catch {
+    } catch (error) {
       await store.persist();
+      if (error.code === "email_not_confirmed") return sendJson(response, 403, { error: "email_verification_required", verificationRequired: true, email, message: "Verifikasi email terlebih dahulu. Masukkan kode dari email atau kirim ulang kode." });
       return sendJson(response, 401, { error: "invalid_credentials", message: "Email atau kata sandi tidak cocok." });
     }
+    if (findUserByEmail(email)?.emailVerificationRequired || !authUser.email_confirmed_at) return sendJson(response, 403, { error: "email_verification_required", verificationRequired: true, email, message: "Verifikasi email terlebih dahulu sebelum masuk." });
     let user;
     let sessionObj;
     await store.mutate((data) => {
