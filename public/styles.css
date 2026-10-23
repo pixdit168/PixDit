@@ -1257,6 +1257,21 @@ body { background:var(--paper); }
 .section-heading .text-button { color:#d1b4ff; }
 .project-card,.library-card,.inspiration-card { color:#f5efff; border:1px solid #403258; background:#1d1638; box-shadow:0 10px 28px rgba(2,1,12,.2); }
 .project-card:hover,.library-card:hover { box-shadow:0 20px 45px rgba(2,1,12,.38); }
+.project-card { border-radius:18px; }
+.project-card:hover { border-color:#8d68c2; }
+.project-card:focus-visible { outline:3px solid #c4a1ff; outline-offset:4px; }
+.project-card .project-preview.empty { background:
+  radial-gradient(ellipse at 65% 20%,rgba(168,108,237,.27),transparent 60%),
+  radial-gradient(ellipse at 15% 100%,rgba(108,133,236,.18),transparent 65%),
+  #17102f; border-bottom:1px solid #44315f; }
+.project-card .project-preview.empty::before { z-index:1; color:#d9b6ff; font-size:52px; text-shadow:0 0 28px rgba(180,126,255,.55); }
+.project-card .project-preview.empty::after { background:
+  linear-gradient(rgba(196,161,255,.05) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(196,161,255,.05) 1px,transparent 1px);
+  background-size:38px 38px; box-shadow:inset 0 -25px 35px rgba(9,5,24,.2); pointer-events:none; }
+.project-card .project-preview.empty i { position:absolute; width:100px; height:100px; left:50%; top:50%; transform:translate(-50%,-50%); border:1px solid rgba(211,172,255,.38); border-radius:50%; background:radial-gradient(circle,rgba(181,128,255,.14),transparent 70%); box-shadow:0 0 0 22px rgba(196,161,255,.035),0 0 0 45px rgba(196,161,255,.025); }
+.project-card .project-options-button { display:grid; place-items:center; min-width:32px; min-height:30px; border-radius:8px; color:#d9c5fa; }
+.project-card .project-options-button:hover,.project-card .project-options-button:focus-visible { color:#fff; background:#473062; }
 .project-card-actions,.account-popover-email { border-color:#3c3057; }
 .project-meta,.project-card-actions span,.project-card-actions button,.library-card-title small,.library-card-body > p,.inspiration-card-body > p,.inspiration-card-meta { color:#afa4c7; }
 .tips-strip,.library-lock-note { color:#ded5ef; border-color:#44345e; background:#21193c; }
