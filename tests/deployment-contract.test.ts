@@ -28,7 +28,7 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   const publishedScript = await fs.readFile(path.join(projectRoot, "dist/app.js"), "utf8");
   assert.match(html, /<script src="\/app\.js"><\/script>/);
   assert.doesNotMatch(html, /id="(?:login|register)-remember"/);
-  assert.match(browserSource, /const session = await requestJson\("\/api\/auth\/me"\);[\s\S]*?await requestJson\("\/api\/auth\/logout", \{ method: "POST" \}\);[\s\S]*?showAuthScreen\(\)/);
+  assert.match(browserSource, /const session = await requestJson\("\/api\/auth\/me"\);[\s\S]*?await requestJson\("\/api\/auth\/logout", \{ method: "POST", headers: \{ "X-CSRF-Token": session.csrfToken/);
   assert.doesNotMatch(browserSource, /const session = await requestJson\("\/api\/auth\/me"\);\s*await enterApp\(session\)/);
   assert.doesNotMatch(html, /Arah Visual|Pengaturan Lanjutan|id="poster-advanced"/);
   assert.match(html, /id="brand-logo-input"[\s\S]*?AI akan menyesuaikan warna dan menempatkan logo/);

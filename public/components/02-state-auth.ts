@@ -26,6 +26,7 @@ const selectedLibraryIds = new Set<string>();
 let pendingDeleteLibraryIds: string[] = [];
 let libraryDeletionInProgress = false;
 let csrfToken = "";
+let authStartup: Promise<void> = Promise.resolve();
 function cloneInspirationProjects() {
   return JSON.parse(JSON.stringify(inspirationProjects));
 }
@@ -310,6 +311,21 @@ function openAuthPanel(mode = "login") {
 function closeAuthPanel() {
   $("#auth-panel").classList.add("is-hidden");
   setAuthError();
+}
+
+async function clearPreviousSession() {
+  try {
+    const session = await requestJson("/api/auth/me");
+    // Keep the previous session's token local; it must never replace a new login's token.
+    await requestJson("/api/auth/logout", { method: "POST", headers: { "X-CSRF-Token": session.csrfToken || "" } });
+  } catch (error) {
+    const message = error.status && error.status !== 401 ? error.message : "";
+    if (message) {
+      // Startup may finish after the user has opened or started filling out a form.
+      if ($("#auth-panel").classList.contains("is-hidden")) openAuthPanel();
+      setAuthError(message);
+    }
+  }
 }
 
 function showAuthScreen(message = "") {

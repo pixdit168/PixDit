@@ -6,6 +6,152 @@ import vm from "node:vm";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+async function authStartupContext(fetch: (...args: any[]) => Promise<any>) {
+  const script = await fs.readFile(path.join(projectRoot, "public", "app.js"), "utf8");
+  const nodes = new Map<string, any>();
+  const node = (selector: string) => {
+    if (!nodes.has(selector)) {
+      const classes = new Set(["is-hidden"]);
+      const listeners = new Map<string, ((event: any) => any)[]>();
+      nodes.set(selector, {
+        value: "", textContent: "", disabled: false,
+        classList: {
+          add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name), contains: (name: string) => classes.has(name),
+          toggle(name: string, force?: boolean) { const enabled = force ?? !classes.has(name); if (enabled) classes.add(name); else classes.delete(name); return enabled; },
+        },
+        setAttribute() {}, focus() {}, reset() {}, querySelectorAll: () => [],
+        addEventListener(type: string, handler: (event: any) => any) { listeners.set(type, [...(listeners.get(type) || []), handler]); },
+        dispatch(type: string) { return Promise.all((listeners.get(type) || []).map((handler) => handler({ preventDefault() {}, target: this, currentTarget: this }))); },
+      });
+    }
+    return nodes.get(selector);
+  };
+  const context = vm.createContext({ fetch, setTimeout: () => 0, clearTimeout() {}, window: { addEventListener() {} }, navigator: { userAgent: "test-browser", language: "id-ID" }, localStorage: { removeItem() {}, getItem: () => "test-device-identity" } });
+  // Install the DOM after evaluating, so tests can explicitly start and await bootstrap.
+  vm.runInContext(script, context);
+  context.document = { querySelector: node, querySelectorAll: () => [], addEventListener() {}, body: { appendChild() {} }, documentElement: { dataset: {} } };
+  vm.runInContext(`
+    closeDeleteLibraryModal = closeAccountMenu = closeAgentMenu = closeAllProjectsModal = closeHelpModal = closeAccountModal = () => {};
+    updateCharacterCount = () => {};
+    showToast = () => {};
+    enterApp = async (session) => { currentUser = session.user; csrfToken = session.csrfToken; closeAuthPanel(); $("#app-shell").classList.remove("is-hidden"); };
+  `, context);
+  const startup = vm.runInContext("bootstrap()", context);
+  return { context, node, startup };
+}
+
+const flushMicrotasks = () => new Promise<void>((resolve) => setImmediate(resolve));
+const authResponse = (status: number, body: any) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+
+for (const entryButton of ["#hero-login", "#auth-open"]) {
+  test(`${entryButton} opens on the first click and stays open through delayed previous-session logout`, async () => {
+    const me = deferred<any>();
+    const logout = deferred<any>();
+    const calls: any[] = [];
+    const { context, node, startup } = await authStartupContext(async (url, options) => {
+      calls.push({ url, options });
+      if (url === "/api/auth/me") return me.promise;
+      if (url === "/api/auth/logout") return logout.promise;
+      throw new Error(`Unexpected request ${url}`);
+    });
+    await node(entryButton).dispatch("click");
+    assert.equal(node("#auth-panel").classList.contains("is-hidden"), false);
+    await node("#show-register").dispatch("click");
+    node("#register-name").value = "Keep this name";
+    me.resolve(authResponse(200, { csrfToken: "previous-session-token", user: { id: "old-user" } }));
+    await flushMicrotasks();
+    assert.equal(calls[1].url, "/api/auth/logout");
+    assert.equal(calls[1].options.headers["X-CSRF-Token"], "previous-session-token");
+    assert.equal(node("#auth-panel").classList.contains("is-hidden"), false);
+    logout.resolve(authResponse(200, { ok: true }));
+    await startup;
+    assert.equal(node("#auth-panel").classList.contains("is-hidden"), false);
+    assert.equal(node("#register-form").classList.contains("is-hidden"), false);
+    assert.equal(node("#register-name").value, "Keep this name");
+    assert.equal(node("#app-shell").classList.contains("is-hidden"), true);
+    assert.equal(vm.runInContext("currentUser", context), null);
+    assert.equal(vm.runInContext("csrfToken", context), "");
+  });
+}
+
+for (const [form, event, route] of [
+  ["#login-form", "submit", "/api/auth/login"],
+  ["#register-form", "submit", "/api/auth/register"],
+  ["#verification-form", "submit", "/api/auth/verify-email"],
+  ["#resend-verification", "click", "/api/auth/resend-verification"],
+]) {
+  test(`${route} waits until old-session cleanup finishes`, async () => {
+    const logout = deferred<any>();
+    const calls: string[] = [];
+    const { context, node, startup } = await authStartupContext(async (url) => {
+      calls.push(url);
+      if (url === "/api/auth/me") return authResponse(200, { csrfToken: "old-csrf" });
+      if (url === "/api/auth/logout") return logout.promise;
+      assert.equal(url, route);
+      if (route.endsWith("register")) return authResponse(202, { email: "new@example.test", resendAfterSeconds: 60 });
+      return authResponse(200, { user: { id: "new-user" }, csrfToken: "new-csrf", resendAfterSeconds: 60 });
+    });
+    await node("#hero-login").dispatch("click");
+    node("#email").value = node("#register-email").value = "new@example.test";
+    node("#register-name").value = "New User";
+    node("#password").value = node("#register-password").value = node("#register-confirm").value = "test-password";
+    node("#verification-code").value = "123456";
+    vm.runInContext(`verificationEmail = "new@example.test"`, context);
+    const submission = node(form).dispatch(event);
+    await flushMicrotasks();
+    assert.deepEqual(calls, ["/api/auth/me", "/api/auth/logout"]);
+    logout.resolve(authResponse(200, { ok: true }));
+    await Promise.all([startup, submission]);
+    assert.deepEqual(calls, ["/api/auth/me", "/api/auth/logout", route]);
+    if (route.endsWith("login") || route.endsWith("verify-email")) {
+      assert.equal(vm.runInContext("csrfToken", context), "new-csrf");
+      assert.equal(node("#app-shell").classList.contains("is-hidden"), false);
+    }
+  });
+}
+
+for (const status of [401, 500]) {
+  test(`a delayed startup ${status} response does not reset a form opened by the user`, async () => {
+    const me = deferred<any>();
+    const { node, startup } = await authStartupContext(async () => me.promise);
+    await node("#auth-open").dispatch("click");
+    await node("#show-register").dispatch("click");
+    node("#register-email").value = "keep@example.test";
+    me.resolve(authResponse(status, { message: "Temporary account service error" }));
+    await startup;
+    assert.equal(node("#auth-panel").classList.contains("is-hidden"), false);
+    assert.equal(node("#register-form").classList.contains("is-hidden"), false);
+    assert.equal(node("#register-email").value, "keep@example.test");
+    assert.equal(node("#auth-error").classList.contains("is-hidden"), status === 401);
+  });
+}
+
+test("a failed previous-session logout preserves the open form and allows a fresh login attempt", async () => {
+  const logout = deferred<any>();
+  const { node, startup } = await authStartupContext(async (url) => {
+    if (url === "/api/auth/me") return authResponse(200, { csrfToken: "old-csrf" });
+    if (url === "/api/auth/logout") return logout.promise;
+    assert.equal(url, "/api/auth/login");
+    return authResponse(200, { user: { id: "new-user" }, csrfToken: "new-csrf" });
+  });
+  await node("#hero-login").dispatch("click");
+  node("#email").value = "keep@example.test";
+  node("#password").value = "test-password";
+  logout.resolve(authResponse(503, { message: "Try again shortly" }));
+  await startup;
+  assert.equal(node("#auth-panel").classList.contains("is-hidden"), false);
+  assert.equal(node("#email").value, "keep@example.test");
+  assert.equal(node("#auth-error").textContent, "Try again shortly");
+  await node("#login-form").dispatch("submit");
+  assert.equal(node("#app-shell").classList.contains("is-hidden"), false);
+});
+
 test("compiled classic browser script preserves image gallery helpers without a DOM", async () => {
   const script = await fs.readFile(path.join(projectRoot, "public", "app.js"), "utf8");
   const context = vm.createContext({});

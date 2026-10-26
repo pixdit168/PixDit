@@ -18,6 +18,7 @@ function bindEvents() {
     button.disabled = true;
     setAuthError();
     try {
+      await authStartup;
       const session = await requestJson("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({
@@ -49,6 +50,7 @@ function bindEvents() {
     button.disabled = true;
     setAuthError();
     try {
+      await authStartup;
       const session = await requestJson("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({
@@ -73,6 +75,7 @@ function bindEvents() {
     button.disabled = true;
     setAuthError();
     try {
+      await authStartup;
       const session = await requestJson("/api/auth/verify-email", {
         method: "POST", body: JSON.stringify({ email: verificationEmail, token: $("#verification-code").value.trim() }),
       });
@@ -89,6 +92,7 @@ function bindEvents() {
     $("#resend-verification").disabled = true;
     setAuthError();
     try {
+      await authStartup;
       const result = await requestJson("/api/auth/resend-verification", { method: "POST", body: JSON.stringify({ email: verificationEmail }) });
       verificationResendUntil = Date.now() + (result.resendAfterSeconds || 60) * 1000;
       $("#verification-status").textContent = "Kode baru telah diminta. Periksa kotak masuk dan folder spam, lalu gunakan kode terbaru.";
@@ -504,19 +508,14 @@ async function bootstrap() {
   const accountPopover = $("#account-popover");
   accountPopover.setAttribute("aria-hidden", "true");
   document.body.appendChild(accountPopover);
+  // Reset the UI before accepting clicks, never after asynchronous session cleanup.
+  showAuthScreen();
+  authStartup = clearPreviousSession();
   bindEvents();
   updateCharacterCount();
   localStorage.removeItem("kanvas_session");
 
-  try {
-    const session = await requestJson("/api/auth/me");
-    csrfToken = session.csrfToken || "";
-    await requestJson("/api/auth/logout", { method: "POST" });
-    showAuthScreen();
-  } catch (error) {
-    const message = error.status && error.status !== 401 ? error.message : "";
-    showAuthScreen(message);
-  }
+  await authStartup;
   document.documentElement.dataset.appReady = "true";
 }
 
