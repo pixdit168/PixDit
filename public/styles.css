@@ -893,6 +893,28 @@ svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; strok
 .grading-panel > button { width:100%; justify-content:center; margin-top:10px; }
 .grading-panel > #reset-color-grade { margin-top:25px; }
 
+/* Project creation and the library notice share the studio's dark palette. */
+#project-modal .modal { color:var(--studio-text,#f7f3ff); border:1px solid var(--studio-border,#3e3355); background:var(--studio-panel,#1b1530); max-height:calc(100dvh - 40px); }
+#project-modal .modal-kicker { color:var(--studio-accent,#bb9bff); }
+#project-modal h2 { padding-right:20px; font:700 27px/1.2 "Segoe UI",Arial,sans-serif; letter-spacing:-.8px; }
+#project-modal .modal > p { color:var(--studio-muted,#b6abc9); font-size:13px; line-height:1.7; }
+#project-modal label { color:#eee4ff; font-size:13px; }
+#project-modal input { color:var(--studio-text,#f7f3ff); border-color:#5b476f; background:var(--studio-raised,#251d3e); }
+#project-modal input::placeholder { color:#b0a0c1; }
+#project-modal input:focus { border-color:var(--studio-accent,#bb9bff); box-shadow:0 0 0 3px #bb9bff24; }
+#project-modal input:focus-visible { outline:2px solid var(--studio-focus,#d5bdff); outline-offset:2px; }
+#project-modal .category-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+#project-modal .category-option { min-height:46px; color:#eee4ff; border-color:#514063; background:var(--studio-raised,#251d3e); font-size:13px; line-height:1.5; text-align:left; }
+#project-modal .category-option:hover { border-color:#ab87d8; background:#342546; }
+#project-modal .category-option span { flex:0 0 25px; color:#d5bdff; background:#3a2c4d; }
+#project-modal .category-option.selected { color:#fff; border-color:var(--studio-accent,#bb9bff); background:#39274f; box-shadow:0 0 0 1px var(--studio-accent,#bb9bff); }
+#project-modal .category-option.selected span { color:#fff; background:#614080; }
+#project-modal .modal-close { color:#eee4ff; background:#3a2c4d; }
+#project-modal .modal-close:hover { color:#fff; background:#533a70; }
+#project-modal .secondary-button { color:#eee4ff; border-color:#665080; background:#302440; }
+#project-modal .secondary-button:hover { color:#fff; border-color:#ab87d8; background:#47315e; }
+.library-lock-note > span { color:#dfc8ff; background:#49316c; }
+
 .modal.upgrade-modal { width:min(100%,680px); max-height:calc(100svh - 32px); overflow-y:auto; color:#f7f2ff; border:1px solid #665080; background:radial-gradient(circle at 100% 0,rgba(146,95,224,.2),transparent 50%),#211838; box-shadow:0 28px 90px rgba(4,2,16,.5); }
 .upgrade-modal .modal-kicker { color:#c9a6ff; }
 .upgrade-modal h2 { padding-right:20px; font-family:"Segoe UI",Arial,sans-serif; font-weight:750; letter-spacing:-.04em; }
