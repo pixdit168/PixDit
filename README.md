@@ -14,6 +14,4 @@ Frontend memakai `index.html`, `public/styles.css`, dan komponen TypeScript teru
 
 Untuk menjalankan lokal, lihat [NODE-DEPLOYMENT.md](NODE-DEPLOYMENT.md). Jalankan `npm run check`, `npm test`, dan `npm run build` sebelum mengirim perubahan.
 
-**Edit elemen** membuka Pixgin Canvas untuk hasil baru maupun gambar lama. Pisahkan gambar secara eksplisit menjadi layer AI (3 kredit), lalu pindahkan, ubah ukuran, hapus, atau ganti elemen dengan teks/logo baru. Simpan sebagai versi baru yang dapat diedit lagi; original tetap aman. Detail batas rekonstruksi dan konfigurasi ada di [LAYER-EDITOR.md](LAYER-EDITOR.md).
-
 Pendaftaran baru membutuhkan kode verifikasi email Supabase sebelum pengguna bisa masuk. Sebelum merilis, aktifkan **Confirm email**, pasang template kode, dan konfigurasi SMTP publik sesuai [panduan verifikasi email](supabase/EMAIL-VERIFICATION.md). Tidak memerlukan SQL tambahan; akun lama tetap bisa masuk seperti biasa.

@@ -103,7 +103,6 @@ function getWorkspacePosterCopy(conceptIndex = selectedConcept ?? 0) {
 }
 
 function getLibraryPosterCopy(item) {
-  if (getCurrentLibraryVersion(item)?.canvasDocument || getCurrentLibraryVersion(item)?.compositionMode === "ai") return { brand: "", headline: "", cta: "", logos: [] };
   if (item?.posterCopy) {
     return {
       brand: String(Object.prototype.hasOwnProperty.call(item.posterCopy, "brand") ? item.posterCopy.brand : (item.projectName || "Brand lokal")),

@@ -21,7 +21,6 @@
     "public/components/05-projects.ts",
     "public/components/06-generation.ts",
     "public/components/07-editor-export.ts",
-    "public/components/07-layer-editor.ts",
     "public/components/08-events.ts"
   ],
   "exclude": ["node_modules"]

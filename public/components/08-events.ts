@@ -512,7 +512,6 @@ async function bootstrap() {
   showAuthScreen();
   authStartup = clearPreviousSession();
   bindEvents();
-  bindLayerEditorEvents();
   updateCharacterCount();
   localStorage.removeItem("kanvas_session");
 

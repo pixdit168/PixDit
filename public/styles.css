@@ -893,38 +893,6 @@ svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.8; strok
 .grading-panel > button { width:100%; justify-content:center; margin-top:10px; }
 .grading-panel > #reset-color-grade { margin-top:25px; }
 
-/* Layer editor: isolated from legacy poster overlays. */
-.canvas-editor { position:fixed; z-index:150; inset:0; display:flex; flex-direction:column; color:#f7f3ff; background:#100d23; }
-.canvas-editor-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:16px 24px; border-bottom:1px solid #4d3a64; background:#1b1530; }
-.canvas-editor-header h2 { margin:4px 0; font:700 24px "Segoe UI",Arial,sans-serif; }
-.canvas-editor-header p,.canvas-editor p { color:#beb0d0; font-size:12px; line-height:1.6; margin:8px 0 14px; }
-.canvas-editor .modal-kicker { color:#c7a5ff; }
-.canvas-editor-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-.canvas-editor button,.canvas-upload { cursor:pointer; min-height:38px; padding:8px 12px; border:1px solid #665080; border-radius:8px; color:#f5edff; background:#322342; font-size:12px; }
-.canvas-editor button:hover,.canvas-upload:hover { border-color:#c7a5ff; background:#49315f; }
-.canvas-editor button:focus-visible,.canvas-upload:focus-within { outline:2px solid #d5bdff; outline-offset:2px; }
-.canvas-editor button:disabled { opacity:.5; cursor:not-allowed; }
-.canvas-editor .primary-button { color:#241538; background:#c5a4ff; font-weight:700; }
-.canvas-editor-body { min-height:0; flex:1; display:grid; grid-template-columns:260px minmax(0,1fr) 260px; }
-.canvas-editor-sidebar,.canvas-editor-properties { overflow-y:auto; padding:20px; background:#1b1530; }
-.canvas-editor-sidebar { border-right:1px solid #4d3a64; }.canvas-editor-properties { border-left:1px solid #4d3a64; }
-.canvas-editor h3 { margin:0 0 10px; font-size:16px; }.canvas-editor h4 { overflow-wrap:anywhere; }
-.canvas-editor input,.canvas-editor select,.canvas-editor textarea { width:100%; min-width:0; margin:5px 0 12px; padding:9px; border:1px solid #665080; border-radius:7px; color:#fff; background:#281d3d; font-size:13px; }
-.canvas-editor input[type=checkbox] { width:auto; }.canvas-editor textarea { min-height:100px; resize:vertical; }.canvas-editor label { color:#d9c9ec; font-size:12px; }
-.canvas-editor-workspace { min-width:0; min-height:0; overflow:auto; display:grid; place-items:center; padding:28px; background:radial-gradient(ellipse,#34224c,#130e24 75%); }
-.canvas-editor-stage { position:relative; width:100%; max-width:760px; max-height:none; touch-action:none; background:repeating-conic-gradient(#342a43 0% 25%,#261f34 0% 50%) 50%/20px 20px; }
-#canvas-editor-canvas { display:block; width:100%; height:100%; }
-.canvas-editor-selection { position:absolute; pointer-events:none; border:2px solid #d7acff; transform-origin:center; }
-#canvas-editor-resize { position:absolute; pointer-events:auto; width:16px; height:16px; min-height:16px; padding:0; bottom:-9px; right:-9px; border:2px solid #d7acff; background:#fff; border-radius:3px; cursor:nwse-resize; }
-.canvas-editor-add { display:flex; flex-wrap:wrap; gap:8px; margin:14px 0; }.canvas-upload { display:inline-flex; align-items:center; }.canvas-upload input { position:absolute; width:1px; height:1px; opacity:0; padding:0; margin:0; }
-.canvas-layer-row { display:flex; align-items:center; gap:4px; margin-bottom:6px; padding:3px; border:1px solid #49365f; border-radius:8px; }
-.canvas-layer-row.selected { border-color:#d2aaff; background:#423058; }.canvas-layer-row button { border:0; padding:7px; min-width:30px; background:transparent; }.canvas-layer-row button:first-child { flex:1; min-width:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.canvas-property-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; }
-.canvas-editor-error { flex-shrink:0; margin:0 !important; padding:0 24px; color:#ffc9c9 !important; background:#422439; }.canvas-editor-error:not(:empty) { padding-block:10px; }
-.library-card-actions .library-edit-elements { grid-column:1/-1; }.concept-edit-elements { margin:0 12px 12px; min-height:38px; }
-@media (max-width:1000px) { .canvas-editor-body { grid-template-columns:210px minmax(0,1fr); overflow-y:auto; }.canvas-editor-properties { grid-column:1/-1; overflow:visible; border-left:0; border-top:1px solid #4d3a64; }.canvas-editor-workspace { min-height:350px; }.canvas-editor-sidebar { overflow:visible; } }
-@media (max-width:600px) { .canvas-editor-header { padding:12px; gap:8px; }.canvas-editor-header h2 { font-size:20px; }.canvas-editor-actions { gap:5px; }.canvas-editor button { font-size:11px; padding:7px 9px; }.canvas-editor-body { display:flex; flex-direction:column; overflow:auto; }.canvas-editor-workspace { order:-1; flex-shrink:0; min-height:280px; overflow:visible; padding:20px; }.canvas-editor-stage { max-width:340px; }.canvas-editor-sidebar,.canvas-editor-properties { overflow:visible; padding:16px; flex-shrink:0; border:0; border-top:1px solid #4d3a64; } }
-
 /* Project creation and the library notice share the studio's dark palette. */
 #project-modal .modal { color:var(--studio-text,#f7f3ff); border:1px solid var(--studio-border,#3e3355); background:var(--studio-panel,#1b1530); max-height:calc(100dvh - 40px); }
 #project-modal .modal-kicker { color:var(--studio-accent,#bb9bff); }

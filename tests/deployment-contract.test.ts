@@ -22,7 +22,7 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   const browserConfig = JSON.parse(await fs.readFile(path.join(projectRoot, "tsconfig.browser.json"), "utf8"));
   assert.equal(browserConfig.compilerOptions.module, "none");
   assert.equal(browserConfig.compilerOptions.outFile, "public/app.js");
-  assert.equal(browserConfig.files.length, 10);
+  assert.equal(browserConfig.files.length, 9);
   const browserSource = (await Promise.all(browserConfig.files.map((name: string) => fs.readFile(path.join(projectRoot, name), "utf8")))).join("\n");
   const browserScript = await fs.readFile(path.join(projectRoot, "public/app.js"), "utf8");
   const publishedScript = await fs.readFile(path.join(projectRoot, "dist/app.js"), "utf8");

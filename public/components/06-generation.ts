@@ -19,13 +19,11 @@ function renderConcepts(loading = false, images = generatedImages) {
             <div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy, { draggableLogo: hasApiImage && !isLoading, logoScope: "project", logoKey: index })}</div>
           </div>
           <div class="concept-meta"><span>${escapeHtml(conceptName)}</span><small>${image && image.error ? "Gagal · coba lagi" : "Variasi visual"}</small></div>
-          ${hasApiImage && !isLoading ? `<button class="concept-edit-elements dark-button" data-edit-elements="${index}" type="button">Edit elemen</button>` : ""}
         </article>`;
     })
     .join("");
 
   bindLogoEditing($("#results-grid"));
-  $$("[data-edit-elements]", $("#results-grid")).forEach(button => button.addEventListener("click", event => { event.stopPropagation(); editGeneratedElements(Number(button.dataset.editElements)); }));
   updateAdaptiveLogos($("#results-grid"));
 
   $$(".concept-card:not(.loading)").forEach((card) => {
@@ -33,7 +31,6 @@ function renderConcepts(loading = false, images = generatedImages) {
       const select = () => selectConcept(Number(card.dataset.concept));
       card.addEventListener("click", select);
       card.addEventListener("keydown", (event) => {
-        if (event.target.closest("button")) return;
         if (event.key === "Enter" || event.key === " ") select();
       });
     }

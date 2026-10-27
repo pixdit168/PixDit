@@ -8,7 +8,6 @@ import { getGenerationJobs } from "./lib/generation-jobs.js";
 import { newImagePrompt } from "./lib/image-prompt.js";
 import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supabase.js";
 import { ReplicateImageProvider } from "./lib/replicate.js";
-import { handleLayerEditor, ReplicateLayerProvider } from "./lib/layer-editor.js";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -58,7 +57,6 @@ const accountAuth = useMemoryBackend
 const freeImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_FREE_MODEL || "sourceful/riverflow-2.0-pro" });
 const premiumImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_PRO_MODEL || process.env.REPLICATE_MODEL || "openai/gpt-image-2" });
 const activeUserJobs = new Set();
-const layerProvider = new ReplicateLayerProvider({ model: process.env.REPLICATE_LAYER_MODEL || "qwen/qwen-image-layered" });
 
 if (isProduction && !publicOrigin) {
   console.warn("PERINGATAN: PUBLIC_ORIGIN wajib diatur saat NODE_ENV=production, contoh https://app.example.com. CORS mungkin tidak berfungsi.");
@@ -480,7 +478,7 @@ async function recordGeneratedFile(userId, urlPath) {
 
 async function resolveGeneratedSource(sourceUrl, userId) {
   const cleanUrl = String(sourceUrl || "").split("?")[0];
-  if (!/^\/generated\/[a-zA-Z0-9-]+\/(?:concept|variation)-\d{2}\.(?:jpg|jpeg|png|webp)$/i.test(cleanUrl)) throw new Error("Gambar sumber edit harus berasal dari Koleksi Pixgin.");
+  if (!/^\/generated\/[a-zA-Z0-9-]+\/concept-\d{2}\.(?:jpg|jpeg|png|webp)$/i.test(cleanUrl)) throw new Error("Gambar sumber edit harus berasal dari Koleksi Pixgin.");
   if (store.data.generatedFiles[cleanUrl]?.userId !== userId) throw new Error("Gambar sumber tidak ditemukan untuk akun ini.");
   const imageId = decodeURIComponent(cleanUrl.slice("/generated/".length));
   const image = await store.getImage(imageId, userId);
@@ -938,10 +936,6 @@ async function handleApi(request, response, pathname) {
   if (request.method === "POST" && pathname === "/api/refine") {
     const input = await readJsonBody(request);
     return handleRefinement(request, response, input, auth);
-  }
-  if (request.method === "POST" && ["/api/layers/decompose", "/api/layers/save"].includes(pathname)) {
-    const input = await readJsonBody(request);
-    return handleLayerEditor(pathname, request, response, input, { store, auth, provider: layerProvider, activeUserJobs, sendJson, creditAllowed, quotaExceeded, addUsageEvent, getUsageStatus });
   }
   return sendJson(response, 404, { error: "not_found" });
 }

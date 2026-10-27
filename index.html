@@ -629,38 +629,6 @@ Ayo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membua
       </div>
     </div>
 
-    <section id="canvas-editor" class="canvas-editor is-hidden" role="dialog" aria-modal="true" aria-labelledby="canvas-editor-title" aria-hidden="true">
-      <header class="canvas-editor-header">
-        <div><span class="modal-kicker">PIXGIN CANVAS</span><h2 id="canvas-editor-title">Edit elemen</h2><p id="canvas-editor-status" role="status">Memuat gambar…</p></div>
-        <div class="canvas-editor-actions"><button id="canvas-editor-undo" type="button">Urungkan</button><button id="canvas-editor-redo" type="button">Ulangi</button><button id="canvas-editor-download" type="button">Unduh PNG</button><button id="canvas-editor-save" class="primary-button" type="button">Simpan versi baru</button><button id="canvas-editor-close" type="button" aria-label="Tutup editor elemen">×</button></div>
-      </header>
-      <p id="canvas-editor-error" class="canvas-editor-error" role="alert"></p>
-      <div class="canvas-editor-body">
-        <aside class="canvas-editor-sidebar">
-          <h3>Elemen gambar</h3>
-          <p>Gambar AI awal masih menyatu. Pisahkan sekali untuk memilih elemennya. Kualitas pemisahan bisa berbeda dari original; beberapa objek mungkin tetap tergabung.</p>
-          <label for="canvas-layer-count">Jumlah layer AI</label><select id="canvas-layer-count"><option value="4">4 layer</option><option value="6" selected>6 layer</option><option value="8">8 layer</option></select>
-          <button id="canvas-editor-decompose" class="primary-button" type="button">Pisahkan elemen AI · 3 kredit</button>
-          <button id="canvas-editor-cancel" class="is-hidden" type="button">Batalkan pemisahan</button>
-          <p>Memindahkan, menghapus, dan menyimpan elemen tidak memakai kredit AI. Pisahkan hanya jika diperlukan. Layer yang sudah disimpan dapat dibuka lagi tanpa pemisahan ulang.</p>
-          <div class="canvas-editor-add"><button id="canvas-editor-add-text" type="button">＋ Teks</button><label class="canvas-upload" for="canvas-editor-upload">＋ Gambar / logo<input id="canvas-editor-upload" type="file" accept="image/png,image/jpeg,image/webp" /></label></div>
-          <div id="canvas-editor-layers" aria-label="Daftar elemen (atas ke bawah)"></div>
-        </aside>
-        <div class="canvas-editor-workspace"><div id="canvas-editor-stage" class="canvas-editor-stage"><canvas id="canvas-editor-canvas" aria-label="Kanvas desain; klik elemen untuk memilih. Gunakan daftar elemen dan kontrol posisi dengan keyboard."></canvas><div id="canvas-editor-selection" class="canvas-editor-selection is-hidden"><button id="canvas-editor-resize" type="button" aria-label="Tarik untuk mengubah ukuran elemen"></button></div></div></div>
-        <aside class="canvas-editor-properties">
-          <h3>Properti elemen</h3><p>Pilih elemen di kanvas atau daftar layer. Elemen terkunci harus dibuka kuncinya di daftar terlebih dahulu.</p>
-          <div id="canvas-element-controls" class="is-hidden">
-            <h4 id="canvas-element-name"></h4>
-            <div class="canvas-property-grid"><label>X<input id="canvas-element-x" type="number" /></label><label>Y<input id="canvas-element-y" type="number" /></label><label>Lebar<input id="canvas-element-width" type="number" min="1" /></label><label>Tinggi<input id="canvas-element-height" type="number" min="1" /></label><label>Rotasi<input id="canvas-element-rotation" type="number" min="-360" max="360" /></label><label>Opasitas<input id="canvas-element-opacity" type="number" min="0" max="1" step="0.05" /></label></div>
-            <button id="canvas-replace-text" type="button">Ganti elemen ini dengan teks</button>
-            <p>Tulisan hasil pemisahan masih berupa gambar. Ganti dengan teks untuk mengetik ulang. Elemen gambar lama disembunyikan, bukan dihapus permanen.</p>
-            <div id="canvas-text-controls" class="is-hidden"><label for="canvas-element-text">Isi teks</label><textarea id="canvas-element-text" maxlength="2000"></textarea><label for="canvas-element-fontSize">Ukuran huruf</label><input id="canvas-element-fontSize" type="number" min="8" max="600" /><label for="canvas-element-fontFamily">Jenis huruf</label><select id="canvas-element-fontFamily"><option>Arial</option><option>Georgia</option><option>Verdana</option></select><label for="canvas-element-color">Warna teks</label><input id="canvas-element-color" type="color" /><label for="canvas-element-align">Rata teks</label><select id="canvas-element-align"><option value="left">Kiri</option><option value="center">Tengah</option><option value="right">Kanan</option></select><label><input id="canvas-element-bold" type="checkbox" /> Tebal</label></div>
-            <div class="canvas-editor-actions"><button id="canvas-element-up" type="button">Ke depan</button><button id="canvas-element-down" type="button">Ke belakang</button><button id="canvas-element-delete" type="button">Hapus elemen</button></div>
-          </div>
-        </aside>
-      </div>
-    </section>
-
     <aside id="refine-drawer" class="refine-drawer" aria-hidden="true">
       <div class="drawer-head"><div><span class="modal-kicker">EDIT DI LIBRARY</span><h2>Buat versi baru.</h2><p id="drawer-version-meta">Versi awal akan tetap tersimpan.</p></div><button id="close-drawer" class="icon-button" type="button" aria-label="Tutup edit salinan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
       <div class="drawer-preview"><div id="drawer-poster" class="poster poster-1"><div class="poster-copy"><small>BRAND LOKAL</small><strong>Headline Promosimu.</strong><span>Pelajari Sekarang</span></div></div></div>

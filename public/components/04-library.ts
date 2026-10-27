@@ -94,7 +94,6 @@ function renderLibrary() {
               <button class="secondary-button library-preview-button" type="button">Preview</button>
               <button class="secondary-button library-download" type="button">Unduh</button>
               <button class="dark-button library-edit" type="button">✦ Edit salinan</button>
-              <button class="dark-button library-edit-elements" type="button">Edit elemen</button>
             </div>
           </div>
         </article>`;
@@ -108,7 +107,6 @@ function renderLibrary() {
     $$(".version-pill", card).forEach((button) => button.addEventListener("click", () => selectLibraryVersion(itemId, button.dataset.versionId)));
     $(".library-preview-button", card).addEventListener("click", () => openLibraryPreview(itemId));
     $(".library-edit", card).addEventListener("click", () => openRefineDrawer(itemId));
-    $(".library-edit-elements", card).addEventListener("click", () => openLayerEditor(itemId));
     $(".library-download", card).addEventListener("click", () => downloadLibraryVersion(itemId));
     $(".library-select-input", card).addEventListener("change", (event) => toggleLibrarySelection(itemId, event.target.checked));
   });

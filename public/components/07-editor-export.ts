@@ -98,7 +98,6 @@ async function regenerateSelected() {
     libraryItem.versions.push({
       id: versionId,
       url: data.url,
-      compositionMode: getCurrentLibraryVersion(libraryItem)?.canvasDocument || getCurrentLibraryVersion(libraryItem)?.compositionMode === "ai" ? "ai" : undefined,
       refinement: input.value.trim(),
       createdAt: new Date().toISOString(),
       immutable: false,
