@@ -11,6 +11,7 @@ Pixgin is an Indonesian-language campaign image generator. It is a TypeScript/No
 - `index.html`, `public/app.ts`, `public/components/*.ts`, `public/styles.css`: browser UI and interaction. The ordered component files compile into the same classic `public/app.js`; most user-facing copy is Indonesian.
 - `lib/replicate.ts`: Replicate model inputs, polling, image download, reference-image resizing, and prediction cancellation.
 - `lib/image-prompt.ts` and `lib/generation-jobs.ts`: prompt-first model instructions and neutral one/ten-image job slots.
+- `lib/layer-editor.ts` and `public/components/07-layer-editor.ts`: authenticated, opt-in Replicate layer reconstruction and the image/text canvas editor. See `LAYER-EDITOR.md`. Never flatten layer PNGs to JPEG; never imply raster wording is native editable text. Originals stay immutable; manual saves create versions with `canvasDocument`.
 - `lib/supabase.ts` and `supabase/schema.sql`: Supabase Auth, application state, and the private `layera-generated` Storage bucket.
 - `supabase/EMAIL-VERIFICATION.md` and `supabase/templates/confirm-signup.html`: required hosted email confirmation/SMTP settings and the signup OTP template. Website signup uses public Supabase Auth; only legacy migration uses admin auto-confirm. Never grant pending accounts an app session before OTP verification.
 - `tests/`: backend contracts, model adapter, prompt-first generation jobs, and storage tests.

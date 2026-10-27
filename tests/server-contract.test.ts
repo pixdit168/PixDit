@@ -77,6 +77,7 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.match(stylesResponse.headers.get("content-type") || "", /text\/css/);
   const privateImageResponse = await fetch(`${baseUrl}/generated/unknown-image`);
   assert.equal(privateImageResponse.status, 401);
+  for (const route of ["decompose", "save"]) assert.equal((await fetch(`${baseUrl}/api/layers/${route}`, { method: "POST", headers: { Origin: baseUrl, "Content-Type": "application/json" }, body: "{}" })).status, 401);
 
   let cookie = "";
   let csrfToken = "";
@@ -129,6 +130,8 @@ test("Node backend supports auth, state, account, prompt, and provider contracts
   assert.equal(verified.payload.user.displayName, "Ayu Pratama");
   assert.ok(cookie.startsWith("layera_session="));
   assert.ok(csrfToken.length >= 32);
+  assert.equal((await request("/api/layers/decompose", { method: "POST", body: { itemId: "unknown", baseVersionId: "unknown" } })).response.status, 403);
+  assert.equal((await request("/api/layers/decompose", { method: "POST", csrf: true, body: { itemId: "unknown", baseVersionId: "unknown" } })).response.status, 404);
   const replay = await request("/api/auth/verify-email", { method: "POST", body: { email: "ayu@example.test", token: "123456" } });
   assert.equal(replay.response.status, 400);
   assert.equal(replay.response.headers.get("set-cookie"), null);

@@ -329,6 +329,7 @@ async function clearPreviousSession() {
 }
 
 function showAuthScreen(message = "") {
+  closeLayerEditor(true);
   closeDeleteLibraryModal({ force: true });
   selectedLibraryIds.clear();
   clearTimeout(accountStateTimer);
