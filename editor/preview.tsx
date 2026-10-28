@@ -4,6 +4,7 @@ import { EditorCanvas } from "./EditorCanvas";
 export function renderPreview(
   document: DesignDocument,
   preview = false,
+  format: "png" | "jpeg" = "png",
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const host = window.document.createElement("div");
@@ -43,8 +44,14 @@ export function renderPreview(
             if (done) return;
             try {
               const canvas = stage.toCanvas({ pixelRatio: 1 });
+              if (!preview && format === "jpeg") {
+                const context = canvas.getContext("2d")!;
+                context.globalCompositeOperation = "destination-over";
+                context.fillStyle = "#ffffff";
+                context.fillRect(0, 0, canvas.width, canvas.height);
+              }
               let data = canvas.toDataURL(
-                preview ? "image/webp" : "image/png",
+                preview ? "image/webp" : `image/${format}`,
                 0.9,
               );
               if (preview && data.length > 3_100_000)

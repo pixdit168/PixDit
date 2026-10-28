@@ -25,7 +25,7 @@
     "pretest": "npm run vercel-build",
     "pretest:editor": "npm run build",
     "test:editor": "node --test tests/editor-browser.test.js",
-    "test": "node --test tests/browser-components.test.js tests/generation-jobs.test.js tests/deployment-contract.test.js tests/image-prompt.test.js tests/replicate-resize.test.js tests/server-contract.test.js tests/supabase-storage.test.js tests/supabase-auth.test.js tests/design-document.test.js tests/design-ai.test.js tests/design-api.test.js"
+    "test": "node --test tests/browser-components.test.js tests/generation-jobs.test.js tests/deployment-contract.test.js tests/image-prompt.test.js tests/replicate-resize.test.js tests/server-contract.test.js tests/supabase-storage.test.js tests/supabase-auth.test.js tests/design-document.test.js tests/design-ai.test.js tests/design-api.test.js tests/design-layers.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

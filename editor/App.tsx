@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import Konva from "konva";
 import {
   baseObject,
@@ -26,6 +33,18 @@ import { LayersPanel } from "./LayersPanel";
 import { PropertiesPanel } from "./PropertiesPanel";
 import { useDraft } from "./useDraft";
 import { renderPreview } from "./preview";
+import {
+  layerEntries,
+  selectedLayerRoots,
+  patchLayers,
+  toggleLayer,
+  reorderLayer,
+  duplicateLayers,
+  deleteLayers,
+  groupLayers,
+  ungroupLayers,
+  createDecoration,
+} from "../shared/design-layers";
 const uid = () => crypto.randomUUID();
 export function App({
   initial,
@@ -64,25 +83,32 @@ export function App({
   editingRef.current = editing;
   const busyRef = useRef(busy);
   busyRef.current = busy;
-  const commit = (document: DesignDocument) => {
+  const commit = useCallback((document: DesignDocument) => {
     current.current = document;
     draft.current.current = document;
     dispatch({ type: "commit", document });
-  };
-  const patch = (patches: { id: string; patch: Partial<DesignObject> }[]) =>
-    commit({
-      ...current.current,
-      objects: mapObjects(current.current.objects, (object) => {
-        const value = patches.find((p) => p.id === object.id);
-        return value && !object.locked ? { ...object, ...value.patch } : object;
+  }, []);
+  const layerMap = useMemo(
+    () =>
+      new Map(
+        layerEntries(doc.objects).map((entry) => [entry.object.id, entry]),
+      ),
+    [doc.objects],
+  );
+  const patch = useCallback(
+    (patches: { id: string; patch: Partial<DesignObject> }[]) =>
+      commit({
+        ...current.current,
+        objects: patchLayers(current.current.objects, patches),
       }),
-    });
-  const finishEditing = () => {
+    [commit],
+  );
+  const finishEditing = useCallback(() => {
     const edit = editingRef.current;
     if (!edit) return;
     patch([{ id: edit.id, patch: { text: edit.value } }]);
     setEditing(null);
-  };
+  }, [patch]);
   const close = (force = false) => {
     if (!force && busyRef.current) return false;
     if (
@@ -125,73 +151,77 @@ export function App({
   const onReady = useCallback((value: Konva.Stage) => {
     stage.current = value;
   }, []);
-  const select = (id: string | null, multi: boolean) => {
-    finishEditing();
-    setSelected((old) =>
-      id
-        ? multi
-          ? old.includes(id)
-            ? old.filter((value) => value !== id)
-            : [...old, id]
-          : [id]
-        : [],
-    );
-  };
+  const select = useCallback(
+    (id: string | null, multi: boolean) => {
+      finishEditing();
+      setSelected((old) =>
+        id
+          ? multi
+            ? old.includes(id)
+              ? old.filter((value) => value !== id)
+              : [...old, id]
+            : [id]
+          : [],
+      );
+    },
+    [finishEditing],
+  );
   const add = (object: DesignObject, assets = doc.assets) => {
     commit({ ...doc, assets, objects: [...doc.objects, object] });
     setSelected([object.id]);
   };
   const duplicate = () => {
-    const clone = (object: DesignObject): DesignObject => ({
-      ...object,
-      id: uid(),
-      children: object.children?.map(clone),
-    });
-    const copies = doc.objects
-      .filter((object) => selected.includes(object.id) && !object.locked)
-      .map((object) => ({
-        ...clone(object),
-        x: object.x + 20,
-        y: object.y + 20,
-        name: `${object.name} — salinan`,
-      }));
-    commit({ ...doc, objects: [...doc.objects, ...copies] });
-    setSelected(copies.map((object) => object.id));
+    const result = duplicateLayers(doc.objects, selected, uid);
+    commit({ ...doc, objects: result.objects });
+    setSelected(result.selected);
   };
   const remove = () => {
     commit({
       ...doc,
-      objects: doc.objects.filter(
-        (object) => !selected.includes(object.id) || object.locked,
-      ),
+      objects: deleteLayers(doc.objects, selected),
     });
     setSelected([]);
   };
-  const toggle = (id: string, key: "visible" | "locked") =>
-    commit({
-      ...doc,
-      objects: mapObjects(doc.objects, (object) =>
-        object.id === id ? { ...object, [key]: !object[key] } : object,
-      ),
-    });
-  const reorder = (id: string, direction: number) => {
-    const objects = [...doc.objects],
-      i = objects.findIndex((object) => object.id === id),
-      j = i + direction;
-    if (i < 0 || j < 0 || j >= objects.length || objects[i].locked) return;
-    [objects[i], objects[j]] = [objects[j], objects[i]];
-    commit({ ...doc, objects });
-  };
+  const toggle = useCallback(
+    (id: string, key: "visible" | "locked") =>
+      commit({
+        ...current.current,
+        objects: toggleLayer(current.current.objects, id, key),
+      }),
+    [commit],
+  );
+  const reorder = useCallback(
+    (id: string, direction: number) => {
+      commit({
+        ...current.current,
+        objects: reorderLayer(current.current.objects, id, direction),
+      });
+    },
+    [commit],
+  );
+  const rename = useCallback(
+    (id: string, name: string) =>
+      patch([{ id, patch: { name: name.trim().slice(0, 80) || "Elemen" } }]),
+    [patch],
+  );
   const group = () => {
-    const items = doc.objects.filter(
-      (object) => selected.includes(object.id) && !object.locked,
+    const entries = selectedLayerRoots(doc.objects, selected).filter(
+      (entry) => !entry.effectiveLocked,
     );
-    if (items.length < 2) return;
+    if (entries.length < 2) return;
+    if (entries.some((entry) => entry.parentId !== entries[0].parentId)) {
+      setError("Pilih layer di dalam grup yang sama untuk menggabungkannya.");
+      return;
+    }
+    const items = entries.map((entry) => entry.object);
+    const parent = entries[0].parentId
+      ? stage.current?.findOne(`#${entries[0].parentId}`)
+      : stage.current;
     const rectangles = items
       .map((object) =>
         stage.current
           ?.findOne(`#${object.id}`)
-          ?.getClientRect({ relativeTo: stage.current! }),
+          ?.getClientRect({ relativeTo: parent as Konva.Group | Konva.Stage }),
       )
       .filter((rect): rect is Konva.IRect => !!rect);
     if (!rectangles.length) return;
@@ -199,65 +229,49 @@ export function App({
       y = Math.min(...rectangles.map((rect) => rect.y)),
       width = Math.max(...rectangles.map((rect) => rect.x + rect.width)) - x,
       height = Math.max(...rectangles.map((rect) => rect.y + rect.height)) - y;
-    const id = uid(),
-      members = new Set(items.map((object) => object.id)),
-      last = Math.max(...items.map((object) => doc.objects.indexOf(object)));
-    const objects = doc.objects.flatMap((object, index) =>
-      index === last
-        ? [
-            {
-              ...baseObject(
-                id,
-                "group",
-                "Grup",
-                x,
-                y,
-                Math.max(1, width),
-                Math.max(1, height),
-              ),
-              children: items.map((item) => ({
-                ...item,
-                x: item.x - x,
-                y: item.y - y,
-              })),
-            },
-          ]
-        : members.has(object.id)
-          ? []
-          : [object],
+    const id = uid();
+    const objects = groupLayers(
+      doc.objects,
+      selected,
+      { x, y, width, height },
+      id,
     );
+    if (objects === doc.objects) {
+      setError(
+        "Grup terlalu dalam. Lepaskan grup bagian dalam sebelum menggabungkannya lagi.",
+      );
+      return;
+    }
     commit({ ...doc, objects });
     setSelected([id]);
   };
   const ungroup = () => {
-    const objects = doc.objects.flatMap((object) => {
-      if (
-        object.type !== "group" ||
-        object.locked ||
-        !selected.includes(object.id)
-      )
-        return [object];
-      return (object.children || []).map((child) => {
-        const transform = new Konva.Transform()
-          .translate(object.x, object.y)
-          .rotate((object.rotation * Math.PI) / 180)
-          .skew(object.skewX || 0, object.skewY || 0)
-          .scale(object.scaleX, object.scaleY)
-          .translate(child.x, child.y)
-          .rotate((child.rotation * Math.PI) / 180)
-          .skew(child.skewX || 0, child.skewY || 0)
-          .scale(child.scaleX, child.scaleY);
-        return { ...child, ...transform.decompose() };
-      });
+    const result = ungroupLayers(doc.objects, selected, (object, child) => {
+      const transform = new Konva.Transform()
+        .translate(object.x, object.y)
+        .rotate((object.rotation * Math.PI) / 180)
+        .skew(object.skewX || 0, object.skewY || 0)
+        .scale(object.scaleX, object.scaleY)
+        .translate(child.x, child.y)
+        .rotate((child.rotation * Math.PI) / 180)
+        .skew(child.skewX || 0, child.skewY || 0)
+        .scale(child.scaleX, child.scaleY);
+      return { ...child, ...transform.decompose() };
     });
-    commit({ ...doc, objects });
-    setSelected([]);
+    commit({ ...doc, objects: result.objects });
+    setSelected(result.selected);
   };
   const editText = (id: string, node?: Konva.Text) => {
     const object = findObject(doc, id);
     const target =
       node || (stage.current?.findOne(`#${id}`) as Konva.Text | undefined);
-    if (!object || object.type !== "text" || object.locked || !target) return;
+    if (
+      !object ||
+      object.type !== "text" ||
+      layerMap.get(id)?.effectiveLocked ||
+      !target
+    )
+      return;
     const rect = target.getStage()!.container().getBoundingClientRect(),
       matrix = target.getAbsoluteTransform().getMatrix();
     setEditing({
@@ -356,17 +370,17 @@ export function App({
         ).versions,
       );
     });
-  const exportPng = () =>
+  const exportImage = (format: "png" | "jpeg") =>
     void withBusy(async () => {
       finishEditing();
-      const data = await renderPreview(current.current);
+      const data = await renderPreview(current.current, false, format);
       const raw = atob(data.split(",")[1]),
         bytes = Uint8Array.from(raw, (char) => char.charCodeAt(0)),
-        blob = new Blob([bytes], { type: "image/png" }),
+        blob = new Blob([bytes], { type: `image/${format}` }),
         url = URL.createObjectURL(blob),
         link = document.createElement("a");
       link.href = url;
-      link.download = `${draft.record.current.title.replace(/[^a-zA-Z0-9-]/g, "-") || "pixgin"}.png`;
+      link.download = `${draft.record.current.title.replace(/[^a-zA-Z0-9-]/g, "-") || "pixgin"}.${format === "jpeg" ? "jpg" : "png"}`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
@@ -409,6 +423,37 @@ export function App({
     });
   const object =
     selected.length === 1 ? findObject(doc, selected[0]) : undefined;
+  const alignObject = (axis: "x" | "y") => {
+    if (!object) return;
+    const parentId = layerMap.get(object.id)?.parentId;
+    const parent = parentId ? layerMap.get(parentId)?.object : undefined;
+    const container = parentId
+      ? stage.current?.findOne(`#${parentId}`)
+      : stage.current;
+    const bounds = stage.current
+      ?.findOne(`#${object.id}`)
+      ?.getClientRect({ relativeTo: container as Konva.Group | Konva.Stage });
+    if (!bounds) return;
+    patch([
+      {
+        id: object.id,
+        patch:
+          axis === "x"
+            ? {
+                x:
+                  object.x +
+                  ((parent?.width || doc.width) - bounds.width) / 2 -
+                  bounds.x,
+              }
+            : {
+                y:
+                  object.y +
+                  ((parent?.height || doc.height) - bounds.height) / 2 -
+                  bounds.y,
+              },
+      },
+    ]);
+  };
   const upload = (file: File) =>
     void withBusy(async () => {
       const asset = await uploadAsset(file, options.csrfToken);
@@ -539,25 +584,27 @@ export function App({
           event.preventDefault();
           const step = event.shiftKey ? 10 : 1;
           patch(
-            selected.map((id) => ({
-              id,
-              patch: {
-                x:
-                  (findObject(doc, id)?.x || 0) +
-                  (event.key === "ArrowLeft"
-                    ? -step
-                    : event.key === "ArrowRight"
-                      ? step
-                      : 0),
-                y:
-                  (findObject(doc, id)?.y || 0) +
-                  (event.key === "ArrowUp"
-                    ? -step
-                    : event.key === "ArrowDown"
-                      ? step
-                      : 0),
-              },
-            })),
+            selectedLayerRoots(doc.objects, selected).map(
+              ({ object: { id } }) => ({
+                id,
+                patch: {
+                  x:
+                    (findObject(doc, id)?.x || 0) +
+                    (event.key === "ArrowLeft"
+                      ? -step
+                      : event.key === "ArrowRight"
+                        ? step
+                        : 0),
+                  y:
+                    (findObject(doc, id)?.y || 0) +
+                    (event.key === "ArrowUp"
+                      ? -step
+                      : event.key === "ArrowDown"
+                        ? step
+                        : 0),
+                },
+              }),
+            ),
           );
         }
       }}
@@ -578,7 +625,8 @@ export function App({
         canUndo={!!history.past.length}
         canRedo={!!history.future.length}
         onSave={save}
-        onExport={exportPng}
+        onExport={() => exportImage("png")}
+        onExportJpg={() => exportImage("jpeg")}
         onClose={() => close()}
         busy={busy}
         onRetry={draft.retry}
@@ -634,6 +682,9 @@ export function App({
               })
             }
             onUpload={upload}
+            onDecoration={(kind) =>
+              add(createDecoration(kind, doc.width, doc.height, uid))
+            }
             onGroup={group}
             onUngroup={ungroup}
           />
@@ -644,6 +695,7 @@ export function App({
             onSelect={select}
             onToggle={toggle}
             onReorder={reorder}
+            onRename={rename}
             onDuplicate={duplicate}
             onDelete={remove}
           />
@@ -685,6 +737,7 @@ export function App({
         </div>
         <PropertiesPanel
           object={object}
+          lockedByParent={!!(object && layerMap.get(object.id)?.parentLocked)}
           onPatch={(value) =>
             object && patch([{ id: object.id, patch: value }])
           }
@@ -704,18 +757,7 @@ export function App({
             });
           }}
           onRestore={restore}
-          onAlign={(axis) =>
-            object &&
-            patch([
-              {
-                id: object.id,
-                patch:
-                  axis === "x"
-                    ? { x: (doc.width - object.width * object.scaleX) / 2 }
-                    : { y: (doc.height - object.height * object.scaleY) / 2 },
-              },
-            ])
-          }
+          onAlign={alignObject}
           busy={busy}
           hasOriginal={
             !!(object?.assetId && doc.assets[object.assetId]?.originalAssetId)

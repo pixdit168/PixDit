@@ -2,6 +2,7 @@ export function ToolsPanel({
   onText,
   onShape,
   onUpload,
+  onDecoration,
   onGroup,
   onUngroup,
   busy,
@@ -10,6 +11,7 @@ export function ToolsPanel({
   onText: () => void;
   onShape: (shape: "rect" | "ellipse" | "star") => void;
   onUpload: (file: File) => void;
+  onDecoration: (kind: "badge" | "sticker") => void;
   onGroup: () => void;
   onUngroup: () => void;
   busy: boolean;
@@ -34,6 +36,14 @@ export function ToolsPanel({
           }}
         />
       </label>
+      <div className="design-button-row">
+        <button disabled={busy} onClick={() => onDecoration("badge")}>
+          Badge promo
+        </button>
+        <button disabled={busy} onClick={() => onDecoration("sticker")}>
+          Stiker
+        </button>
+      </div>
       <div className="design-button-row">
         <button disabled={busy} onClick={() => onShape("rect")}>
           Kotak

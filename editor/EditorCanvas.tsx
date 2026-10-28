@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Stage,
   Layer,
@@ -17,7 +17,9 @@ import {
   type DesignObject,
 } from "../shared/design-document";
 import { SelectionControls } from "./SelectionControls";
+import { selectedLayerRoots } from "../shared/design-layers";
 const cache = new Map<string, Promise<HTMLImageElement>>();
+const EMPTY_SELECTION: string[] = [];
 function imageFor(url: string) {
   if (!/^\/api\/design-assets\/[0-9a-f-]+$/i.test(url))
     return Promise.reject(new Error("Sumber aset tidak valid."));
@@ -49,12 +51,28 @@ export type CanvasProps = {
   readOnly?: boolean;
 };
 export function EditorCanvas(props: CanvasProps) {
-  const { document: doc, selected = [], zoom = 1, readOnly = false } = props;
+  const {
+    document: doc,
+    selected = EMPTY_SELECTION,
+    zoom = 1,
+    readOnly = false,
+  } = props;
   const stageRef = useRef<Konva.Stage>(null);
   const [stage, setStage] = useState<Konva.Stage | null>(null);
   const [images, setImages] = useState<Record<string, HTMLImageElement>>({});
   const [ready, setReady] = useState(false);
   const [guides, setGuides] = useState<{ x?: number; y?: number }>({});
+  const callbacks = useRef(props);
+  callbacks.current = props;
+  const rootIds = useMemo(
+    () =>
+      selectedLayerRoots(doc.objects, selected)
+        .filter((entry) => !entry.effectiveLocked && entry.effectiveVisible)
+        .map((entry) => entry.object.id),
+    [doc.objects, selected],
+  );
+  const updateGuides = (next: { x?: number; y?: number }) =>
+    setGuides((old) => (old.x === next.x && old.y === next.y ? old : next));
   const key = assetIds(doc)
     .map((id) => `${id}:${doc.assets[id]?.url}`)
     .join("|");
@@ -89,29 +107,38 @@ export function EditorCanvas(props: CanvasProps) {
     }
   }, [ready, props.onReady]);
   const finish = (node: Konva.Node) => {
-    const ids = selected.includes(node.id()) ? selected : [node.id()];
-    props.onPatch?.(
-      ids.map((id) => {
-        const n = stageRef.current!.findOne(`#${id}`)!;
-        return {
-          id,
-          patch: {
-            x: n.x(),
-            y: n.y(),
-            rotation: n.rotation(),
-            scaleX: Math.max(0.01, n.scaleX()),
-            scaleY: Math.max(0.01, n.scaleY()),
+    const ids = rootIds.includes(node.id()) ? rootIds : [node.id()];
+    callbacks.current.onPatch?.(
+      ids.flatMap((id) => {
+        const n = stageRef.current!.findOne(`#${id}`);
+        if (!n || n.getAttr("editorLocked")) return [];
+        return [
+          {
+            id,
+            patch: {
+              x: n.x(),
+              y: n.y(),
+              rotation: n.rotation(),
+              scaleX: Math.max(0.01, n.scaleX()),
+              scaleY: Math.max(0.01, n.scaleY()),
+            },
           },
-        };
+        ];
       }),
     );
-    setGuides({});
+    updateGuides({});
   };
   const render = (
     object: DesignObject,
     parentLocked = false,
+    ancestorSelected = false,
+    nested = false,
   ): React.ReactNode => {
     const locked = parentLocked || object.locked || readOnly;
+    const interactive = !locked && !ancestorSelected;
+    const selectedDescendant =
+      object.children &&
+      selectedLayerRoots(object.children, selected).length > 0;
     const common = {
       id: object.id,
       name: "design-object",
@@ -124,29 +151,34 @@ export function EditorCanvas(props: CanvasProps) {
       scaleY: object.scaleY,
       opacity: object.opacity,
       visible: object.visible && props.editing !== object.id,
-      draggable: !locked,
+      draggable: interactive && !selectedDescendant,
       onClick: (e: Konva.KonvaEventObject<MouseEvent>) => {
-        if (!locked) {
+        if (interactive) {
           e.cancelBubble = true;
-          props.onSelect?.(
+          callbacks.current.onSelect?.(
             object.id,
             e.evt.shiftKey || e.evt.ctrlKey || e.evt.metaKey,
           );
         }
       },
       onTap: (e: Konva.KonvaEventObject<TouchEvent>) => {
-        if (!locked) {
+        if (interactive) {
           e.cancelBubble = true;
-          props.onSelect?.(object.id, false);
+          callbacks.current.onSelect?.(object.id, false);
         }
       },
-      onDragStart: () => {
-        if (!selected.includes(object.id)) props.onSelect?.(object.id, false);
+      onDragStart: (event: Konva.KonvaEventObject<DragEvent>) => {
+        event.cancelBubble = true;
+        if (!selected.includes(object.id))
+          callbacks.current.onSelect?.(object.id, false);
       },
       onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => {
+        e.cancelBubble = true;
         const node = e.target;
         const guide: { x?: number; y?: number } = {};
         if (
+          !nested &&
+          rootIds.length <= 1 &&
           Math.abs(
             node.x() + (object.width * object.scaleX) / 2 - doc.width / 2,
           ) < 7
@@ -155,6 +187,8 @@ export function EditorCanvas(props: CanvasProps) {
           guide.x = doc.width / 2;
         }
         if (
+          !nested &&
+          rootIds.length <= 1 &&
           Math.abs(
             node.y() + (object.height * object.scaleY) / 2 - doc.height / 2,
           ) < 7
@@ -162,20 +196,34 @@ export function EditorCanvas(props: CanvasProps) {
           node.y(doc.height / 2 - (object.height * object.scaleY) / 2);
           guide.y = doc.height / 2;
         }
-        setGuides(guide);
+        // Konva's Transformer already synchronizes dragging across its attached nodes.
+        updateGuides(guide);
       },
-      onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => finish(e.target),
-      onTransformEnd: (e: Konva.KonvaEventObject<Event>) => finish(e.target),
+      onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
+        e.cancelBubble = true;
+        finish(e.target);
+      },
+      onTransformEnd: (e: Konva.KonvaEventObject<Event>) => {
+        e.cancelBubble = true;
+        finish(e.target);
+      },
     };
     Object.assign(common, {
       skewX: object.skewX || 0,
       skewY: object.skewY || 0,
-      editorLocked: locked,
+      editorLocked: !interactive,
     });
     if (object.type === "group")
       return (
         <Group key={object.id} {...common}>
-          {object.children?.map((child) => render(child, true))}
+          {object.children?.map((child) =>
+            render(
+              child,
+              locked,
+              ancestorSelected || selected.includes(object.id),
+              true,
+            ),
+          )}
         </Group>
       );
     if (object.type === "text")
@@ -192,15 +240,15 @@ export function EditorCanvas(props: CanvasProps) {
           wrap="word"
           lineHeight={1.2}
           onDblClick={(e) => {
-            if (!locked) {
+            if (interactive) {
               e.cancelBubble = true;
-              props.onEditText?.(object.id, e.target as Konva.Text);
+              callbacks.current.onEditText?.(object.id, e.target as Konva.Text);
             }
           }}
           onDblTap={(e) => {
-            if (!locked) {
+            if (interactive) {
               e.cancelBubble = true;
-              props.onEditText?.(object.id, e.target as Konva.Text);
+              callbacks.current.onEditText?.(object.id, e.target as Konva.Text);
             }
           }}
         />
@@ -283,6 +331,19 @@ export function EditorCanvas(props: CanvasProps) {
       />
     );
   };
+  // Pointer guide changes do not rebuild every artwork node.
+  const artwork = useMemo(
+    () => doc.objects.map((object) => render(object)),
+    [
+      doc.objects,
+      doc.width,
+      doc.height,
+      images,
+      selected,
+      props.editing,
+      readOnly,
+    ],
+  );
   return (
     <div
       className="design-artboard"
@@ -316,13 +377,13 @@ export function EditorCanvas(props: CanvasProps) {
             height={doc.height}
             fill={doc.background}
           />
-          {doc.objects.map((object) => render(object))}
+          {artwork}
         </Layer>
         {!readOnly && (
           <Layer>
             <SelectionControls
               stage={stage}
-              ids={selected}
+              ids={rootIds}
               enabled={!props.editing}
               objects={doc.objects}
             />

@@ -219,6 +219,25 @@
   border-color: #bb9bff;
   background: #3d2a53;
 }
+.design-layer.is-muted .design-layer-select {
+  opacity: 0.5;
+}
+.design-layer-count {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 7px;
+  border-radius: 10px;
+  background: #3d2a53;
+  color: #d6bcff;
+  font-size: 12px;
+}
+.pixgin-design-editor .design-layer .design-layer-name {
+  flex: 1;
+  width: 0;
+  min-width: 30px;
+  margin: 0;
+  padding: 5px;
+}
 .design-layer button {
   border: 0;
   min-width: 20px;

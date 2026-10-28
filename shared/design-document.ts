@@ -110,13 +110,18 @@ export function mapObjects(
   objects: DesignObject[],
   fn: (object: DesignObject) => DesignObject,
 ): DesignObject[] {
-  return objects.map((object) =>
-    fn(
-      object.children
-        ? { ...object, children: mapObjects(object.children, fn) }
+  let changed = false;
+  const next = objects.map((object) => {
+    const children = object.children && mapObjects(object.children, fn);
+    const result = fn(
+      children && children !== object.children
+        ? { ...object, children }
         : object,
-    ),
-  );
+    );
+    if (result !== object) changed = true;
+    return result;
+  });
+  return changed ? next : objects;
 }
 export function findObject(document: DesignDocument, id: string) {
   let found: DesignObject | undefined;
@@ -145,12 +150,10 @@ export function normalizeDesign(input: any): DesignDocument {
   )
     bad();
   const ids = new Set<string>();
-  let count = 0;
   const parse = (values: any, depth: number): DesignObject[] => {
     if (!Array.isArray(values) || depth > 5) return bad();
     return values.map((value) => {
       if (
-        ++count > 128 ||
         !value ||
         typeof value.id !== "string" ||
         !/^[a-zA-Z0-9_-]{1,100}$/.test(value.id) ||

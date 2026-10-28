@@ -10,6 +10,7 @@ export function PropertiesPanel({
   onAlign,
   busy,
   hasOriginal,
+  lockedByParent,
 }: {
   object?: DesignObject;
   onPatch: (patch: Partial<DesignObject>) => void;
@@ -20,6 +21,7 @@ export function PropertiesPanel({
   onAlign: (axis: "x" | "y") => void;
   busy: boolean;
   hasOriginal: boolean;
+  lockedByParent: boolean;
 }) {
   const [draft, setDraft] = useState<Partial<DesignObject>>({});
   useEffect(() => setDraft(object || {}), [object]);
@@ -69,7 +71,7 @@ export function PropertiesPanel({
     <aside className="design-properties">
       <h3>Properti</h3>
       <h4>{object.name}</h4>
-      <fieldset disabled={busy || object.locked}>
+      <fieldset disabled={busy || object.locked || lockedByParent}>
         <label>
           Nama elemen
           <input
@@ -230,7 +232,7 @@ export function PropertiesPanel({
           </>
         )}
       </fieldset>
-      {object.locked && (
+      {(object.locked || lockedByParent) && (
         <p>Elemen terkunci. Buka kuncinya dari daftar layer.</p>
       )}
     </aside>

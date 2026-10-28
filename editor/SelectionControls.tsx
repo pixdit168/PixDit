@@ -22,7 +22,7 @@ export function SelectionControls({
             .map((id) => stage.findOne(`#${id}`))
             .filter(
               (node): node is Konva.Node =>
-                !!node && !node.getAttr("editorLocked"),
+                !!node && node.isVisible() && !node.getAttr("editorLocked"),
             )
         : [],
     );

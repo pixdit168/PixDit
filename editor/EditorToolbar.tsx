@@ -9,6 +9,7 @@ export function EditorToolbar({
   canRedo,
   onSave,
   onExport,
+  onExportJpg,
   onClose,
   busy,
   onRetry,
@@ -26,6 +27,7 @@ export function EditorToolbar({
   canRedo: boolean;
   onSave: () => void;
   onExport: () => void;
+  onExportJpg: () => void;
   onClose: () => void;
   busy: boolean;
   onRetry: () => void;
@@ -64,6 +66,9 @@ export function EditorToolbar({
           </label>
           <button disabled={busy} onClick={onExport}>
             Unduh PNG
+          </button>
+          <button disabled={busy} onClick={onExportJpg}>
+            Unduh JPG
           </button>
           <button
             className="design-primary"
