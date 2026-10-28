@@ -396,6 +396,7 @@ async function exportSelectedImage() {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   try {
+    if(image.designId){await downloadEditableDesign(image.designId,image.designVersionId,`${safeName}-variasi-${String(selectedConcept+1).padStart(2,"0")}`,image.designRevision);return;}
     await downloadComposedPoster(image.url, getWorkspacePosterCopy(selectedConcept), `${safeName}-variasi-${String(selectedConcept + 1).padStart(2, "0")}`, selectedConcept);
     showToast("Poster siap", "Key visual dan teks poster sudah digabungkan sebagai PNG.", "↓");
   } catch (error) {
@@ -416,6 +417,7 @@ async function downloadLibraryVersion(itemId) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
   try {
+    if(version.designId){await downloadEditableDesign(version.designId,version.designVersionId,`${safeName}-v${versionIndex}`,version.designRevision,version.colorGrade);return;}
     await downloadComposedPoster(version.url, getLibraryPosterCopy(item), `${safeName}-v${versionIndex}`, item.conceptIndex, version.colorGrade);
     showToast("Poster siap", `Versi ${versionIndex} sudah digabungkan dengan teks poster.`, "↓");
   } catch (error) {

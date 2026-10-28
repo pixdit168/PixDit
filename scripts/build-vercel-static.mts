@@ -10,6 +10,8 @@ await Promise.all([
   fs.copyFile(path.join(projectRoot, "index.html"), path.join(outputDir, "index.html")),
   fs.copyFile(path.join(projectRoot, "favicon.svg"), path.join(outputDir, "favicon.svg")),
   fs.copyFile(path.join(projectRoot, "public", "app.js"), path.join(outputDir, "app.js")),
+  fs.copyFile(path.join(projectRoot, "public", "editor.js"), path.join(outputDir, "editor.js")),
+  fs.copyFile(path.join(projectRoot, "public", "editor.css"), path.join(outputDir, "editor.css")),
   fs.copyFile(path.join(projectRoot, "public", "styles.css"), path.join(outputDir, "styles.css")),
   fs.cp(path.join(projectRoot, "assets"), path.join(outputDir, "assets"), { recursive: true }),
 ]);

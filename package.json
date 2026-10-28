@@ -9,13 +9,13 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.browser.json",
+    "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.browser.json && node scripts/build-editor.mjs",
     "vercel-build": "npm run build && node scripts/build-vercel-static.mjs",
     "postinstall": "npm run build",
     "start": "node app-backend.js",
     "predev": "npm run build",
-    "dev": "concurrently -k \"tsc --watch -p tsconfig.node.json\" \"tsc --watch -p tsconfig.browser.json\" \"node --watch app-backend.js\"",
-    "check": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.browser.json --noEmit",
+    "dev": "concurrently -k \"tsc --watch -p tsconfig.node.json\" \"tsc --watch -p tsconfig.browser.json\" \"node scripts/build-editor.mjs --watch\" \"node --watch app-backend.js\"",
+    "check": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.browser.json --noEmit && tsc -p tsconfig.editor.json",
     "preconfigure:supabase": "npm run build",
     "configure:supabase": "node scripts/configure-supabase.mjs",
     "premigrate:supabase": "npm run build",
@@ -23,16 +23,25 @@
     "preverify:supabase-storage": "npm run build",
     "verify:supabase-storage": "node scripts/verify-supabase-storage.mjs",
     "pretest": "npm run vercel-build",
-    "test": "node --test tests/browser-components.test.js tests/generation-jobs.test.js tests/deployment-contract.test.js tests/image-prompt.test.js tests/replicate-resize.test.js tests/server-contract.test.js tests/supabase-storage.test.js tests/supabase-auth.test.js"
+    "pretest:editor": "npm run build",
+    "test:editor": "node --test tests/editor-browser.test.js",
+    "test": "node --test tests/browser-components.test.js tests/generation-jobs.test.js tests/deployment-contract.test.js tests/image-prompt.test.js tests/replicate-resize.test.js tests/server-contract.test.js tests/supabase-storage.test.js tests/supabase-auth.test.js tests/design-document.test.js tests/design-ai.test.js tests/design-api.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
+    "konva": "10.9.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-konva": "19.3.2",
     "replicate": "^1.4.0",
     "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "concurrently": "^10.0.5",
+    "esbuild": "0.28.2",
     "typescript": "~5.9.3"
   }
 }

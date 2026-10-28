@@ -22,7 +22,7 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   const browserConfig = JSON.parse(await fs.readFile(path.join(projectRoot, "tsconfig.browser.json"), "utf8"));
   assert.equal(browserConfig.compilerOptions.module, "none");
   assert.equal(browserConfig.compilerOptions.outFile, "public/app.js");
-  assert.equal(browserConfig.files.length, 9);
+  assert.equal(browserConfig.files.length, 10);
   const browserSource = (await Promise.all(browserConfig.files.map((name: string) => fs.readFile(path.join(projectRoot, name), "utf8")))).join("\n");
   const browserScript = await fs.readFile(path.join(projectRoot, "public/app.js"), "utf8");
   const publishedScript = await fs.readFile(path.join(projectRoot, "dist/app.js"), "utf8");
@@ -54,6 +54,8 @@ test("Vercel routes serve compiled assets and keep generated images on the API",
   assert.match(await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8"), /\.poster\.api-poster \.poster-copy\.no-text \{ background:transparent !important; \}/);
   assert.match(await fs.readFile(path.join(projectRoot, "public/styles.css"), "utf8"), /\.poster\.api-poster \.generated-image \{ object-fit: contain; \}/);
   assert.ok((await fs.stat(path.join(projectRoot, "dist/favicon.svg"))).isFile());
+  for (const name of ["editor.js", "editor.css"]) assert.equal(await fs.readFile(path.join(projectRoot, "dist", name), "utf8"), await fs.readFile(path.join(projectRoot, "public", name), "utf8"));
+  assert.doesNotMatch(html, /<script[^>]+editor\.js/); // Lazy loaded, not part of login startup.
   assert.ok((await fs.stat(path.join(projectRoot, "dist/assets/kopi-gula-aren.png"))).isFile());
 });
 

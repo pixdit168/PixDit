@@ -9,6 +9,9 @@ node_modules/
 /api/*.js
 /lib/*.js
 /public/app.js
+/public/editor.js
+/public/editor.css
+/shared/*.js
 /scripts/*.mjs
 /tests/*.js
 .node-runtime/

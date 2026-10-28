@@ -5,7 +5,7 @@ Source backend aktif Pixgin adalah `app-backend.ts`; `npm install` atau `npm run
 Kedua agent berjalan melalui Replicate dan dipilih dari workspace:
 
 - Agent Free: `sourceful/riverflow-2.0-pro`, tersedia untuk semua plan.
-- Agent Pro: `openai/gpt-image-2`, khusus Pixgin Pro. Pilihan kualitas Standar/Detail/Maksimal dipetakan ke preset model `low`/`medium`/`high`; model tidak menjamin jumlah piksel persis. Untuk format 4:5, hasil 3:4 dipotong ke 4:5 setelah diunduh.
+- Agent Pro: `openai/gpt-image-2`, khusus Pixgin Pro. Pilihan kualitas Standar/Detail/Maksimal dipetakan ke preset model `low`/`medium`/`high`; model tidak menjamin jumlah piksel persis. Hasil dipasang ke frame tanpa memotong piksel sumber.
 - Paket Gratis: 1 gambar per permintaan dan kualitas Standar.
 - Pixgin Pro: Agent Free atau Agent Pro, pilihan 1 atau 10 gambar, kualitas Standar/Detail/Maksimal.
 
@@ -31,6 +31,8 @@ Gunakan Node.js 20.9 atau lebih baru.
 Token dan secret hanya dibaca oleh proses Node. File `.env` diabaikan Git; jangan menaruh secret di `public/app.ts`, `index.html`, atau repository. `public/app.js` adalah hasil build, bukan source yang diedit.
 
 Supabase Auth menangani registrasi, login, perubahan email, nama profil, dan kata sandi. State proyek, kredit, sesi Pixgin, dan metadata file disimpan di Supabase Postgres. Jalankan `supabase/schema.sql` sebelum server pertama kali dimulai.
+
+Mode **Desain editable** membutuhkan tambahan `supabase/designs.sql`; ikuti [panduan setup](supabase/EDITABLE-DESIGNS.md). Planner default `meta/meta-llama-3-70b-instruct` dapat diganti dengan `REPLICATE_LAYOUT_MODEL` (input harus kompatibel). Hapus latar memakai `bria/remove-background` melalui `REPLICATE_BG_REMOVE_MODEL`. Keduanya server-only. `npm run build` juga membundel React/react-konva ke aset editor yang dimuat saat diperlukan.
 
 ## Environment production
 

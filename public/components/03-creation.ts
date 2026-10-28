@@ -189,6 +189,7 @@ function renderAgentSelector() {
 }
 
 function selectedModelSupportsReferenceImages() {
+  if(selectedGenerationMode()==="editable")return true;
   return String(getSelectedAgentHealth()?.model || "").toLowerCase() !== "prunaai/z-image-turbo";
 }
 

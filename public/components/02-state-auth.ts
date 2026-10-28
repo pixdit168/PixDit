@@ -231,6 +231,8 @@ async function checkApiHealth() {
     if (!response.ok) throw new Error("Health check gagal");
     const data = await response.json();
     apiHealth = { online: true, configured: Boolean(data.configured), model: data.model, agents: data.agents || {} };
+    editableDesignAvailable=data.editableDesigns?.available===true;
+    if(activeProject)renderGenerationMode();
     updateGenerationControls();
     renderAgentSelector();
   } catch {
@@ -329,6 +331,7 @@ async function clearPreviousSession() {
 }
 
 function showAuthScreen(message = "") {
+  if(typeof window!=="undefined")(window as any).PixginDesignEditor?.close(true);
   closeDeleteLibraryModal({ force: true });
   selectedLibraryIds.clear();
   clearTimeout(accountStateTimer);

@@ -19,11 +19,13 @@ function renderConcepts(loading = false, images = generatedImages) {
             <div class="${posterCopyClass(posterCopy)}">${posterCopyMarkup(posterCopy, { draggableLogo: hasApiImage && !isLoading, logoScope: "project", logoKey: index })}</div>
           </div>
           <div class="concept-meta"><span>${escapeHtml(conceptName)}</span><small>${image && image.error ? "Gagal · coba lagi" : "Variasi visual"}</small></div>
+          ${hasApiImage&&!isLoading?`<button type="button" class="dark-button design-result-edit" data-edit-design="${index}">Edit desain</button>`:""}
         </article>`;
     })
     .join("");
 
   bindLogoEditing($("#results-grid"));
+  $$("[data-edit-design]",$("#results-grid")).forEach(button=>button.addEventListener("click",event=>{event.stopPropagation();openDesignForResult(Number(button.dataset.editDesign));}));
   updateAdaptiveLogos($("#results-grid"));
 
   $$(".concept-card:not(.loading)").forEach((card) => {
@@ -31,6 +33,7 @@ function renderConcepts(loading = false, images = generatedImages) {
       const select = () => selectConcept(Number(card.dataset.concept));
       card.addEventListener("click", select);
       card.addEventListener("keydown", (event) => {
+        if(event.target.closest("button"))return;
         if (event.key === "Enter" || event.key === " ") select();
       });
     }
@@ -214,9 +217,10 @@ function saveSelectedToLibrary() {
     conceptName: variationName(selectedConcept),
     agentTier: image.agentTier || selectedAgentTier,
     sourceUrl,
+    designId:image.designId,
     createdAt,
     currentVersionId: originalVersionId,
-    versions: [{ id: originalVersionId, url: sourceUrl, refinement: "", createdAt, immutable: true, colorGrade: { ...defaultColorGrade } }],
+    versions: [{ id: originalVersionId, url: sourceUrl, refinement: "", createdAt, immutable: true, colorGrade: { ...defaultColorGrade }, designId:image.designId, designVersionId:image.designVersionId, designRevision:image.designRevision }],
   });
   saveLibrary();
   renderLibrary();
@@ -300,6 +304,8 @@ async function startGeneration() {
         agentTier: requestedAgentTier,
         creationMode,
         compositionMode: "ai",
+        generationMode:selectedGenerationMode(),
+        ...($("#design-wording-manual").checked?{wording:Object.fromEntries(["brand","headline","body","cta"].map(role=>[role,$("#design-wording-"+role).value]))}:{}),
         productImages,
         brandLogo,
         brandName: $("#brand-input").value.trim() || activeProject?.name || "",
@@ -329,6 +335,7 @@ async function startGeneration() {
     let buffer = "";
     let completed = false;
     let completedImages = 0;
+    const designPreviews:Promise<void>[]=[];
 
     while (true) {
       const { value, done } = await reader.read();
@@ -357,8 +364,10 @@ async function startGeneration() {
             displayUrl: event.displayUrl,
             name: variationName(event.index),
             agentTier: event.agentTier || requestedAgentTier,
-            compositionMode: "ai",
+            compositionMode: event.compositionMode || "ai",
+            designId:event.designId,
           };
+          if(event.designId&&event.document)designPreviews.push(prepareEditablePreview(generatedImages[event.index],event.document));
           renderConcepts(true, generatedImages);
           completedImages += 1;
           const percent = Math.min(96, 10 + (completedImages / requestedCount) * 86);
@@ -371,6 +380,7 @@ async function startGeneration() {
         if (event.type === "done") {
           if (event.requestId !== requestId) throw new Error("Respons generasi tidak cocok dengan permintaan ini.");
           completed = true;
+          await Promise.allSettled(designPreviews);
           finishGeneration(event.success, event.failed, event.firstError, event.usage);
         }
       }
@@ -461,6 +471,7 @@ function finishGeneration(reportedSuccess = 0, reportedFailed = 0, firstError = 
       name: image.name || "",
       agentTier: image.agentTier || selectedAgentTier,
       compositionMode: image.compositionMode || "legacy",
+      designId:image.designId,designVersionId:image.designVersionId,designRevision:image.designRevision,
     } : null));
     saveProjects();
   }

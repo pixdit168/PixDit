@@ -80,7 +80,7 @@ function getPosterFormatClass(format = "") {
 }
 
 function getPosterCopy(project = activeProject, conceptIndex = 0) {
-  if (project?.generatedImages?.[conceptIndex]?.compositionMode === "ai") return { brand: "", headline: "", cta: "", logos: [] };
+  if (["ai","editable"].includes(project?.generatedImages?.[conceptIndex]?.compositionMode)) return { brand: "", headline: "", cta: "", logos: [] };
   const defaults = copyDefaults[project?.category] || copyDefaults.Lainnya;
   const hasValue = (key) => project && Object.prototype.hasOwnProperty.call(project, key);
   return {
@@ -92,7 +92,7 @@ function getPosterCopy(project = activeProject, conceptIndex = 0) {
 }
 
 function getWorkspacePosterCopy(conceptIndex = selectedConcept ?? 0) {
-  if (generatedImages[conceptIndex]?.compositionMode === "ai") return { brand: "", headline: "", cta: "", logos: [] };
+  if (["ai","editable"].includes(generatedImages[conceptIndex]?.compositionMode)) return { brand: "", headline: "", cta: "", logos: [] };
   if (!$("#brand-input")) return getPosterCopy(activeProject, conceptIndex);
   return {
     brand: $("#brand-input").value.trim().slice(0, 60),
@@ -103,6 +103,7 @@ function getWorkspacePosterCopy(conceptIndex = selectedConcept ?? 0) {
 }
 
 function getLibraryPosterCopy(item) {
+  if(getCurrentLibraryVersion(item)?.designId)return {brand:"",headline:"",cta:"",logos:[]};
   if (item?.posterCopy) {
     return {
       brand: String(Object.prototype.hasOwnProperty.call(item.posterCopy, "brand") ? item.posterCopy.brand : (item.projectName || "Brand lokal")),

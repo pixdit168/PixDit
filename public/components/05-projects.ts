@@ -126,6 +126,7 @@ function openProject(id) {
   activeProject = projects.find((project) => project.id === id);
   if (!activeProject) return;
   $("#workspace-name").textContent = activeProject.name;
+  renderGenerationMode();
   $("#workspace-category").textContent = activeProject.category;
   $("#prompt-input").value = activeProject.prompt || "";
   const posterCopy = getPosterCopy(activeProject);

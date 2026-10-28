@@ -8,6 +8,10 @@ import { getGenerationJobs } from "./lib/generation-jobs.js";
 import { newImagePrompt } from "./lib/image-prompt.js";
 import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supabase.js";
 import { ReplicateImageProvider } from "./lib/replicate.js";
+import sharp from "sharp";
+import { DesignRepository } from "./lib/design-store.js";
+import { DesignAI, composeDesign, normalizeAsset, rasterData } from "./lib/design-ai.js";
+import { handleDesignApi } from "./lib/design-api.js";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
@@ -57,6 +61,9 @@ const accountAuth = useMemoryBackend
 const freeImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_FREE_MODEL || "sourceful/riverflow-2.0-pro" });
 const premiumImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_PRO_MODEL || process.env.REPLICATE_MODEL || "openai/gpt-image-2" });
 const activeUserJobs = new Set();
+const designRepository = new DesignRepository(store, useMemoryBackend);
+const layoutPlanner = new DesignAI({ model: process.env.REPLICATE_LAYOUT_MODEL || "meta/meta-llama-3-70b-instruct" });
+const backgroundRemover = new DesignAI({ model: process.env.REPLICATE_BG_REMOVE_MODEL || "bria/remove-background" });
 
 if (isProduction && !publicOrigin) {
   console.warn("PERINGATAN: PUBLIC_ORIGIN wajib diatur saat NODE_ENV=production, contoh https://app.example.com. CORS mungkin tidak berfungsi.");
@@ -491,6 +498,8 @@ function sendNdjson(response, data) {
 }
 
 async function handleGeneration(request, response, input, auth) {
+  if (input.generationMode && !["editable", "poster"].includes(input.generationMode)) return sendJson(response, 400, { error: "invalid_generation_mode", message: "Mode generasi tidak valid." });
+  const editable = input.generationMode === "editable";
   const brief = String(input.prompt || "").trim();
   if (brief.length < 20) return sendJson(response, 400, { error: "invalid_prompt", message: "Prompt minimal 20 karakter." });
   if (brief.length > 1000) return sendJson(response, 400, { error: "prompt_too_long", message: "Prompt maksimal 1000 karakter." });
@@ -513,7 +522,7 @@ async function handleGeneration(request, response, input, auth) {
   if (brandLogo && (!/^data:image\/(?:png|jpeg);base64,[a-z0-9+/=]+$/i.test(brandLogo) || brandLogo.length > 520_000)) {
     return sendJson(response, 400, { error: "invalid_brand_logo", message: "Gunakan satu logo PNG atau JPG berukuran aman." });
   }
-  if ((productImages.length || brandLogo) && imageProvider.model.toLowerCase() === "prunaai/z-image-turbo") {
+  if (!editable && (productImages.length || brandLogo) && imageProvider.model.toLowerCase() === "prunaai/z-image-turbo") {
     return sendJson(response, 400, { error: "model_no_image_input", message: "Model Agent Free saat ini tidak menerima gambar produk maupun logo. Pilih Agent Pro atau atur REPLICATE_FREE_MODEL ke model yang mendukung gambar referensi." });
   }
   let quality = String(input.quality || "1mp").toLowerCase();
@@ -528,6 +537,7 @@ async function handleGeneration(request, response, input, auth) {
     return sendJson(response, 503, { error: "provider_not_configured", provider: imageProvider.name, message });
   }
   const totalCreditCost = generationCreditCost(quality, imageCount);
+  if (editable) await designRepository.requireReady();
   if (!creditAllowed(auth.user.id, "generate", totalCreditCost).allowed) return quotaExceeded(response, auth.user.id, "generate", totalCreditCost);
   const brandName = String(input.brandName || input.projectName || "").trim();
   if (!isBrandAllowed(auth.user.id, brandName)) return sendJson(response, 403, { error: "brand_limit", upgradeRequired: true, message: `Paket Gratis hanya berlaku untuk 1 brand. Brand aktif akun ini adalah '${usage.brand.name}'. Upgrade ke Pro untuk menggunakan brand tanpa batas.`, usage });
@@ -539,7 +549,7 @@ async function handleGeneration(request, response, input, auth) {
   const style = String(input.style || "Eksploratif").trim();
   const primaryColor = /^#[0-9a-f]{6}$/i.test(input.primaryColor || "") ? input.primaryColor : "";
   let preparedReferenceImages = [];
-  if (productImages.length) {
+  if (productImages.length && !editable) {
     try {
       preparedReferenceImages = await Promise.all(productImages.map((image) => imageProvider.prepareReferenceImage(image)));
     } catch (error) {
@@ -547,7 +557,7 @@ async function handleGeneration(request, response, input, auth) {
     }
   }
   let preparedLogoReference = "";
-  if (brandLogo) {
+  if (brandLogo && !editable) {
     try {
       preparedLogoReference = await imageProvider.prepareLogoReferenceImage(brandLogo);
     } catch (error) {
@@ -572,9 +582,41 @@ async function handleGeneration(request, response, input, auth) {
   const failureMessages = [];
   const perImageCreditCost = generationCreditCost(quality, 1);
   try {
+    let layout: Awaited<ReturnType<DesignAI["plan"]>>;
+    const productAssets = []; let logoAsset;
+    if (editable) {
+      let wording: Record<string,string> | undefined;
+      if (input.wording !== undefined) {
+        if (!input.wording || typeof input.wording !== "object" || Array.isArray(input.wording) || Object.keys(input.wording).some(key => !["brand","headline","body","cta"].includes(key) || typeof input.wording[key] !== "string" || input.wording[key].length > 2000)) throw new Error("Teks eksplisit tidak valid.");
+        wording = input.wording;
+      }
+      const normalizedProducts = await Promise.all(productImages.map(source => normalizeAsset(rasterData(source))));
+      const normalizedLogo = brandLogo ? await normalizeAsset(rasterData(brandLogo)) : null;
+      sendNdjson(response, { type: "progress", name: "Planner menyusun komposisi editable" });
+      layout = await layoutPlanner.plan(brief, productImages.length, Boolean(brandLogo), wording, abortController.signal);
+      for (const asset of normalizedProducts) productAssets.push(await designRepository.saveAsset(auth.user.id, asset.buffer, asset.width, asset.height, asset.mime));
+      if (normalizedLogo) logoAsset = await designRepository.saveAsset(auth.user.id, normalizedLogo.buffer, normalizedLogo.width, normalizedLogo.height, normalizedLogo.mime);
+    }
     for (const { slot, name } of generationJobs) {
       try {
         sendNdjson(response, { type: "progress", index: slot, name });
+        if (editable) {
+          const artwork = `${layout.backgroundPrompt}\nArtwork only. No typography, writing, letters, labels, badges, logos, or watermarks. ${productAssets.length ? "Do not paint the supplied product: it is an independent layer added later. Create only supporting scenery with space for the product and copy." : "The advertised subject can be part of this single scenery layer. Leave negative space for native text."}`;
+          const result = await imageProvider.run({ prompt: artwork, format, quality, signal: abortController.signal });
+          const meta = await sharp(result.buffer, { limitInputPixels: 40_000_000 }).metadata();
+          const scale = Math.min(1, 4096 / Math.max(meta.width, meta.height), Math.sqrt(8_000_000 / (meta.width * meta.height)));
+          const width = Math.max(64, Math.floor(meta.width * scale)), height = Math.max(64, Math.floor(meta.height * scale));
+          const buffer = await sharp(result.buffer, { limitInputPixels: 40_000_000 }).resize(width, height, { fit: "fill" }).jpeg({ quality: 92 }).toBuffer();
+          if (abortController.signal.aborted) throw abortController.signal.reason;
+          const background = await designRepository.saveAsset(auth.user.id, buffer, width, height, "image/jpeg");
+          const document = composeDesign(layout, width, height, background, productAssets, logoAsset);
+          const design = await designRepository.create(auth.user.id, document, `${input.projectName || "Desain"} · ${name}`);
+          await addUsageEvent(auth.user.id, "generate", perImageCreditCost);
+          if (!brandRecorded) { await addAccountBrand(auth.user.id, brandName); brandRecorded = true; }
+          successCount++;
+          sendNdjson(response, { type: "image", index: slot, name, agentTier, agentLabel: getAgentLabel(agentTier), url: background.url, displayUrl: background.url, designId: design.id, document: design.document, compositionMode: "editable" });
+          continue;
+        }
         const prompt = newImagePrompt({ brief, style, styleExplicit: input.styleExplicit === true, primaryColor, primaryColorExplicit: input.primaryColorExplicit === true, hasProductReference: preparedReferenceImages.length > 0, hasMultipleProductReferences: preparedReferenceImages.length > 1, hasBrandLogo: Boolean(preparedLogoReference), aiComposed: input.compositionMode === "ai" });
         const orderedReferences = preparedReferenceImages.length > 1 ? [...preparedReferenceImages.slice(slot % preparedReferenceImages.length), ...preparedReferenceImages.slice(0, slot % preparedReferenceImages.length)] : preparedReferenceImages;
         const result = await imageProvider.run({ prompt, format, quality, preparedReferenceImages: preparedLogoReference ? [...orderedReferences, preparedLogoReference] : orderedReferences, signal: abortController.signal });
@@ -596,6 +638,11 @@ async function handleGeneration(request, response, input, auth) {
       }
     }
     sendNdjson(response, { type: "done", requestId, jobId, total: imageCount, success: successCount, failed: failureMessages.length, firstError: failureMessages[0] || "", usage: getUsageStatus(auth.user.id) });
+    if (!response.writableEnded) response.end();
+  } catch (error) {
+    const message = safeClientError(error);
+    for (const {slot,name} of generationJobs) sendNdjson(response,{type:"image_error",index:slot,name,message});
+    sendNdjson(response,{type:"done",requestId,jobId,total:imageCount,success:successCount,failed:imageCount-successCount,firstError:message,usage:getUsageStatus(auth.user.id)});
     if (!response.writableEnded) response.end();
   } finally {
     activeUserJobs.delete(auth.user.id);
@@ -899,6 +946,7 @@ async function handleApi(request, response, pathname) {
         pro: { label: "Agent Pro", configured: premiumImageProvider.configured, model: premiumImageProvider.model },
       },
       deploymentMode: "node",
+      editableDesigns: { available: await designRepository.ready() },
       database: useMemoryBackend ? "memory" : "supabase",
       auth: useMemoryBackend ? "memory" : "supabase",
       publicOrigin,
@@ -910,6 +958,7 @@ async function handleApi(request, response, pathname) {
   const auth = await getAuthenticatedUser(request);
   if (!auth) return sendUnauthorized(response);
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method || "GET") && !hasValidCsrf(request, auth.session)) return sendJson(response, 403, { error: "invalid_csrf_token", message: "Token keamanan sesi tidak valid. Muat ulang halaman lalu coba kembali." });
+  if (pathname.startsWith("/api/designs") || pathname.startsWith("/api/design-assets")) return handleDesignApi(pathname, request, response, { repository: designRepository, auth, appStore: store, sendJson, readJsonBody, securityHeaders, removalProvider: backgroundRemover, activeUserJobs, creditAllowed, quotaExceeded, addUsageEvent, getUsageStatus });
   if (request.method === "POST" && pathname === "/api/prompt-check") {
     const input = await readJsonBody(request);
     const prompt = String(input.prompt || "").trim();
@@ -944,6 +993,8 @@ const staticFiles = new Map([
   ["/", { file: "index.html", type: "text/html; charset=utf-8" }],
   ["/index.html", { file: "index.html", type: "text/html; charset=utf-8" }],
   ["/app.js", { file: "public/app.js", type: "application/javascript; charset=utf-8" }],
+  ["/editor.js", { file: "public/editor.js", type: "application/javascript; charset=utf-8" }],
+  ["/editor.css", { file: "public/editor.css", type: "text/css; charset=utf-8" }],
   ["/styles.css", { file: "public/styles.css", type: "text/css; charset=utf-8" }],
   ["/favicon.svg", { file: "favicon.svg", type: "image/svg+xml" }],
   ["/favicon.ico", { file: "favicon.svg", type: "image/svg+xml" }],

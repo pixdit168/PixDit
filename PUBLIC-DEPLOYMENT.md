@@ -20,6 +20,8 @@ npm start
 
 Untuk memeriksa aset sebelum deploy Vercel, jalankan `npm run vercel-build`. Hasil statis yang dipublikasikan berada di `dist/` (termasuk `app.js`); source TypeScript tidak ikut disajikan.
 
+Build juga menerbitkan `editor.js` dan `editor.css`. Sebelum mode editable diaktifkan, jalankan [supabase/designs.sql](supabase/designs.sql) sesuai [panduan setup](supabase/EDITABLE-DESIGNS.md). Periksa `editableDesigns.available` pada `/api/health`. Tanpa setup ini, Poster utuh tetap tersedia; tidak ada migrasi database otomatis saat deploy.
+
 ## Checklist sebelum publik
 
 - Domain memakai HTTPS dan `PUBLIC_ORIGIN` sama persis dengan domain tersebut.

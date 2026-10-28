@@ -366,6 +366,15 @@
                 <div id="prompt-suggestion-buttons"></div>
               </div>
 
+              <div class="design-mode-control">
+                <label for="generation-mode">Hasil generasi</label>
+                <select id="generation-mode"><option value="editable" selected>Desain editable · direkomendasikan</option><option value="poster">Poster utuh · seperti sebelumnya</option></select>
+                <p id="generation-mode-note" class="design-mode-note">Teks dan upload menjadi elemen terpisah. Scenery AI tetap satu background.</p>
+                <div id="generation-wording"><label><input id="design-wording-manual" type="checkbox" /> Tentukan teks sendiri</label><p class="design-mode-note">Jika aktif, isinya dipertahankan persis. Kolom kosong tidak akan diisi AI. Jika tidak aktif, planner menyusun teks dari brief.</p>
+                  <div id="design-wording-fields" class="design-wording-fields is-hidden"><label for="design-wording-brand">Nama brand</label><input id="design-wording-brand" maxlength="2000" /><label for="design-wording-headline">Headline</label><textarea id="design-wording-headline" maxlength="2000"></textarea><label for="design-wording-body">Keterangan</label><textarea id="design-wording-body" maxlength="2000"></textarea><label for="design-wording-cta">Call to action</label><input id="design-wording-cta" maxlength="2000" /></div>
+                </div>
+              </div>
+
               <div class="generation-count-section">
                 <div class="control-title"><span>Jumlah Gambar</span><small id="generation-count-plan-note">Paket gratis: 1 gambar</small></div>
                 <p>Pilih satu hasil cepat atau sepuluh variasi visual sekaligus.</p>
