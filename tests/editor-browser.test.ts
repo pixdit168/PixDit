@@ -199,7 +199,7 @@ test(
       })()`);
       assert.ok(control.visible && control.clickable, `${name}: not visible/reachable: ${JSON.stringify(control)}`);
       if (name === "design-editor") {
-        assert.ok(Math.abs(control.width-44.2)<1 && Math.abs(control.height-49.4)<1, `${name}: 30% larger editor close: ${JSON.stringify(control)}`);
+        assert.ok(Math.abs(control.width-57.46)<1 && Math.abs(control.height-64.22)<1, `${name}: another 30% larger editor close: ${JSON.stringify(control)}`);
       } else {
         assert.ok(control.width>=10 && control.width<=40 && control.height>=14 && control.height<=40, `${name}: ${JSON.stringify(control)}`);
       }

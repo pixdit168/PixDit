@@ -375,12 +375,12 @@
     padding: 10px 12px;
   }
 }
-/* Enlarge only the Edit salinan editor close action by 30%. */
+/* Enlarge only the Edit salinan editor close action by another 30%. */
 .pixgin-design-editor button.design-close-button {
   display:inline-flex; align-items:center; justify-content:center;
-  width:44.2px; min-width:44.2px; height:49.4px; min-height:49.4px; padding:0;
+  width:57.46px; min-width:57.46px; height:64.22px; min-height:64.22px; padding:0;
   border:0; border-radius:0; box-shadow:none; background:transparent; color:#b91c1c;
-  font-size:18.2px; font-weight:600; line-height:1.5; flex:0 0 44.2px;
+  font-size:23.66px; font-weight:600; line-height:1.5; flex:0 0 57.46px;
 }
 .pixgin-design-editor button.design-close-button:hover { color:#991b1b; background:transparent; border-color:transparent; }
 .pixgin-design-editor button.design-close-button:focus-visible { outline:3px solid #ffb4b4; outline-offset:3px; }
