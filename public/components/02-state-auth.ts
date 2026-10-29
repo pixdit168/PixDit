@@ -172,10 +172,11 @@ function updatePlanInterface() {
   const planLabel = usageState?.planLabel || (subscriber ? "Pixgin Pro" : "Paket Gratis");
   $("#sidebar-plan-name").textContent = planLabel;
   $("#account-menu-plan").textContent = planLabel;
-  const credits = usageState?.credits;
-  $("#sidebar-plan-usage").textContent = `${credits?.remaining ?? (subscriber ? 200 : 11)} dari ${credits?.limit ?? (subscriber ? 200 : 11)} kredit tersisa`;
+  const generationsRemaining = usageState?.generation?.remaining ?? 1;
+  const editsRemaining = usageState?.refinement?.remaining ?? 3;
+  $("#sidebar-plan-usage").textContent = subscriber ? "Buat & edit gambar tanpa batas" : `${generationsRemaining} gambar · ${editsRemaining} edit tersisa minggu ini`;
   const progress = $("#plan-card .plan-progress i");
-  if (progress) progress.style.width = `${Math.max(0, Math.min(100, ((credits?.remaining ?? 0) / (credits?.limit || 1)) * 100))}%`;
+  if (progress) progress.style.width = `${subscriber ? 100 : Math.max(0, Math.min(100, ((generationsRemaining + editsRemaining) / 4) * 100))}%`;
   if (!subscriber && selectedGenerationCount === 10) selectedGenerationCount = 1;
   if (!subscriber && selectedAgentTier === "pro") selectedAgentTier = "free";
   const qualitySelect = $("#quality-select");
@@ -193,15 +194,12 @@ function updateGenerationControls() {
   const count = selectedGenerationCount === 10 ? 10 : 1;
   const subscriber = isSubscriber();
   const quality = $("#quality-select")?.value || "1mp";
-  const unitCost = { "1mp": 2, "2mp": 4, "4mp": 8 }[quality] || 2;
-  const totalCost = count * unitCost;
   $("#generate-button-label").textContent = `Buat ${count} gambar`;
   $("#generation-count-plan-note").textContent = subscriber ? `Pixgin Pro: ${count} gambar dipilih` : "Paket gratis: 1 gambar";
   const note = $("#generation-cost-note");
   if (!note) return;
-  const remaining = usageState?.credits?.remaining;
   const qualityLabel = { "1mp": "Standar", "2mp": "Detail", "4mp": "Maksimal" }[quality] || "Standar";
-  note.textContent = remaining !== undefined && remaining < totalCost ? `Butuh ${totalCost} kredit · saldo tidak cukup` : `${qualityLabel} · ${totalCost} kredit`;
+  note.textContent = subscriber ? `${qualityLabel} · tanpa batas` : `Standar · ${usageState?.generation?.remaining ?? 1} gambar dan ${usageState?.refinement?.remaining ?? 3} edit gratis tersisa minggu ini`;
 }
 
 function showToast(title, message, icon = "✓") {
@@ -232,7 +230,6 @@ async function checkApiHealth() {
     const data = await response.json();
     apiHealth = { online: true, configured: Boolean(data.configured), model: data.model, agents: data.agents || {} };
     editableDesignAvailable=data.editableDesigns?.available===true;
-    if(activeProject)renderGenerationMode();
     updateGenerationControls();
     renderAgentSelector();
   } catch {

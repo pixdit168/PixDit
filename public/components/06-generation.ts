@@ -253,9 +253,8 @@ async function startGeneration() {
     showToast("Model tidak mendukung gambar referensi", "Pilih Agent Pro atau model Agent Free yang menerima foto produk dan logo.", "!");
     return;
   }
-  const requestedCreditCost = requestedCount * ({ "1mp": 2, "2mp": 4, "4mp": 8 }[requestedQuality] || 2);
-  if (usageState?.generation?.exhausted || (usageState?.credits && usageState.credits.remaining < requestedCreditCost)) {
-    openUpgradeModal();
+  if (!isSubscriber() && usageState?.generation?.exhausted) {
+    openUpgradeModal("Kuota 1 gambar gratis minggu ini sudah habis. Upgrade ke Pixgin Pro untuk membuat dan mengedit gambar tanpa batas.");
     return;
   }
   if (window.location.protocol === "file:") {
@@ -305,7 +304,6 @@ async function startGeneration() {
         creationMode,
         compositionMode: "ai",
         generationMode:selectedGenerationMode(),
-        ...($("#design-wording-manual").checked?{wording:Object.fromEntries(["brand","headline","body","cta"].map(role=>[role,$("#design-wording-"+role).value]))}:{}),
         productImages,
         brandLogo,
         brandName: $("#brand-input").value.trim() || activeProject?.name || "",

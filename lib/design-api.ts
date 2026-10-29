@@ -98,7 +98,7 @@ export async function handleDesignApi(
         if (!response.destroyed)
           return sendJson(response, 502, {
             message:
-              "Hapus latar gagal. Original dan kredit aplikasi tetap aman; periksa konfigurasi provider.",
+              "Hapus latar gagal. Original dan kuota edit tetap aman; periksa konfigurasi provider.",
           });
       } finally {
         response.off("close", abort);

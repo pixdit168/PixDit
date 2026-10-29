@@ -278,7 +278,7 @@ function sourceImageCardMarkup(image, index, type) {
   const isLogo = type === "logo";
   const label = `${isLogo ? "Logo" : "Gambar"} ${index + 1}`;
   const removeAttribute = isLogo ? "data-remove-brand-logo" : "data-remove-product-image";
-  return `<div class="source-image-card ${isLogo ? "brand-logo-preview" : "product-image-preview"}"><span>${label}</span><img src="${image}" alt="${label}" /><button type="button" ${removeAttribute}="${index}" aria-label="Hapus ${label}">×</button></div>`;
+  return `<div class="source-image-card ${isLogo ? "brand-logo-preview" : "product-image-preview"}"><span>${label}</span><img src="${image}" alt="${label}" /><button class="close-button" type="button" ${removeAttribute}="${index}" aria-label="Hapus ${label}">×</button></div>`;
 }
 
 function renderProductImagePreview() {
@@ -322,17 +322,15 @@ async function optimizeProductImage(file) {
   }
 }
 function openUpgradeModal(message = "") {
-  const exhausted = usageState?.credits && usageState.credits.remaining <= 0;
-  $("#upgrade-modal-title").textContent = !message && exhausted ? "Kredit kreatifmu sudah habis." : "Buka lebih banyak dengan Pixgin Pro.";
+  const exhausted = !isSubscriber() && (usageState?.generation?.exhausted || usageState?.refinement?.exhausted);
+  $("#upgrade-modal-title").textContent = !message && exhausted ? "Kuota gratis minggu ini sudah habis." : "Buka lebih banyak dengan Pixgin Pro.";
   if (message) {
     $("#upgrade-modal-message").textContent = message;
-  } else if (exhausted && usageState?.credits?.resetAt) {
-    const resetDate = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric" }).format(new Date(usageState.credits.resetAt));
-    $("#upgrade-modal-message").textContent = isSubscriber()
-      ? `Kredit Pixgin Pro kamu tidak cukup untuk tindakan ini. Kredit berikutnya hadir pada ${resetDate}.`
-      : `Kamu sudah menggunakan semua token kreatif yang ada.\n\nToken gratis selanjutnya akan hadir pada ${resetDate}.\n\nAyo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.`;
+  } else if (exhausted && usageState?.generation?.resetAt) {
+    const resetDate = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(usageState.generation.resetAt));
+    $("#upgrade-modal-message").textContent = `Paket Gratis menyediakan 1 gambar dan 3 edit setiap minggu. Kuota berikutnya hadir pada ${resetDate}.\n\nUpgrade ke Pixgin Pro untuk membuat dan mengedit gambar tanpa batas seharga Rp139.000/bulan.`;
   } else {
-    $("#upgrade-modal-message").textContent = "Buka Agent Pro, pilihan kualitas lebih tinggi, dan hingga 10 variasi gambar sekaligus dengan Pixgin Pro.";
+    $("#upgrade-modal-message").textContent = "Paket Gratis: 1 gambar dan 3 edit setiap minggu. Pixgin Pro: buat dan edit gambar tanpa batas, Agent Pro, semua kualitas, dan hingga 10 variasi sekaligus seharga Rp139.000/bulan.";
   }
   $("#upgrade-modal").classList.remove("is-hidden");
   $("#upgrade-modal").setAttribute("aria-hidden", "false");

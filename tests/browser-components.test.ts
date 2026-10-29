@@ -20,7 +20,7 @@ async function authStartupContext(fetch: (...args: any[]) => Promise<any>) {
       const classes = new Set(["is-hidden"]);
       const listeners = new Map<string, ((event: any) => any)[]>();
       nodes.set(selector, {
-        value: "", textContent: "", disabled: false,
+        value: "", textContent: "", disabled: false, style: {},
         classList: {
           add: (name: string) => classes.add(name), remove: (name: string) => classes.delete(name), contains: (name: string) => classes.has(name),
           toggle(name: string, force?: boolean) { const enabled = force ?? !classes.has(name); if (enabled) classes.add(name); else classes.delete(name); return enabled; },
@@ -49,25 +49,28 @@ async function authStartupContext(fetch: (...args: any[]) => Promise<any>) {
 const flushMicrotasks = () => new Promise<void>((resolve) => setImmediate(resolve));
 const authResponse = (status: number, body: any) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
-test("direct image generation is the default; editable layer generation requires an explicit choice", async () => {
+test("website always generates direct posters, including previously opted-in projects", async () => {
   const html = await fs.readFile(path.join(projectRoot, "index.html"), "utf8");
-  assert.match(html, /<option value="poster" selected>/);
+  assert.doesNotMatch(html, /id="generation-mode"|id="generation-wording"|Desain editable/);
+  const { context, startup } = await authStartupContext(async () => authResponse(401, {message:"Signed out"}));
+  await startup;
+  vm.runInContext('activeProject = {id:"old-project",generationMode:"editable",editableGenerationOptIn:true}; editableDesignAvailable = true;', context);
+  assert.equal(vm.runInContext("selectedGenerationMode()",context),"poster");
+  vm.runInContext('activeProject = {id:"new-project"}; editableDesignAvailable = false;', context);
+  assert.equal(vm.runInContext("selectedGenerationMode()",context),"poster");
+});
+
+test("usage UI shows weekly image/edit allowances and unlimited Pro without credit costs", async () => {
   const { context, node, startup } = await authStartupContext(async () => authResponse(401, {message:"Signed out"}));
   await startup;
-  vm.runInContext('activeProject = {id:"old-project",generationMode:"editable"}; editableDesignAvailable = true; renderGenerationMode();', context);
-  assert.equal(node("#generation-mode").value,"poster");
-  assert.equal(vm.runInContext("selectedGenerationMode()",context),"poster");
-  node("#generation-mode").value="editable";
-  await node("#generation-mode").dispatch("change");
-  assert.equal(vm.runInContext("activeProject.editableGenerationOptIn",context),true);
-  assert.match(node("#generation-mode-note").textContent,/tanpa panggilan planner AI/);
-  vm.runInContext("renderGenerationMode()",context);
-  assert.equal(node("#generation-mode").value,"editable");
-  node("#generation-mode").value="poster";
-  await node("#generation-mode").dispatch("change");
-  assert.equal(vm.runInContext("activeProject.editableGenerationOptIn",context),false);
-  vm.runInContext("renderGenerationMode()",context);
-  assert.equal(node("#generation-mode").value,"poster");
+  vm.runInContext(`currentUser={plan:"free"};usageState={plan:"free",generation:{remaining:0},refinement:{remaining:3}};updatePlanInterface();`, context);
+  assert.match(node("#sidebar-plan-usage").textContent, /0 gambar.*3 edit/);
+  assert.match(node("#generation-cost-note").textContent, /0 gambar dan 3 edit/);
+  vm.runInContext(`currentUser={plan:"premium"};usageState={plan:"premium",isPremium:true,credits:{limit:-1,remaining:-1,unlimited:true}};updatePlanInterface();openUpgradeModal();`, context);
+  assert.match(node("#sidebar-plan-usage").textContent, /tanpa batas/);
+  assert.match(node("#generation-cost-note").textContent, /tanpa batas/);
+  assert.doesNotMatch(node("#upgrade-modal-title").textContent, /habis/);
+  assert.match(node("#upgrade-modal-message").textContent, /Rp139\.000\/bulan/);
 });
 
 for (const entryButton of ["#hero-login", "#auth-open"]) {

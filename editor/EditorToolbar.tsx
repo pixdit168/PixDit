@@ -77,7 +77,7 @@ export function EditorToolbar({
           >
             Simpan versi
           </button>
-          <button aria-label="Tutup editor desain" onClick={onClose}>
+          <button className="design-close-button" aria-label="Tutup editor desain" onClick={onClose}>
             ×
           </button>
         </div>

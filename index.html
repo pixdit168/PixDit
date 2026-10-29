@@ -55,7 +55,7 @@
 
       <section id="auth-panel" class="auth-panel is-hidden" role="dialog" aria-modal="true" aria-label="Masuk atau daftar Pixgin">
         <div class="auth-form-wrap">
-          <button id="auth-panel-close" class="auth-panel-close" type="button" aria-label="Tutup formulir masuk">×</button>
+          <button id="auth-panel-close" class="close-button auth-panel-close" type="button" aria-label="Tutup formulir masuk">×</button>
           <a class="mobile-brand brand" href="#login" data-auth-home aria-label="Kembali ke halaman masuk Pixgin">
             <span class="brand-mark"><i></i><i></i></span>
             <span>Pixgin</span>
@@ -257,7 +257,7 @@
           <div class="tips-strip">
             <span class="tip-icon">↗</span>
             <p><strong>Tip</strong> Berikan prompt yang spesifik agar memberikan hasil yang lebih tajam, menuju kepada target audiens yang di inginkan.</p>
-            <button id="dismiss-tip" class="icon-button" type="button" aria-label="Tutup tip">×</button>
+            <button id="dismiss-tip" class="close-button icon-button" type="button" aria-label="Tutup tip">×</button>
           </div>
         </section>
 
@@ -366,15 +366,6 @@
                 <div id="prompt-suggestion-buttons"></div>
               </div>
 
-              <div class="design-mode-control">
-                <label for="generation-mode">Hasil generasi</label>
-                <select id="generation-mode"><option value="poster" selected>Poster utuh · langsung dari Agent</option><option value="editable">Desain editable · susunan layer lokal</option></select>
-                <p id="generation-mode-note" class="design-mode-note">Agent Free/Pro membuat gambar langsung. Buka Edit desain untuk menambahkan layer di atas hasilnya.</p>
-                <div id="generation-wording" class="is-hidden"><label><input id="design-wording-manual" type="checkbox" /> Tentukan teks sendiri</label><p class="design-mode-note">Jika aktif, isinya dipertahankan persis. Kolom kosong tidak akan diisi AI. Jika tidak aktif, hanya teks dalam tanda kutip di brief yang menjadi layer teks. Teks lain dapat ditambahkan di editor.</p>
-                  <div id="design-wording-fields" class="design-wording-fields is-hidden"><label for="design-wording-brand">Nama brand</label><input id="design-wording-brand" maxlength="2000" /><label for="design-wording-headline">Headline</label><textarea id="design-wording-headline" maxlength="2000"></textarea><label for="design-wording-body">Keterangan</label><textarea id="design-wording-body" maxlength="2000"></textarea><label for="design-wording-cta">Call to action</label><input id="design-wording-cta" maxlength="2000" /></div>
-                </div>
-              </div>
-
               <div class="generation-count-section">
                 <div class="control-title"><span>Jumlah Gambar</span><small id="generation-count-plan-note">Paket gratis: 1 gambar</small></div>
                 <p>Pilih satu hasil cepat atau sepuluh variasi visual sekaligus.</p>
@@ -413,11 +404,11 @@
 
               <div class="quality-control">
                 <label for="quality-select">Kualitas gambar</label>
-                <select id="quality-select"><option value="1mp">Standar · 2 kredit</option><option value="2mp">Detail · 4 kredit</option><option value="4mp">Maksimal · 8 kredit</option></select>
+                <select id="quality-select"><option value="1mp">Standar</option><option value="2mp">Detail</option><option value="4mp">Maksimal</option></select>
                 <small id="quality-plan-note">Paket Gratis mendukung kualitas Standar.</small>
               </div>
 
-              <button id="generate-button" class="generate-button" type="button"><span class="generate-icon">✦</span><span><strong id="generate-button-label">Buat 1 gambar</strong><small id="generation-cost-note">Standar · 2 kredit</small></span><b>→</b></button>
+              <button id="generate-button" class="generate-button" type="button"><span class="generate-icon">✦</span><span><strong id="generate-button-label">Buat 1 gambar</strong><small id="generation-cost-note">1 gambar dan 3 edit gratis / minggu</small></span><b>→</b></button>
               <p id="api-status" class="private-note api-status"><span>●</span> Memeriksa koneksi AI...</p>
             </aside>
 
@@ -447,7 +438,7 @@
             <div class="selection-copy"><span>PILIHANMU</span><strong id="selected-name">Variasi 01</strong></div>
             <button id="save-library-button" class="secondary-button" type="button">◇ Simpan ke Library</button>
             <button id="use-design-button" class="dark-button" type="button">Gunakan desain <span>→</span></button>
-            <button id="clear-selection" class="icon-button" type="button" aria-label="Batalkan pilihan">×</button>
+            <button id="clear-selection" class="close-button icon-button" type="button" aria-label="Batalkan pilihan">×</button>
           </div>
         </section>
       </div>
@@ -455,7 +446,7 @@
 
     <div id="project-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div class="modal">
-        <button class="icon-button modal-close" type="button" data-close-modal>×</button>
+        <button class="close-button icon-button modal-close" type="button" aria-label="Tutup proyek baru" data-close-modal>×</button>
         <span class="modal-kicker">PROYEK BARU</span>
         <h2 id="modal-title">Apa yang akan kita buat?</h2>
         <p>Beri nama proyekmu. Detailnya bisa kamu kembangkan di ruang kreatif.</p>
@@ -481,7 +472,7 @@
 
     <div id="all-projects-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="all-projects-title" aria-hidden="true">
       <div class="modal all-projects-modal">
-        <button id="all-projects-close" class="icon-button modal-close" type="button" aria-label="Tutup semua proyek">×</button>
+        <button id="all-projects-close" class="close-button icon-button modal-close" type="button" aria-label="Tutup semua proyek">×</button>
         <header class="all-projects-head">
           <span class="modal-kicker">PROYEK SAYA</span>
           <h2 id="all-projects-title">Semua proyekmu.</h2>
@@ -501,7 +492,7 @@
 
     <div id="help-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="help-modal-title" aria-describedby="help-modal-description" aria-hidden="true">
       <div class="modal help-modal">
-        <button id="help-modal-close" class="icon-button modal-close" type="button" aria-label="Tutup bantuan">×</button>
+        <button id="help-modal-close" class="close-button icon-button modal-close" type="button" aria-label="Tutup bantuan">×</button>
         <span class="modal-kicker">BANTUAN PIXGIN</span>
         <h2 id="help-modal-title">Kami siap membantu.</h2>
         <p id="help-modal-description">Hubungi tim kami melalui telepon atau email untuk pertanyaan seputar akun dan penggunaan Pixgin.</p>
@@ -522,7 +513,7 @@
 
     <div id="delete-project-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="delete-project-title" aria-hidden="true">
       <div class="modal delete-project-modal">
-        <button id="delete-project-close" class="icon-button modal-close" type="button" aria-label="Tutup konfirmasi">×</button>
+        <button id="delete-project-close" class="close-button icon-button modal-close" type="button" aria-label="Tutup konfirmasi">×</button>
         <span class="modal-kicker">HAPUS PROYEK</span>
         <h2 id="delete-project-title">Hapus proyek ini?</h2>
         <p><strong id="delete-project-name"></strong> akan dihapus dari Proyek Saya. Desain yang sudah masuk Library tetap aman.</p>
@@ -532,7 +523,7 @@
 
     <div id="delete-library-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="delete-library-title" aria-describedby="delete-library-description" aria-hidden="true">
       <div class="modal delete-library-modal">
-        <button id="delete-library-close" class="icon-button modal-close" type="button" aria-label="Tutup konfirmasi hapus desain">×</button>
+        <button id="delete-library-close" class="close-button icon-button modal-close" type="button" aria-label="Tutup konfirmasi hapus desain">×</button>
         <span class="modal-kicker">HAPUS DARI KOLEKSI</span>
         <h2 id="delete-library-title">Hapus desain terpilih?</h2>
         <p id="delete-library-description"><strong id="delete-library-name"></strong> beserta semua versi editnya akan dihapus dari Koleksi. Hasil gambar di proyek tetap tersimpan. Tindakan ini tidak dapat dibatalkan.</p>
@@ -543,7 +534,7 @@
 
     <div id="account-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="account-modal-title">
       <div class="modal account-modal">
-        <button id="account-modal-close" class="icon-button modal-close" type="button" aria-label="Tutup pengaturan">×</button>
+        <button id="account-modal-close" class="close-button icon-button modal-close" type="button" aria-label="Tutup pengaturan">×</button>
         <span class="modal-kicker">AKUN PIXGIN</span>
         <h2 id="account-modal-title">Pengaturan Akun.</h2>
         <p>Kelola Profil, Preferensi Proyek Baru, dan Keamanan Akunmu.</p>
@@ -598,7 +589,7 @@
       <div class="library-preview-modal">
         <header class="library-preview-head">
           <div><span class="modal-kicker">PREVIEW KOLEKSI</span><h2 id="library-preview-title">Preview desain.</h2><p id="library-preview-version">Original</p></div>
-          <button id="library-preview-close" class="icon-button" type="button" aria-label="Tutup preview">×</button>
+          <button id="library-preview-close" class="close-button icon-button" type="button" aria-label="Tutup preview">×</button>
         </header>
         <div class="library-preview-body">
           <section class="library-preview-stage" aria-label="Preview gambar penuh">
@@ -621,25 +612,21 @@
 
     <div id="upgrade-modal" class="modal-backdrop is-hidden" role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title" aria-hidden="true">
       <div class="modal upgrade-modal">
-        <button id="upgrade-modal-close" class="icon-button modal-close" type="button" aria-label="Tutup informasi paket">×</button>
+        <button id="upgrade-modal-close" class="close-button icon-button modal-close" type="button" aria-label="Tutup informasi paket">×</button>
         <span class="modal-kicker">PAKET PIXGIN</span>
-        <h2 id="upgrade-modal-title">Token kreatifmu sudah habis.</h2>
-        <p id="upgrade-modal-message" class="upgrade-message">Kamu sudah menggunakan semua token kreatif yang ada.
-
-Token gratis selanjutnya akan hadir pada tanggal reset akunmu.
-
-Ayo upgrade ke pro agar dapat membuka potensial terbaik dari program ini, membuat ~100 gambar, dan menghasilkan 10 variasi visual sekaligus.</p>
+        <h2 id="upgrade-modal-title">Buka lebih banyak dengan Pixgin Pro.</h2>
+        <p id="upgrade-modal-message" class="upgrade-message">Paket Gratis: 1 gambar dan 3 edit setiap minggu. Pixgin Pro: buat dan edit gambar tanpa batas seharga Rp139.000/bulan.</p>
         <div class="upgrade-comparison">
-          <div><small>PAKET GRATIS</small><strong>11 kredit / minggu</strong><span>1 gambar kualitas Standar</span><span>Hingga 3 edit</span><span>Untuk 1 brand</span></div>
-          <div class="featured"><small>PIXGIN PRO</small><strong>200 kredit / bulan</strong><span>Hingga ~100 gambar kualitas Standar</span><span>Kualitas Standar, Detail, dan Maksimal</span><span>Buat 1 atau 10 gambar · brand tanpa batas</span></div>
+          <div><small>PAKET GRATIS</small><strong>1 gambar + 3 edit / minggu</strong><span>1 gambar kualitas Standar setiap minggu</span><span>3 edit gratis setiap minggu</span><span>Untuk 1 brand</span></div>
+          <div class="featured"><small>PIXGIN PRO</small><strong>Rp139.000 / bulan</strong><span>Buat dan edit gambar tanpa batas</span><span>Kualitas Standar, Detail, dan Maksimal</span><span>Buat 1 atau 10 gambar · brand tanpa batas</span></div>
         </div>
         <p class="field-note">Sistem paket sudah siap. Integrasi pembayaran belum diaktifkan pada versi lokal ini.</p>
-        <div class="modal-actions"><button id="upgrade-contact-button" class="primary-button" type="button">Upgrade ke pro - Rp. 199.999/bln</button></div>
+        <div class="modal-actions"><button id="upgrade-contact-button" class="primary-button" type="button">Upgrade ke Pro - Rp139.000/bln</button></div>
       </div>
     </div>
 
     <aside id="refine-drawer" class="refine-drawer" aria-hidden="true">
-      <div class="drawer-head"><div><span class="modal-kicker">EDIT DI LIBRARY</span><h2>Buat versi baru.</h2><p id="drawer-version-meta">Versi awal akan tetap tersimpan.</p></div><button id="close-drawer" class="icon-button" type="button" aria-label="Tutup edit salinan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <div class="drawer-head"><div><span class="modal-kicker">EDIT DI LIBRARY</span><h2>Buat versi baru.</h2><p id="drawer-version-meta">Versi awal akan tetap tersimpan.</p></div><button id="close-drawer" class="close-button icon-button" type="button" aria-label="Tutup edit salinan"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
       <div class="drawer-preview"><div id="drawer-poster" class="poster poster-1"><div class="poster-copy"><small>BRAND LOKAL</small><strong>Headline Promosimu.</strong><span>Pelajari Sekarang</span></div></div></div>
       <label for="refine-input">Apa yang ingin kamu ubah?</label>
       <textarea id="refine-input" maxlength="500" placeholder="Contoh: Buat latar lebih terang dan ukuran produk sedikit lebih besar..."></textarea>

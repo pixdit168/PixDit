@@ -220,7 +220,7 @@ export function PropertiesPanel({
               />
             </label>
             <button onClick={onRemoveBackground}>
-              Hapus latar AI · 3 kredit
+              Hapus latar AI · 1 edit
             </button>
             {hasOriginal && (
               <button onClick={onRestore}>Pulihkan gambar asli</button>

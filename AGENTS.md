@@ -50,4 +50,4 @@ Pixgin is an Indonesian-language campaign image generator. It is a TypeScript/No
 - `supabase/schema.sql` sets up the application table and private image bucket. Review existing project state before running migration scripts or changing production data.
 - The Supabase application state currently lives in one JSONB document and is cached by the server adapter. Take care with concurrent writes; do not assume it is ready for broad horizontal scaling.
 - Avoid real Replicate generations in tests unless the user specifically requests a live check; they may consume credits. Prefer mocked provider responses for routine verification.
-- Do not push, deploy, change hosted environment variables, or modify live account data unless the user has requested that action.
+- Push completed project changes to GitHub by default, as requested by the user. Preserve unrelated uncommitted work. Do not deploy, change hosted environment variables, or modify live account data unless the user has requested that action.

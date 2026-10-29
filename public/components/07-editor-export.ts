@@ -43,8 +43,8 @@ async function regenerateSelected() {
     showToast("Tuliskan perubahanmu", "Cukup satu detail kecil agar hasil tetap konsisten.", "✦");
     return;
   }
-  if (usageState?.refinement?.exhausted || (usageState?.credits && usageState.credits.remaining < 3)) {
-    openUpgradeModal();
+  if (!isSubscriber() && usageState?.refinement?.exhausted) {
+    openUpgradeModal("Kuota 3 edit gratis minggu ini sudah habis. Upgrade ke Pixgin Pro untuk membuat dan mengedit gambar tanpa batas.");
     return;
   }
   if (window.location.protocol === "file:") {

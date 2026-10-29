@@ -4,6 +4,90 @@ import path from "node:path";
 import test from "node:test";
 import sharp from "sharp";
 
+test("Free renews weekly with one image and three edits; Pro bypasses the former credit cap", { timeout: 30_000 }, async (context) => {
+  const base = `http://127.0.0.1:${28000 + Math.floor(Math.random() * 1000)}`;
+  let output = "";
+  const child = spawn(process.execPath, ["--import", "./tests/design-provider-fixture.js", "app-backend.js"], {
+    cwd: path.resolve(import.meta.dirname, ".."),
+    env: { ...process.env, NODE_ENV:"test", PIXGIN_USAGE_FIXTURE:"1", HOST:"127.0.0.1", PORT:new URL(base).port, PUBLIC_ORIGIN:base, COOKIE_SECURE:"false", REPLICATE_API_TOKEN:"quota-fixture-only", REPLICATE_FREE_MODEL:"sourceful/riverflow-2.0-pro", REPLICATE_PRO_MODEL:"openai/gpt-image-2" },
+    stdio:["ignore","pipe","pipe"],
+  });
+  child.stdout.on("data", chunk => { output += chunk; });
+  child.stderr.on("data", chunk => { output += chunk; });
+  context.after(async () => {
+    if (child.exitCode === null) child.kill();
+    await new Promise<void>(resolve => child.exitCode === null ? child.once("exit", () => resolve()) : resolve());
+  });
+  let ready = false;
+  for (let i=0;i<80;i++) {
+    try { ready=(await fetch(base+"/api/health")).ok; if (ready) break; } catch {}
+    await new Promise(resolve => setTimeout(resolve,50));
+  }
+  assert.ok(ready,output);
+  const client = () => {
+    let cookie="", token="";
+    return async (url:string, body?:any) => {
+      const response=await fetch(base+url,{method:body===undefined?"GET":"POST",headers:{Origin:base,Cookie:cookie,"X-CSRF-Token":token,"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});
+      if(response.headers.has("set-cookie"))cookie=response.headers.get("set-cookie").split(";",1)[0];
+      const data=response.headers.get("content-type")?.includes("ndjson")?(await response.text()).trim().split("\n").map(line=>JSON.parse(line)):await response.json();
+      if(data.csrfToken)token=data.csrfToken;
+      return {status:response.status,data};
+    };
+  };
+  const signIn=async (request:ReturnType<typeof client>,email:string) => {
+    assert.equal((await request("/api/auth/register",{email,displayName:"Quota Test",password:"quota-password-123",deviceId:email})).status,202);
+    assert.equal((await request("/api/auth/verify-email",{email,token:"123456"})).status,200);
+  };
+  const free=client();
+  await signIn(free,"free-quota@example.test");
+  const renewed=(await free("/api/usage")).data.usage;
+  assert.equal(renewed.generation.remaining,1,"last week's generation must not consume this week's allowance");
+  assert.equal(renewed.refinement.remaining,3);
+  assert.equal(new Date(renewed.generation.resetAt).getUTCDay(),1);
+  const input={prompt:"Poster promosi kopi asli dengan suasana pagi",projectName:"Quota",imageCount:1,quality:"1mp"};
+  const generated=await free("/api/generate",input);
+  assert.equal(generated.status,200,JSON.stringify(generated.data));
+  const image=generated.data.find(event=>event.type==="image");
+  assert.ok(image?.url);
+  assert.equal(generated.data.at(-1).usage.generation.remaining,0);
+  assert.equal(generated.data.at(-1).usage.refinement.remaining,3);
+  const blocked=await free("/api/generate",input);
+  assert.equal(blocked.status,429);
+  assert.match(blocked.data.upgradeLabel,/139\.000/);
+  const invalid=await free("/api/refine",{sourceUrl:"/generated/not-owned",refinement:"Ganti latar menjadi biru"});
+  assert.equal(invalid.status,502);
+  assert.equal((await free("/api/usage")).data.usage.refinement.remaining,3,"failed edits must not consume the allowance");
+  for(let i=0;i<3;i++) {
+    const edit=await free("/api/refine",{sourceUrl:image.url,refinement:"Ganti latar menjadi biru"});
+    assert.equal(edit.status,200,JSON.stringify(edit.data));
+    assert.equal(edit.data.usage.refinement.remaining,2-i);
+    image.url=edit.data.url;
+  }
+  assert.equal((await free("/api/refine",{sourceUrl:image.url,refinement:"Ganti latar menjadi biru"})).status,429);
+  const pro=client();
+  await signIn(pro,"pro-quota@example.test");
+  const before=(await pro("/api/usage")).data.usage;
+  assert.equal(before.credits.used,240);
+  assert.equal(before.credits.unlimited,true);
+  assert.equal(before.credits.remaining,-1);
+  assert.equal(before.generation.exhausted,false);
+  assert.equal(before.refinement.exhausted,false);
+  let proImage;
+  for(let i=0;i<2;i++) {
+    const batch=await pro("/api/generate",{...input,imageCount:10,quality:"4mp",agentTier:"pro"});
+    assert.equal(batch.status,200,JSON.stringify(batch.data));
+    assert.equal(batch.data.at(-1).success,10);
+    proImage=batch.data.find(event=>event.type==="image");
+  }
+  for(let i=0;i<4;i++) assert.equal((await pro("/api/refine",{sourceUrl:proImage.url,agentTier:"pro",refinement:"Ganti latar menjadi biru"})).status,200);
+  const after=(await pro("/api/usage")).data.usage;
+  assert.ok(after.credits.used>400);
+  assert.equal(after.generation.remaining,-1);
+  assert.equal(after.refinement.remaining,-1);
+  assert.equal(after.generation.exhausted,false);
+  assert.equal(after.refinement.exhausted,false);
+});
+
 test(
   "editable generation, private assets, revisions, versions and legacy import work over HTTP",
   { timeout: 30_000 },

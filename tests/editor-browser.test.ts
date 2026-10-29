@@ -186,6 +186,22 @@ test(
     await until(
       "typeof loadDesignEditor==='function' && document.documentElement.dataset.appReady==='true'",
     );
+    const checkCloseButtons = async () => {
+      const controls = await evaluate(`Array.from(document.querySelectorAll('.close-button,.design-close-button')).map(button=>{const style=getComputedStyle(button);return {name:button.getAttribute('aria-label'),width:parseFloat(style.width),height:parseFloat(style.height),color:style.backgroundColor};})`);
+      assert.ok(controls.length >= 12, JSON.stringify(controls));
+      for (const button of controls) {
+        assert.ok(button.width >= 44 && button.height >= 44, JSON.stringify(button));
+        assert.equal(button.color, "rgb(185, 28, 28)", button.name);
+      }
+    };
+    await checkCloseButtons();
+    await evaluate("openAuthPanel('login')");
+    await screenshot("login-close-desktop");
+    await send("Emulation.setDeviceMetricsOverride", {width:390,height:844,deviceScaleFactor:1,mobile:true});
+    await checkCloseButtons();
+    await screenshot("login-close-mobile");
+    await evaluate("closeAuthPanel()");
+    await send("Emulation.setDeviceMetricsOverride", {width:1440,height:1000,deviceScaleFactor:1,mobile:false});
     const pixel = await sharp({
       create: { width: 100, height: 100, channels: 4, background: "#ed86b9" },
     })
@@ -196,7 +212,7 @@ test(
     await evaluate(`(async()=>{
       await requestJson('/api/auth/register',{method:'POST',body:JSON.stringify({displayName:'Direct Test',email:'direct@example.test',password:'test-password-123',deviceId:'direct-device'})});
       const session=await requestJson('/api/auth/verify-email',{method:'POST',body:JSON.stringify({email:'direct@example.test',token:'123456'})});await enterApp(session);await checkApiHealth();
-      projects=[{id:'direct-project',name:'Direct',category:'Makanan & Minuman',status:'Draf',prompt:'Iklan kopi untuk suasana pagi yang hangat',generationMode:'editable'}];openProject('direct-project');
+      projects=[{id:'direct-project',name:'Direct',category:'Makanan & Minuman',status:'Draf',prompt:'Iklan kopi untuk suasana pagi yang hangat',generationMode:'editable',editableGenerationOptIn:true}];openProject('direct-project');
       if(selectedGenerationMode()!=='poster')throw Error('An inherited planner preference must not run Llama');await startGeneration();
       if(!generatedImages[0]?.url?.startsWith('/generated/')||generatedImages[0]?.designId)throw Error('Default generation must return the direct model image');
       await openDesignForResult(0);const id=getCurrentLibraryVersion(libraryItems[0]).editorDesignId;const design=(await requestJson('/api/designs/'+id)).design;
@@ -211,12 +227,17 @@ test(
     const session=await requestJson('/api/auth/verify-email',{method:'POST',body:JSON.stringify({email:'browser@example.test',token:'123456'})});await enterApp(session);
     window.reviewApi=async(url,method='GET',body)=>{const r=await fetch(url,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrfToken},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(JSON.stringify(data));return data;};
     await checkApiHealth();projects=[{id:'browser-project',name:'Kopi',category:'Makanan & Minuman',status:'Draf',prompt:'Iklan kopi dengan dua produk independen',creationMode:'product',productImages:[${JSON.stringify(upload)},${JSON.stringify(upload)}],brandLogos:[${JSON.stringify(upload)}],designWordingManual:true,designWording:{headline:'Kopi Pilihan',brand:'',body:'',cta:''}}];openProject('browser-project');
-    if(selectedGenerationMode()!=='poster')throw Error('Direct image generation must be the default');document.querySelector('#generation-mode').value='editable';document.querySelector('#generation-mode').dispatchEvent(new Event('change'));if(!activeProject.editableGenerationOptIn)throw Error('Editable layers must be explicitly enabled');await startGeneration();const image=generatedImages[0];if(!image?.designId||!image.designVersionId)throw Error(JSON.stringify(image));window.reviewImage=image;image.document=(await reviewApi('/api/designs/'+image.designId)).design.document;
+    if(selectedGenerationMode()!=='poster'||document.querySelector('#generation-mode'))throw Error('Website must only offer direct posters');
+    // Seed a legacy editable document through the retained API to test editor compatibility.
+    const response=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrfToken},body:JSON.stringify({prompt:activeProject.prompt,projectName:activeProject.name,creationMode:'product',generationMode:'editable',productImages:activeProject.productImages,brandLogo:activeProject.brandLogos[0],wording:activeProject.designWording,imageCount:1,quality:'1mp',agentTier:'free'})});
+    const events=(await response.text()).trim().split('\\n').map(line=>JSON.parse(line));const generated=events.find(event=>event.type==='image');if(!generated?.designId)throw Error(JSON.stringify(events));
+    generatedImages=[{url:generated.url,displayUrl:generated.displayUrl,designId:generated.designId,compositionMode:'editable',agentTier:'free'}];await prepareEditablePreview(generatedImages[0],generated.document);renderConcepts(true,generatedImages);const image=generatedImages[0];if(!image.designVersionId)throw Error(JSON.stringify(image));window.reviewImage=image;image.document=(await reviewApi('/api/designs/'+image.designId)).design.document;
     window.reviewEditor=await loadDesignEditor();window.reviewToken=session.csrfToken;await openDesignForResult(0);
   })()`);
     await until(
       "document.querySelector('.design-artboard canvas') && !document.querySelector('.design-loading')",
     );
+    await checkCloseButtons();
     const doc = async () =>
       evaluate(
         "reviewApi('/api/designs/'+reviewImage.designId).then(r=>r.design)",

@@ -32,70 +32,8 @@ function loadDesignEditor() {
   return designEditorModule;
 }
 function selectedGenerationMode() {
-  return $("#generation-mode")?.value === "editable" ? "editable" : "poster";
-}
-function generationModeNote() {
-  return selectedGenerationMode() === "editable"
-    ? "Susunan layer dibuat lokal tanpa panggilan planner AI. Hanya model gambar yang dipanggil. Teks dari kolom atau tanda kutip di brief dan upload menjadi layer terpisah."
-    : "Agent Free/Pro membuat gambar langsung, tanpa planner AI tambahan. Buka Edit desain untuk menambahkan teks, logo, gambar, dan bentuk di atas hasilnya.";
-}
-function renderGenerationMode() {
-  const select = $("#generation-mode");
-  if (!select) return;
-  // Older projects inherited editable mode automatically. Require an explicit choice.
-  const preferred = activeProject?.editableGenerationOptIn === true && activeProject?.generationMode === "editable" ? "editable" : "poster";
-  select.value = editableDesignAvailable === false ? "poster" : preferred;
-  $("#generation-mode-note").textContent =
-    editableDesignAvailable === false
-      ? "Editor perlu setup Supabase (supabase/designs.sql). Poster utuh tetap tersedia."
-      : generationModeNote();
-  $("#generation-wording").classList.toggle(
-    "is-hidden",
-    selectedGenerationMode() !== "editable",
-  );
-  $("#design-wording-manual").checked =
-    activeProject?.designWordingManual === true;
-  $("#design-wording-fields").classList.toggle(
-    "is-hidden",
-    !$("#design-wording-manual").checked,
-  );
-  for (const role of ["brand", "headline", "body", "cta"])
-    $("#design-wording-" + role).value =
-      activeProject?.designWording?.[role] ?? "";
-}
-function bindDesignBridge() {
-  $("#generation-mode").addEventListener("change", () => {
-    if (activeProject) {
-      activeProject.generationMode = selectedGenerationMode();
-      activeProject.editableGenerationOptIn = selectedGenerationMode() === "editable";
-    }
-    $("#generation-mode-note").textContent = generationModeNote();
-    $("#generation-wording").classList.toggle(
-      "is-hidden",
-      selectedGenerationMode() !== "editable",
-    );
-    renderProductModelNotice();
-    markSaving();
-  });
-  $("#design-wording-manual").addEventListener("change", () => {
-    if (activeProject)
-      activeProject.designWordingManual = $("#design-wording-manual").checked;
-    $("#design-wording-fields").classList.toggle(
-      "is-hidden",
-      !$("#design-wording-manual").checked,
-    );
-    markSaving();
-  });
-  for (const role of ["brand", "headline", "body", "cta"])
-    $("#design-wording-" + role).addEventListener("input", () => {
-      if (activeProject) {
-        activeProject.designWording = {
-          ...(activeProject.designWording || {}),
-          [role]: $("#design-wording-" + role).value,
-        };
-      }
-      markSaving();
-    });
+  // Editable generation is paused, including for projects that previously opted in.
+  return "poster";
 }
 async function prepareEditablePreview(image, documentData) {
   const account = currentUser;

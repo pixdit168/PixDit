@@ -479,7 +479,7 @@ export function App({
     if (object?.type !== "image") return;
     if (
       !window.confirm(
-        "Hapus latar dengan AI memakai 3 kredit jika berhasil? Upload asli tetap disimpan.",
+        "Hapus latar dengan AI? Jika berhasil, tindakan ini memakai 1 edit AI (tanpa batas untuk Pro). Upload asli tetap disimpan.",
       )
     )
       return;

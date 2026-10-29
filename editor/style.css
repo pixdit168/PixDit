@@ -375,3 +375,12 @@
     padding: 10px 12px;
   }
 }
+/* Keep the close action easy to see and tap on desktop and mobile. */
+.pixgin-design-editor button.design-close-button {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:44px; min-width:44px; height:44px; min-height:44px; padding:0;
+  border:1px solid #ff9a9a; border-radius:50%; background:#b91c1c; color:#fff;
+  font-size:28px; font-weight:600; line-height:1; flex:0 0 44px;
+}
+.pixgin-design-editor button.design-close-button:hover { background:#991b1b; border-color:#ff9a9a; }
+.pixgin-design-editor button.design-close-button:focus-visible { outline:3px solid #ffb4b4; outline-offset:3px; }
