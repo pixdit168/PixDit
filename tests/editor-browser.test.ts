@@ -39,7 +39,6 @@ test(
           COOKIE_SECURE: "false",
           REPLICATE_API_TOKEN: "browser-fixture-only",
           REPLICATE_FREE_MODEL: "sourceful/riverflow-2.0-pro",
-          REPLICATE_LAYOUT_MODEL: "meta/meta-llama-3-70b-instruct",
         },
         stdio: "ignore",
       },
@@ -193,12 +192,26 @@ test(
       .png()
       .toBuffer();
     const upload = `data:image/png;base64,${pixel.toString("base64")}`;
+    // The normal website path generates a complete image directly and still opens in the layer editor.
+    await evaluate(`(async()=>{
+      await requestJson('/api/auth/register',{method:'POST',body:JSON.stringify({displayName:'Direct Test',email:'direct@example.test',password:'test-password-123',deviceId:'direct-device'})});
+      const session=await requestJson('/api/auth/verify-email',{method:'POST',body:JSON.stringify({email:'direct@example.test',token:'123456'})});await enterApp(session);await checkApiHealth();
+      projects=[{id:'direct-project',name:'Direct',category:'Makanan & Minuman',status:'Draf',prompt:'Iklan kopi untuk suasana pagi yang hangat',generationMode:'editable'}];openProject('direct-project');
+      if(selectedGenerationMode()!=='poster')throw Error('An inherited planner preference must not run Llama');await startGeneration();
+      if(!generatedImages[0]?.url?.startsWith('/generated/')||generatedImages[0]?.designId)throw Error('Default generation must return the direct model image');
+      await openDesignForResult(0);const id=getCurrentLibraryVersion(libraryItems[0]).editorDesignId;const design=(await requestJson('/api/designs/'+id)).design;
+      if(design.document.objects.length!==1||design.document.objects[0].type!=='image')throw Error('Direct result must import as one flattened image layer');
+    })()`);
+    await until("document.querySelector('.design-artboard canvas') && !document.querySelector('.design-loading')");
+    await evaluate("window.PixginDesignEditor.close(true)");
+    await until("!document.querySelector('.pixgin-design-editor')");
+    await evaluate("(async()=>{clearTimeout(accountStateTimer);await persistAccountState();await requestJson('/api/auth/logout',{method:'POST'});showAuthScreen();})()");
     await evaluate(`(async()=>{
     await requestJson('/api/auth/register',{method:'POST',body:JSON.stringify({displayName:'Browser Test',email:'browser@example.test',password:'test-password-123',deviceId:'browser-device'})});
     const session=await requestJson('/api/auth/verify-email',{method:'POST',body:JSON.stringify({email:'browser@example.test',token:'123456'})});await enterApp(session);
     window.reviewApi=async(url,method='GET',body)=>{const r=await fetch(url,{method,headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrfToken},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(JSON.stringify(data));return data;};
     await checkApiHealth();projects=[{id:'browser-project',name:'Kopi',category:'Makanan & Minuman',status:'Draf',prompt:'Iklan kopi dengan dua produk independen',creationMode:'product',productImages:[${JSON.stringify(upload)},${JSON.stringify(upload)}],brandLogos:[${JSON.stringify(upload)}],designWordingManual:true,designWording:{headline:'Kopi Pilihan',brand:'',body:'',cta:''}}];openProject('browser-project');
-    if(selectedGenerationMode()!=='editable')throw Error('Editable must be the default');await startGeneration();const image=generatedImages[0];if(!image?.designId||!image.designVersionId)throw Error(JSON.stringify(image));window.reviewImage=image;image.document=(await reviewApi('/api/designs/'+image.designId)).design.document;
+    if(selectedGenerationMode()!=='poster')throw Error('Direct image generation must be the default');document.querySelector('#generation-mode').value='editable';document.querySelector('#generation-mode').dispatchEvent(new Event('change'));if(!activeProject.editableGenerationOptIn)throw Error('Editable layers must be explicitly enabled');await startGeneration();const image=generatedImages[0];if(!image?.designId||!image.designVersionId)throw Error(JSON.stringify(image));window.reviewImage=image;image.document=(await reviewApi('/api/designs/'+image.designId)).design.document;
     window.reviewEditor=await loadDesignEditor();window.reviewToken=session.csrfToken;await openDesignForResult(0);
   })()`);
     await until(

@@ -4,7 +4,52 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import sharp from "sharp";
-import { ReplicateImageProvider } from "../lib/replicate.js";
+import { ReplicateImageProvider, rateLimitWaitMs } from "../lib/replicate.js";
+
+class FastRetryProvider extends ReplicateImageProvider {
+  waits: number[] = [];
+  protected async waitForRateLimit(milliseconds:number,signal?:AbortSignal) { this.waits.push(milliseconds); if(signal?.aborted)throw signal.reason; }
+}
+
+test("Replicate 429 waits honor Retry-After, reset details, HTTP dates and fallback backoff", () => {
+  assert.equal(rateLimitWaitMs(new Response(null,{headers:{"retry-after":"3"}}),"resets in ~20s",0),3250);
+  assert.equal(rateLimitWaitMs(new Response(null),"Your rate limit resets in ~3s.",0),3250);
+  assert.equal(rateLimitWaitMs(new Response(null,{headers:{"retry-after":"Thu, 01 Jan 1970 00:00:04 GMT"}}),"",0,1000),3250);
+  assert.equal(rateLimitWaitMs(new Response(null,{headers:{"retry-after":"invalid"}}),"throttled",2),4250);
+});
+
+test("a rejected prediction is retried after 429 without changing its inputs", async () => {
+  let calls=0;const bodies:string[]=[];
+  const provider=new FastRetryProvider({token:"test-token",fetchImpl:async(_url,options)=>{calls++;bodies.push(String(options.body));return calls===1?Response.json({detail:"Your rate limit resets in ~3s."},{status:429}):Response.json({id:"created-once",status:"processing"});}});
+  const result=await provider.requestJson(provider.endpoint,{method:"POST",body:JSON.stringify({input:{prompt:"Original user prompt",seed:123}})});
+  assert.equal(result.id,"created-once");assert.equal(calls,2);assert.deepEqual(provider.waits,[3250]);assert.equal(bodies[0],bodies[1]);
+});
+
+test("Replicate retries are bounded; billing, server and ambiguous network failures are not retried", async () => {
+  let calls=0;
+  const limited=new FastRetryProvider({token:"test-token",fetchImpl:async()=>{calls++;return Response.json({detail:"Request was throttled."},{status:429});}});
+  await assert.rejects(()=>limited.requestJson(limited.endpoint,{method:"POST"}),/Replicate membatasi/);
+  assert.equal(calls,4);assert.equal(limited.waits.length,3);
+  for(const status of [400,401,402,500,503]){
+    let attempts=0;const provider=new FastRetryProvider({token:"test",fetchImpl:async()=>{attempts++;return Response.json({detail:"Rejected"},{status});}});
+    await assert.rejects(()=>provider.requestJson(provider.endpoint,{method:"POST"}));assert.equal(attempts,1);assert.equal(provider.waits.length,0);
+  }
+  let networkCalls=0;const network=new FastRetryProvider({token:"test",fetchImpl:async()=>{networkCalls++;throw new TypeError("Connection lost after POST");}});
+  await assert.rejects(()=>network.requestJson(network.endpoint,{method:"POST"}));assert.equal(networkCalls,1);
+});
+
+test("cancel interrupts a throttle wait before a prediction is created", async () => {
+  const controller=new AbortController();let calls=0;
+  const provider=new ReplicateImageProvider({token:"test",fetchImpl:async()=>{calls++;setTimeout(()=>controller.abort(),10);return Response.json({detail:"Your rate limit resets in ~30s."},{status:429});}});
+  await assert.rejects(()=>provider.requestJson(provider.endpoint,{method:"POST",signal:controller.signal}),{name:"AbortError"});
+  assert.equal(calls,1);
+});
+
+test("a reset beyond the retry budget returns promptly instead of retrying too early", async () => {
+  let calls=0;const provider=new FastRetryProvider({token:"test",fetchImpl:async()=>{calls++;return Response.json({detail:"Throttled"},{status:429,headers:{"retry-after":"3600"}});}});
+  await assert.rejects(()=>provider.requestJson(provider.endpoint,{method:"POST"}),/Replicate membatasi/);
+  assert.equal(calls,1);assert.equal(provider.waits.length,0);
+});
 
 test("reference image is resized before it is sent to Replicate", async (context) => {
   const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "layera-resize-"));

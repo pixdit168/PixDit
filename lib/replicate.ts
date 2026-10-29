@@ -16,12 +16,35 @@ function clampInteger(value, minimum, maximum, fallback) {
 function delay(milliseconds, signal) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(signal.reason || new Error("Permintaan dibatalkan."));
-    const timer = setTimeout(resolve, milliseconds);
-    signal?.addEventListener("abort", () => {
+    const onAbort = () => {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
       reject(signal.reason || new Error("Permintaan dibatalkan."));
-    }, { once: true });
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve(undefined);
+    }, milliseconds);
+    signal?.addEventListener("abort", onAbort, { once: true });
   });
+}
+
+export function rateLimitWaitMs(response: Response, message: string, attempt: number, now = Date.now()) {
+  const retryAfter = response.headers.get("retry-after");
+  let wait: number | undefined;
+  if (retryAfter !== null) {
+    if (/^\d+(?:\.\d+)?$/.test(retryAfter.trim())) wait = Number(retryAfter) * 1000;
+    else {
+      const date = Date.parse(retryAfter);
+      if (Number.isFinite(date)) wait = Math.max(0, date - now);
+    }
+  }
+  if (wait === undefined) {
+    const reset = message.match(/rate limit resets in\s*~?\s*(\d+(?:\.\d+)?)\s*s/i);
+    if (reset) wait = Number(reset[1]) * 1000;
+  }
+  // A short margin keeps a rounded reset value from triggering an immediate second 429.
+  return Math.max(100, wait ?? 1000 * 2 ** attempt) + 250;
 }
 
 function getAspectRatio(format = "") {
@@ -120,16 +143,35 @@ export class ReplicateImageProvider {
   }
 
   async requestJson(url, options: RequestInit = {}) {
-    const response = await this.fetch(url, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        Accept: "application/json",
-        ...(options.headers || {}),
-      },
-    });
-    if (!response.ok) throw new Error(await readApiError(response));
-    return response.json();
+    const deadline = Date.now() + Math.min(this.timeoutMs, 90_000);
+    for (let attempt = 0; ; attempt++) {
+      if (options.signal?.aborted) throw options.signal.reason || new Error("Permintaan dibatalkan.");
+      const response = await this.fetch(url, {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+          Accept: "application/json",
+          ...(options.headers || {}),
+        },
+      });
+      if (response.ok) return response.json();
+      const message = await readApiError(response);
+      // Retry only an explicit rejection (429), never an ambiguous network/5xx failure
+      // that might already have created a billable prediction.
+      if (response.status === 429 && attempt < 3) {
+        const wait = rateLimitWaitMs(response, message, attempt);
+        if (wait <= deadline - Date.now()) {
+          await this.waitForRateLimit(wait, options.signal);
+          continue;
+        }
+      }
+      if (response.status === 429) throw new Error(`Replicate membatasi permintaan sementara. ${message} Tunggu reset rate limit atau periksa saldo kredit Replicate.`);
+      throw new Error(message);
+    }
+  }
+
+  protected async waitForRateLimit(milliseconds: number, signal?: AbortSignal) {
+    await delay(milliseconds, signal);
   }
 
   async waitForPrediction(prediction, signal) {

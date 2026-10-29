@@ -49,6 +49,27 @@ async function authStartupContext(fetch: (...args: any[]) => Promise<any>) {
 const flushMicrotasks = () => new Promise<void>((resolve) => setImmediate(resolve));
 const authResponse = (status: number, body: any) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 
+test("direct image generation is the default; editable layer generation requires an explicit choice", async () => {
+  const html = await fs.readFile(path.join(projectRoot, "index.html"), "utf8");
+  assert.match(html, /<option value="poster" selected>/);
+  const { context, node, startup } = await authStartupContext(async () => authResponse(401, {message:"Signed out"}));
+  await startup;
+  vm.runInContext('activeProject = {id:"old-project",generationMode:"editable"}; editableDesignAvailable = true; renderGenerationMode();', context);
+  assert.equal(node("#generation-mode").value,"poster");
+  assert.equal(vm.runInContext("selectedGenerationMode()",context),"poster");
+  node("#generation-mode").value="editable";
+  await node("#generation-mode").dispatch("change");
+  assert.equal(vm.runInContext("activeProject.editableGenerationOptIn",context),true);
+  assert.match(node("#generation-mode-note").textContent,/tanpa panggilan planner AI/);
+  vm.runInContext("renderGenerationMode()",context);
+  assert.equal(node("#generation-mode").value,"editable");
+  node("#generation-mode").value="poster";
+  await node("#generation-mode").dispatch("change");
+  assert.equal(vm.runInContext("activeProject.editableGenerationOptIn",context),false);
+  vm.runInContext("renderGenerationMode()",context);
+  assert.equal(node("#generation-mode").value,"poster");
+});
+
 for (const entryButton of ["#hero-login", "#auth-open"]) {
   test(`${entryButton} opens on the first click and stays open through delayed previous-session logout`, async () => {
     const me = deferred<any>();

@@ -25,7 +25,6 @@ test(
           REPLICATE_API_TOKEN: "local-fixture-only",
           REPLICATE_FREE_MODEL: "sourceful/riverflow-2.0-pro",
           REPLICATE_PRO_MODEL: "openai/gpt-image-2",
-          REPLICATE_LAYOUT_MODEL: "meta/meta-llama-3-70b-instruct",
           REPLICATE_BG_REMOVE_MODEL: "bria/remove-background",
         },
         stdio: ["ignore", "pipe", "pipe"],
@@ -149,6 +148,10 @@ test(
     assert.ok(image?.designId, JSON.stringify(generated.data));
     assert.equal(image.compositionMode, "editable");
     assert.equal(generated.data.at(-1).success, 1);
+    const generationCalls = output.split("\n").filter(line => line.includes('"fixture":true')).map(line => JSON.parse(line));
+    assert.equal(generationCalls.length, 1, "editable generation creates exactly one image prediction, with no planner");
+    assert.match(generationCalls[0].path, /sourceful\/riverflow-2\.0-pro\/predictions$/);
+
     const document = image.document;
     assert.equal(
       document.objects.filter((node) => node.type === "image").length,
@@ -310,8 +313,8 @@ test(
       .map((line) => JSON.parse(line));
     assert.equal(
       events.filter((event) => event.path.includes("meta-llama")).length,
-      1,
-      "manual edits and legacy imports must not call the planner",
+      0,
+      "generation, manual edits and legacy imports must not call a planner",
     );
   },
 );

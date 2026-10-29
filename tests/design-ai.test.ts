@@ -4,6 +4,7 @@ import test from "node:test";
 import sharp from "sharp";
 import {
   DesignAI,
+  planDesignLocally,
   composeDesign,
   normalizeAsset,
   rasterData,
@@ -75,52 +76,23 @@ test("invalid planner layouts are rejected before background generation", () => 
   duplicate.texts.push(duplicate.texts[0]);
   assert.throws(() => validateLayout(JSON.stringify(duplicate), 1));
 });
-test("planner waits for terminal status instead of treating partial token output as a complete result", async () => {
-  let polls = 0;
-  const provider = new DesignAI({
-    token: "test",
-    model: "meta/meta-llama-3-70b-instruct",
-    pollIntervalMs: 1,
-    fetchImpl: async (url, options) => {
-      assert.match(String(url), /^https:\/\/api\.replicate\.com/);
-      if (options?.method === "POST")
-        return Response.json({
-          id: "plan",
-          status: "processing",
-          output: ["{incomplete"],
-        });
-      polls++;
-      return Response.json({
-        id: "plan",
-        status: "succeeded",
-        output: [JSON.stringify(layout(0))],
-      });
-    },
-  });
-  assert.equal(
-    (
-      await provider.plan(
-        "Generate a coffee advertisement",
-        0,
-        false,
-        undefined,
-      )
-    ).texts[0].text,
-    "AI words",
-  );
-  assert.equal(polls, 1);
-  await assert.rejects(
-    () =>
-      provider.plan(
-        'Use headline "Exact title" for coffee',
-        0,
-        false,
-        undefined,
-      ),
-    /tanda kutip/,
-  );
+test("local layouts preserve wording and fit zero to five product layers without any provider call", () => {
+  for (let count = 0; count <= 5; count++) {
+    const plan = planDesignLocally('Iklan kopi dengan headline "Kopi Pilihan"', count);
+    assert.equal(plan.texts[0].text, "Kopi Pilihan");
+    assert.equal(plan.products.length, count);
+    for (const box of [...plan.products, plan.logo]) {
+      assert.ok(box.x >= 0.05 && box.y >= 0.05);
+      assert.ok(box.x + box.width <= 0.95 + 1e-9 && box.y + box.height <= 0.95 + 1e-9);
+    }
+  }
+  const explicit = planDesignLocally('Iklan kopi dengan headline "Teks lain"', 1, {headline:"",brand:"Puro",body:"",cta:""});
+  assert.equal(explicit.texts.find(text => text.role === "headline").text, "");
+  assert.equal(explicit.texts.find(text => text.role === "brand").text, "Puro");
+  assert.deepEqual(planDesignLocally("Iklan kopi tanpa teks eksplisit", 0).texts, []);
+  assert.throws(() => planDesignLocally("Iklan kopi premium", 6), /Jumlah/);
 });
-test("planner cancellation requests prediction cancellation without accepting partial output", async () => {
+test("background removal cancellation requests prediction cancellation without accepting partial output", async () => {
   const controller = new AbortController();
   let canceled = false;
   const provider = new DesignAI({

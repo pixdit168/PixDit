@@ -10,7 +10,7 @@ import { MemoryAuth, MemoryStore, SupabaseAuth, SupabaseStore } from "./lib/supa
 import { ReplicateImageProvider } from "./lib/replicate.js";
 import sharp from "sharp";
 import { DesignRepository } from "./lib/design-store.js";
-import { DesignAI, composeDesign, normalizeAsset, rasterData } from "./lib/design-ai.js";
+import { DesignAI, composeDesign, normalizeAsset, rasterData, planDesignLocally } from "./lib/design-ai.js";
 import { handleDesignApi } from "./lib/design-api.js";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
@@ -62,7 +62,6 @@ const freeImageProvider = new ReplicateImageProvider({ model: process.env.REPLIC
 const premiumImageProvider = new ReplicateImageProvider({ model: process.env.REPLICATE_PRO_MODEL || process.env.REPLICATE_MODEL || "openai/gpt-image-2" });
 const activeUserJobs = new Set();
 const designRepository = new DesignRepository(store, useMemoryBackend);
-const layoutPlanner = new DesignAI({ model: process.env.REPLICATE_LAYOUT_MODEL || "meta/meta-llama-3-70b-instruct" });
 const backgroundRemover = new DesignAI({ model: process.env.REPLICATE_BG_REMOVE_MODEL || "bria/remove-background" });
 
 if (isProduction && !publicOrigin) {
@@ -582,7 +581,7 @@ async function handleGeneration(request, response, input, auth) {
   const failureMessages = [];
   const perImageCreditCost = generationCreditCost(quality, 1);
   try {
-    let layout: Awaited<ReturnType<DesignAI["plan"]>>;
+    let layout: ReturnType<typeof planDesignLocally>;
     const productAssets = []; let logoAsset;
     if (editable) {
       let wording: Record<string,string> | undefined;
@@ -592,8 +591,8 @@ async function handleGeneration(request, response, input, auth) {
       }
       const normalizedProducts = await Promise.all(productImages.map(source => normalizeAsset(rasterData(source))));
       const normalizedLogo = brandLogo ? await normalizeAsset(rasterData(brandLogo)) : null;
-      sendNdjson(response, { type: "progress", name: "Planner menyusun komposisi editable" });
-      layout = await layoutPlanner.plan(brief, productImages.length, Boolean(brandLogo), wording, abortController.signal);
+      sendNdjson(response, { type: "progress", name: "Menyusun layer secara lokal" });
+      layout = planDesignLocally(brief, productImages.length, wording);
       for (const asset of normalizedProducts) productAssets.push(await designRepository.saveAsset(auth.user.id, asset.buffer, asset.width, asset.height, asset.mime));
       if (normalizedLogo) logoAsset = await designRepository.saveAsset(auth.user.id, normalizedLogo.buffer, normalizedLogo.width, normalizedLogo.height, normalizedLogo.mime);
     }

@@ -32,17 +32,23 @@ function loadDesignEditor() {
   return designEditorModule;
 }
 function selectedGenerationMode() {
-  return $("#generation-mode")?.value === "poster" ? "poster" : "editable";
+  return $("#generation-mode")?.value === "editable" ? "editable" : "poster";
+}
+function generationModeNote() {
+  return selectedGenerationMode() === "editable"
+    ? "Susunan layer dibuat lokal tanpa panggilan planner AI. Hanya model gambar yang dipanggil. Teks dari kolom atau tanda kutip di brief dan upload menjadi layer terpisah."
+    : "Agent Free/Pro membuat gambar langsung, tanpa planner AI tambahan. Buka Edit desain untuk menambahkan teks, logo, gambar, dan bentuk di atas hasilnya.";
 }
 function renderGenerationMode() {
   const select = $("#generation-mode");
   if (!select) return;
-  const preferred = activeProject?.generationMode || "editable";
+  // Older projects inherited editable mode automatically. Require an explicit choice.
+  const preferred = activeProject?.editableGenerationOptIn === true && activeProject?.generationMode === "editable" ? "editable" : "poster";
   select.value = editableDesignAvailable === false ? "poster" : preferred;
   $("#generation-mode-note").textContent =
     editableDesignAvailable === false
       ? "Editor perlu setup Supabase (supabase/designs.sql). Poster utuh tetap tersedia."
-      : "Editable: teks, produk yang diupload, logo, dan dekorasi menjadi layer terpisah. Scenery AI tetap satu gambar.";
+      : generationModeNote();
   $("#generation-wording").classList.toggle(
     "is-hidden",
     selectedGenerationMode() !== "editable",
@@ -59,7 +65,11 @@ function renderGenerationMode() {
 }
 function bindDesignBridge() {
   $("#generation-mode").addEventListener("change", () => {
-    if (activeProject) activeProject.generationMode = selectedGenerationMode();
+    if (activeProject) {
+      activeProject.generationMode = selectedGenerationMode();
+      activeProject.editableGenerationOptIn = selectedGenerationMode() === "editable";
+    }
+    $("#generation-mode-note").textContent = generationModeNote();
     $("#generation-wording").classList.toggle(
       "is-hidden",
       selectedGenerationMode() !== "editable",

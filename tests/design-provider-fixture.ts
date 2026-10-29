@@ -51,50 +51,8 @@ globalThis.fetch = async (input, init) => {
       prompt: String(args.prompt || "").slice(0, 200),
     }),
   );
-  if (url.pathname.includes("meta-llama")) {
-    const count = Number(
-      String(args.prompt).match(/Supply exactly (\d+) product/)?.[1] || 0,
-    );
-    const plan = {
-      backgroundPrompt:
-        "Purple studio with negative space for product and copy",
-      background: "#211838",
-      color: "#ffffff",
-      texts: [
-        {
-          role: "headline",
-          text: "Rasa kopi pilihan",
-          x: 0.08,
-          y: 0.08,
-          width: 0.7,
-          height: 0.18,
-          size: 0.055,
-        },
-      ],
-      products: Array.from({ length: count }, (_, i) => ({
-        x: 0.08 + (i % 3) * 0.28,
-        y: 0.3 + Math.floor(i / 3) * 0.28,
-        width: 0.26,
-        height: 0.26,
-      })),
-      logo: { x: 0.8, y: 0.05, width: 0.15, height: 0.12 },
-      decorations: [
-        {
-          shape: "rect",
-          x: 0.05,
-          y: 0.9,
-          width: 0.9,
-          height: 0.05,
-          fill: "#8060aa",
-        },
-      ],
-    };
-    return Response.json({
-      id: "mock-plan",
-      status: "succeeded",
-      output: [JSON.stringify(plan)],
-    });
-  }
+  if (url.pathname.includes("meta-llama"))
+    throw new Error("Generation must not create an additional planner prediction.");
   return Response.json({
     id: "mock-image",
     status: "succeeded",

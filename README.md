@@ -1,6 +1,6 @@
 # Pixgin
 
-Pixgin membuat gambar kampanye dari prompt pengguna dengan Agent Free atau Agent Pro. Mode default **Desain editable** memakai planner Replicate untuk komposisi, lalu menghasilkan latar dan menempatkan produk yang diupload, logo, teks, serta dekorasi sebagai objek terpisah. Mode **Poster utuh** tetap tersedia dan mempertahankan alur sebelumnya. Situs di luar editor tetap memakai frontend yang sama.
+Pixgin membuat gambar kampanye dari prompt pengguna dengan Agent Free atau Agent Pro. Kedua mode generasi hanya membuat satu prediction gambar per variasi, tanpa Llama atau planner AI tambahan. Mode default **Poster utuh** mengirim prompt langsung ke model gambar. Hasil tetap dapat dibuka lewat **Edit desain** sebagai satu layer gambar dengan elemen baru di atasnya. Mode **Desain editable · susunan layer lokal** menempatkan upload, logo, dan teks pengguna dalam layer terpisah menggunakan susunan lokal; satu panggilan model gambar membuat latarnya. Teks dalam kolom eksplisit dipertahankan, termasuk kolom kosong. Tanpa kolom eksplisit, hanya teks dalam tanda kutip di brief yang dibuat menjadi layer teks; teks lain dapat ditambahkan di editor. Proyek yang dahulu otomatis memakai mode editable kembali ke Poster utuh sampai pengguna memilih mode editable secara eksplisit.
 
 Identitas teknis lama untuk cookie, local storage, tabel, dan bucket Supabase sengaja tetap menggunakan nama `layera` agar sesi dan data yang sudah ada tetap kompatibel setelah pergantian merek. Alamat bantuan lama juga tetap aktif sampai alamat Pixgin yang baru dikonfirmasi.
 
@@ -21,6 +21,8 @@ Setiap halaman Pixgin dibuka ulang, sesi sebelumnya diakhiri dan pengguna dimint
 Frontend memakai `index.html`, `public/styles.css`, dan komponen TypeScript terurut di `public/components/`. `public/app.ts` menyediakan helper awal; `tsconfig.browser.json` menggabungkan seluruhnya menjadi satu classic script `public/app.js` saat build. Jangan mengedit JavaScript hasil build secara langsung atau mengubah urutan file komponen tanpa memeriksa inisialisasi browser.
 
 Untuk menjalankan lokal, lihat [NODE-DEPLOYMENT.md](NODE-DEPLOYMENT.md). Jalankan `npm run check`, `npm test`, dan `npm run build` sebelum mengirim perubahan.
+
+Jika Replicate menampilkan **Request was throttled / HTTP 429**, adapter menunggu `Retry-After` atau waktu reset pada pesan lalu mencoba ulang (maksimal 3 retry dan anggaran tunggu hingga 90 detik, dibatasi timeout provider). Cancel tetap bekerja selama menunggu. Respons billing/402, error server, dan koneksi yang putus tidak diulang otomatis agar tidak berisiko membuat prediction ganda. Saldo rendah dapat membuat batas rate limit lebih ketat; periksa saldo/billing di akun Replicate. Generasi tidak memakai `REPLICATE_LAYOUT_MODEL` lagi; environment lama tersebut boleh dihapus. Sepuluh variasi tetap membutuhkan sepuluh prediction gambar, bukan satu.
 
 `npm run test:editor` menjalankan acceptance test desktop/mobile di Chrome dengan provider mock dan akun memori. Set `CHROME_PATH` jika Chrome tidak berada di lokasi default Windows. Tes ini menguji drag, teks, export, autosave/retry, konflik revisi, dan reopen tanpa mengakses produksi atau memakai kredit AI.
 
