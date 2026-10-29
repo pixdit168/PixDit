@@ -1750,6 +1750,16 @@ input:focus-visible,textarea:focus-visible,select:focus-visible { outline:2px so
   .selection-bar button { font-size:10px; padding:8px; min-width:0; }
 }
 
+/* Readable project names and details in Proyek Saya and its full project list. */
+.project-card-body h3 { font-size:17px; line-height:1.4; }
+.project-meta, .project-card-actions > span { font-size:13px; line-height:1.6; }
+#dashboard-view .section-heading h2 { font-size:26px; }
+#dashboard-view .section-heading > div span,
+#dashboard-view .section-heading .text-button { font-size:14px; }
+#dashboard-view .section-heading,
+#dashboard-view .section-heading > div { flex-wrap:wrap; gap:12px; }
+#dashboard-view .tips-strip p { font-size:13px; }
+
 /* Consistent close and dismiss controls across dialogs, drawers and previews. */
 body button[type="button"].close-button, #project-modal .close-button {
   display:inline-flex; align-items:center; justify-content:center;

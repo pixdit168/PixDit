@@ -198,7 +198,11 @@ test(
         return {x:rect.x,y:rect.y,width:rect.width,height:rect.height,color:style.backgroundColor,foreground:style.color,border:style.borderTopWidth,shadow:style.boxShadow,visible:button.checkVisibility(),clickable:hit===button||button.contains(hit),viewport:innerWidth+'px',screenWidth:innerWidth,screenHeight:innerHeight};
       })()`);
       assert.ok(control.visible && control.clickable, `${name}: not visible/reachable: ${JSON.stringify(control)}`);
-      assert.ok(control.width>=10 && control.width<=40 && control.height>=14 && control.height<=40, `${name}: ${JSON.stringify(control)}`);
+      if (name === "design-editor") {
+        assert.ok(Math.abs(control.width-44.2)<1 && Math.abs(control.height-49.4)<1, `${name}: 30% larger editor close: ${JSON.stringify(control)}`);
+      } else {
+        assert.ok(control.width>=10 && control.width<=40 && control.height>=14 && control.height<=40, `${name}: ${JSON.stringify(control)}`);
+      }
       assert.ok(control.x>=0 && control.y>=0 && control.x+control.width<=control.screenWidth+1 && control.y+control.height<=control.screenHeight+1, `${name}: button clipped by viewport: ${JSON.stringify(control)}`);
       assert.equal(control.color,"rgba(0, 0, 0, 0)",`${name}: transparent background`);
       assert.equal(control.border,"0px",`${name}: no border`);
@@ -216,7 +220,7 @@ test(
       await send("Input.dispatchMouseEvent",{type:"mousePressed",x,y,button:"left",buttons:1,clickCount:1});
       await send("Input.dispatchMouseEvent",{type:"mouseReleased",x,y,button:"left",buttons:0,clickCount:1});
       await until(closed);
-      console.info(`Close audit PASS: ${control.viewport} / ${name} / minimal red X / original size / hover / focus / click`);
+      console.info(`Close audit PASS: ${control.viewport} / ${name} / minimal red X / ${name === "design-editor" ? "30% larger" : "original size"} / hover / focus / click`);
     };
     const checkCloseButtons = async () => {
       await send("Input.dispatchMouseEvent", {type:"mouseMoved",x:0,y:0});
