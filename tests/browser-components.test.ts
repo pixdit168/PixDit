@@ -288,6 +288,45 @@ async function libraryDeletionContext(fetch: (...args: any[]) => Promise<any>) {
   return { context, node };
 }
 
+test("account saves stay pending until acknowledged and reload restores saved Koleksi", async () => {
+  const gate=deferred<any>();
+  let saved:any;
+  const {context}=await libraryDeletionContext(async (_url,options)=>{
+    if(options.method==="PUT") {
+      saved=JSON.parse(options.body);
+      return gate.promise;
+    }
+    return authResponse(200,{...saved,initialized:true});
+  });
+  vm.runInContext(`accountStateSavedSnapshot=JSON.stringify({projects,library:libraryItems});libraryItems.unshift({id:"new-poster",versions:[{id:"v1",url:"/generated/job/variation-01.png"}]});`,context);
+  const saving=vm.runInContext("persistAccountState()",context);
+  await flushMicrotasks();
+  assert.equal(vm.runInContext("hasUnsavedAccountState()",context),true);
+  gate.resolve(authResponse(200,{ok:true}));
+  assert.equal(await saving,true);
+  assert.equal(vm.runInContext("hasUnsavedAccountState()",context),false);
+  vm.runInContext("libraryItems=[];projects=[];",context);
+  await vm.runInContext("loadAccountState()",context);
+  assert.equal(vm.runInContext("libraryItems[0].id",context),"new-poster");
+  assert.equal(vm.runInContext("libraryItems[0].versions[0].url",context),"/generated/job/variation-01.png");
+  assert.equal(vm.runInContext("hasUnsavedAccountState()",context),false);
+});
+
+test("a failed save retains local Koleksi and reports failure; edits made during a save remain pending", async () => {
+  let fail=true;
+  const {context}=await libraryDeletionContext(async()=>{
+    if(fail)return authResponse(413,{message:"Data proyek akun terlalu besar."});
+    vm.runInContext('libraryItems.push({id:"changed-during-save"})',context);
+    return authResponse(200,{ok:true});
+  });
+  assert.equal(await vm.runInContext("persistAccountState()",context),false);
+  assert.equal(vm.runInContext("libraryItems.length",context),3);
+  assert.equal(vm.runInContext("hasUnsavedAccountState()",context),true);
+  fail=false;
+  assert.equal(await vm.runInContext("persistAccountState()",context),true);
+  assert.equal(vm.runInContext("hasUnsavedAccountState()",context),true);
+});
+
 test("confirmed bulk deletion removes only the confirmed selection after queued saves", async () => {
   const writes: any[] = [];
   let releaseFirst!: () => void;

@@ -1,4 +1,9 @@
 function bindEvents() {
+  window.addEventListener("beforeunload", (event) => {
+    if (!hasUnsavedAccountState()) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
   window.addEventListener("resize", () => scheduleAdaptiveLogos(document), { passive: true });
   $$('[data-auth-home]').forEach((brandLink) => {
     brandLink.addEventListener("click", (event) => {

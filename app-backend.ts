@@ -269,14 +269,14 @@ function getExpiredSessionCookie() {
 
 async function allowSecurityEvent(key, eventType, limit, windowMinutes) {
   const cutoff = Date.now() - windowMinutes * 60 * 1000;
-  const count = store.data.securityEvents.filter((event) => event.key === key && event.eventType === eventType && Date.parse(event.createdAt) >= cutoff).length;
-  if (count >= limit) return false;
-  
-  store.data.securityEvents.push({ id: randomUUID(), key, eventType, createdAt: new Date().toISOString() });
-  const oldest = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  store.data.securityEvents = store.data.securityEvents.filter((event) => Date.parse(event.createdAt) >= oldest);
-  
-  return true;
+  return store.mutate((data) => {
+    const count = data.securityEvents.filter((event) => event.key === key && event.eventType === eventType && Date.parse(event.createdAt) >= cutoff).length;
+    if (count >= limit) return false;
+    data.securityEvents.push({ id: randomUUID(), key, eventType, createdAt: new Date().toISOString() });
+    const oldest = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    data.securityEvents = data.securityEvents.filter((event) => Date.parse(event.createdAt) >= oldest);
+    return true;
+  });
 }
 
 function getSignupSignal(input, request) {
@@ -709,7 +709,6 @@ async function handleAuthAndAccount(request, response, pathname) {
     try {
       registration = await accountAuth.signUp({ email, password, displayName });
     } catch (error) {
-      await store.persist();
       if (/already|registered|exists/i.test(String(error.message)) || /exists/i.test(String(error.code))) {
         return sendJson(response, 409, { error: "email_exists", message: "Email tersebut sudah terdaftar." });
       }
@@ -740,7 +739,6 @@ async function handleAuthAndAccount(request, response, pathname) {
       ? [[sha256(`ip:${getClientAddress(request)}`), "verification_resend_ip", 10, 60], [sha256(`email:${email}`), "verification_resend_minute", 1, 1], [sha256(`email:${email}`), "verification_resend_hour", 5, 60]]
       : [[sha256(`ip:${getClientAddress(request)}`), "verification_ip", 30, 15], [sha256(`email:${email}`), "verification_email", 10, 15]];
     const allowed = await Promise.all(limits.map(([key, event, limit, minutes]) => allowSecurityEvent(key, event, limit, minutes)));
-    await store.persist();
     if (allowed.includes(false)) return sendJson(response, 429, { error: "verification_rate_limit", resendAfterSeconds: 60, message: resending ? "Tunggu sebentar sebelum meminta kode lagi." : "Terlalu banyak percobaan kode. Tunggu 15 menit lalu coba lagi." });
     const user = findUserByEmail(email);
     if (resending) {
@@ -755,7 +753,7 @@ async function handleAuthAndAccount(request, response, pathname) {
     try { authUser = await accountAuth.verifyEmail(email, token); }
     catch { return sendJson(response, 400, { error: "invalid_verification_code", message: "Kode tidak valid atau sudah kedaluwarsa. Periksa email atau kirim ulang kode." }); }
     if (!authUser?.email_confirmed_at || authUser.id !== user.id || authUser.email?.toLowerCase() !== email) return sendJson(response, 400, { error: "invalid_verification_code", message: "Verifikasi email tidak cocok dengan akun ini." });
-    await store.mutate(() => { user.emailVerificationRequired = false; user.updatedAt = new Date().toISOString(); });
+    await store.mutate((data) => { data.users[user.id].emailVerificationRequired = false; data.users[user.id].updatedAt = new Date().toISOString(); });
     const session = await createSession(user.id);
     return sendJson(response, 200, { ok: true, authenticated: true, csrfToken: session.csrfToken, user: getPublicUser(user), preferences: user.preferences || defaultPreferences() }, { "Set-Cookie": getSessionCookie(session) });
   }
@@ -772,7 +770,6 @@ async function handleAuthAndAccount(request, response, pathname) {
     try {
       authUser = await accountAuth.signIn(email, String(input.password || ""));
     } catch (error) {
-      await store.persist();
       if (error.code === "email_not_confirmed") return sendJson(response, 403, { error: "email_verification_required", verificationRequired: true, email, message: "Verifikasi email terlebih dahulu. Masukkan kode dari email atau kirim ulang kode." });
       return sendJson(response, 401, { error: "invalid_credentials", message: "Email atau kata sandi tidak cocok." });
     }
@@ -1048,6 +1045,8 @@ const requestHandler = async (request, response) => {
   try {
     const pathname = new URL(request.url || "/", "http://layera.local").pathname;
     if (!isRequestOriginAllowed(request)) return sendJson(response, 403, { error: "request_origin_rejected", message: "Origin request tidak diizinkan." });
+    // A Vercel request can land on an instance created before this session/save.
+    if (store && !useMemoryBackend && (pathname.startsWith("/api/") || pathname.startsWith("/generated/"))) await store.refresh();
     if (pathname.startsWith("/api/")) return await handleApi(request, response, pathname);
     if (["GET", "HEAD"].includes(request.method || "GET")) return await sendFile(request, response, pathname);
     return sendJson(response, 405, { error: "method_not_allowed" });

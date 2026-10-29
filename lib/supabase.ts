@@ -65,7 +65,6 @@ export class SupabaseStore {
   data: StoreData;
   imageBucket: string;
   writeQueue: Promise<any>;
-  _pendingFlush: Promise<void> | null = null;
   static async connect({ url, secretKey, imageBucket = process.env.SUPABASE_IMAGE_BUCKET || DEFAULT_IMAGE_BUCKET }) {
     const client = createClient(url, secretKey, clientOptions());
     const { data, error } = await client
@@ -75,7 +74,7 @@ export class SupabaseStore {
       .maybeSingle();
     if (error) throw operationError(error, "Data Pixgin tidak dapat dibaca dari Supabase.");
     const store = new SupabaseStore(client, normalizeStore(data?.payload), imageBucket);
-    if (!data) await store.persist();
+    if (!data) await store.mutate(() => {});
     await store.ensureImageBucket();
     await store.cleanup();
     return store;
@@ -105,59 +104,66 @@ export class SupabaseStore {
     }
   }
 
-  async persistSnapshot(snapshot) {
-    const { error } = await this.client
-      .from("layera_app_store")
-      .upsert({ id: STORE_ROW_ID, payload: snapshot, updated_at: new Date().toISOString() }, { onConflict: "id" });
-    if (error) throw operationError(error, "Data Pixgin tidak dapat disimpan ke Supabase.");
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const pending = this.writeQueue.then(operation);
+    this.writeQueue = pending.catch(() => {});
+    return pending;
   }
 
-  async persist() {
-    if (this._pendingFlush) return this._pendingFlush;
-    this._pendingFlush = (async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0)); // Batch microtasks
-      const snapshot = structuredClone(this.data);
-      const write = this.writeQueue.then(() => this.persistSnapshot(snapshot));
-      this.writeQueue = write.catch(() => {});
-      this._pendingFlush = null;
-      await write;
-    })();
-    return this._pendingFlush;
+  private async readSnapshot() {
+    const { data, error } = await this.client.from("layera_app_store")
+      .select("payload, updated_at").eq("id", STORE_ROW_ID).maybeSingle();
+    if (error) throw operationError(error, "Data Pixgin tidak dapat dibaca dari Supabase.");
+    return data;
   }
 
-  async mutate(mutator) {
-    const result = mutator(this.data);
-    await this.persist();
-    return result;
+  async refresh() {
+    return this.enqueue(async () => {
+      const row = await this.readSnapshot();
+      this.data = normalizeStore(row?.payload);
+    });
+  }
+
+  async mutate<T>(mutator: (data: StoreData) => T): Promise<T> {
+    return this.enqueue(async () => {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const row = await this.readSnapshot();
+        const snapshot = normalizeStore(structuredClone(row?.payload));
+        // Callbacks only change this draft: a rejected write never changes the cache.
+        const result = mutator(snapshot);
+        const updatedAt = new Date(Math.max(Date.now(), (Date.parse(row?.updated_at) || 0) + 1)).toISOString();
+        const value = { payload: snapshot, updated_at: updatedAt };
+        const table = this.client.from("layera_app_store");
+        const { data, error } = row
+          ? await table.update(value).eq("id", STORE_ROW_ID).eq("updated_at", row.updated_at).select("updated_at").maybeSingle()
+          : await table.insert({ id: STORE_ROW_ID, ...value }).select("updated_at").maybeSingle();
+        if (error) {
+          if (!row && error.code === "23505") continue;
+          throw operationError(error, "Data Pixgin tidak dapat disimpan ke Supabase.");
+        }
+        if (!data) continue; // Another instance won; reapply this mutation to its state.
+        this.data = snapshot;
+        return result;
+      }
+      throw Object.assign(new Error("Penyimpanan akun sedang sibuk. Data lokal tetap tersedia; coba simpan lagi."), { statusCode: 409 });
+    });
   }
 
   async replace(value) {
-    this.data = normalizeStore(value);
-    await this.persist();
+    await this.mutate((data) => Object.assign(data, normalizeStore(value)));
   }
 
   async cleanup() {
     const now = Date.now();
     const securityCutoff = now - 7 * 24 * 60 * 60 * 1000;
     const signalCutoff = now - 90 * 24 * 60 * 60 * 1000;
-    let changed = false;
-    for (const [tokenHash, session] of Object.entries(this.data.sessions)) {
-      if (!session?.expiresAt || Date.parse(session.expiresAt) <= now) {
-        delete this.data.sessions[tokenHash];
-        changed = true;
+    await this.mutate((data) => {
+      for (const [tokenHash, session] of Object.entries(data.sessions)) {
+        if (!session?.expiresAt || Date.parse(session.expiresAt) <= now) delete data.sessions[tokenHash];
       }
-    }
-    const securityEvents = this.data.securityEvents.filter((event) => Date.parse(event.createdAt) >= securityCutoff);
-    const signupSignals = this.data.signupSignals.filter((signal) => Date.parse(signal.createdAt) >= signalCutoff);
-    if (securityEvents.length !== this.data.securityEvents.length) {
-      this.data.securityEvents = securityEvents;
-      changed = true;
-    }
-    if (signupSignals.length !== this.data.signupSignals.length) {
-      this.data.signupSignals = signupSignals;
-      changed = true;
-    }
-    if (changed) await this.persist();
+      data.securityEvents = data.securityEvents.filter((event) => Date.parse(event.createdAt) >= securityCutoff);
+      data.signupSignals = data.signupSignals.filter((signal) => Date.parse(signal.createdAt) >= signalCutoff);
+    });
   }
 
   async saveImage(id, userId, buffer, mimeType) {

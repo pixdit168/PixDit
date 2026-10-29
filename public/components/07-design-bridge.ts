@@ -173,7 +173,7 @@ async function openDesignForResult(index) {
   selectConcept(index);
   let item = findSavedSelection();
   if (!item) {
-    saveSelectedToLibrary();
+    await saveSelectedToLibrary();
     item = findSavedSelection();
   }
   if (item) await openDesignForItem(item.id);

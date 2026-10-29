@@ -176,7 +176,7 @@ function findSavedSelection(index = selectedConcept) {
   return libraryItems.find((item) => item.projectId === activeProject.id && Number(item.conceptIndex) === index && (item.sourceUrl || "") === sourceUrl);
 }
 
-function saveSelectedToLibrary() {
+async function saveSelectedToLibrary() {
   if (selectedConcept === null || !activeProject) {
     showToast("Pilih desain terlebih dahulu", "Klik salah satu hasil generasi yang ingin disimpan.", "!");
     return;
@@ -189,7 +189,7 @@ function saveSelectedToLibrary() {
     saveLibrary();
     renderLibrary();
     showView("library");
-    showToast("Teks poster diperbarui", "Copy terbaru diterapkan tanpa membuat ulang key visual.", "✓");
+    if (await persistAccountState()) showToast("Teks poster diperbarui", "Copy terbaru tersimpan ke akun tanpa membuat ulang key visual.", "✓");
     return;
   }
 
@@ -224,8 +224,13 @@ function saveSelectedToLibrary() {
   });
   saveLibrary();
   renderLibrary();
-  $("#save-library-button").textContent = "✓ Sudah di Library";
-  showToast("Tersimpan ke Library", "Original dikunci. Editing berikutnya akan dibuat sebagai versi baru.", "◇");
+  $("#save-library-button").textContent = "Menyimpan ke Koleksi...";
+  if (await persistAccountState()) {
+    $("#save-library-button").textContent = "✓ Sudah di Library";
+    showToast("Tersimpan ke Library", "Original tersimpan di akun. Editing berikutnya akan dibuat sebagai versi baru.", "◇");
+  } else {
+    $("#save-library-button").textContent = "Coba simpan lagi";
+  }
 }
 
 async function startGeneration() {

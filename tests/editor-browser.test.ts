@@ -257,6 +257,21 @@ test(
     await until("document.querySelector('.design-artboard canvas') && !document.querySelector('.design-loading')");
     await evaluate("window.PixginDesignEditor.close(true)");
     await until("!document.querySelector('.pixgin-design-editor')");
+    // A real refresh ends the old session; saved Koleksi must return after logging in again.
+    await evaluate("persistAccountState()");
+    await send("Page.reload",{ignoreCache:true});
+    await pause(250);
+    await until("document.documentElement.dataset.appReady==='true' && !document.querySelector('#auth-screen').classList.contains('is-hidden')");
+    await evaluate(`(async()=>{
+      await enterApp(await requestJson('/api/auth/login',{method:'POST',body:JSON.stringify({email:'direct@example.test',password:'test-password-123'})}));
+      if(libraryItems.length!==1)throw Error('Saved Koleksi disappeared after refresh');
+      const version=getCurrentLibraryVersion(libraryItems[0]);if(!version?.url)throw Error('Saved image URL missing');
+      if(!(await fetch(version.url,{cache:'no-store'})).ok)throw Error('Private saved image failed after login');
+      showView('library');await openDesignForItem(libraryItems[0].id);
+    })()`);
+    await until("document.querySelector('.design-artboard canvas') && !document.querySelector('.design-loading')");
+    assert.equal(await evaluate("document.body.innerText.includes('Aset gagal dimuat')"),false);
+    await evaluate("window.PixginDesignEditor.close(true);openProject('direct-project')");
     for (const width of [1440,390]) {
       await send("Emulation.setDeviceMetricsOverride",{width,height:width===390?844:1000,deviceScaleFactor:1,mobile:width===390});
       const modalCases = [

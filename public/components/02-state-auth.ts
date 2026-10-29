@@ -14,6 +14,7 @@ let saveTimer = null;
 let accountStateTimer = null;
 let accountStateWriteQueue: Promise<void> = Promise.resolve();
 let accountStateReady = false;
+let accountStateSavedSnapshot = "";
 let currentUser = null;
 let accountPreferences = null;
 let accountMenuTrigger = null;
@@ -94,21 +95,32 @@ function queueAccountStateWrite(write: () => Promise<void>): Promise<void> {
 }
 
 async function persistAccountState() {
-  if (!accountStateReady || !currentUser) return;
+  if (!accountStateReady || !currentUser) return false;
+  clearTimeout(accountStateTimer);
+  const account = currentUser;
+  const sessionToken = csrfToken;
   try {
     await queueAccountStateWrite(async () => {
+      const snapshot = JSON.stringify({ projects, library: libraryItems });
       await requestJson("/api/state", {
         method: "PUT",
-        body: JSON.stringify({ projects, library: libraryItems }),
+        body: snapshot,
       });
+      if (currentUser === account && csrfToken === sessionToken) accountStateSavedSnapshot = snapshot;
     });
+    return currentUser === account && csrfToken === sessionToken;
   } catch (error) {
     if (error.status === 401) {
       showAuthScreen("Sesi kamu telah berakhir. Silakan masuk kembali.");
-      return;
+      return false;
     }
     showToast("Penyimpanan tertunda", error.message || "Data akun belum dapat disimpan.", "!");
+    return false;
   }
+}
+
+function hasUnsavedAccountState() {
+  return Boolean(accountStateReady && currentUser && JSON.stringify({ projects, library: libraryItems }) !== accountStateSavedSnapshot);
 }
 
 function scheduleAccountStateSave() {
@@ -132,15 +144,17 @@ async function loadAccountState() {
   if (state.initialized) {
     projects = Array.isArray(state.projects) ? state.projects : [];
     libraryItems = Array.isArray(state.library) ? state.library : [];
+    accountStateSavedSnapshot = JSON.stringify({ projects, library: libraryItems });
   } else {
     const legacyProjects = loadLegacyArray(LEGACY_STORAGE.projects);
     const legacyLibrary = loadLegacyArray(LEGACY_STORAGE.library);
     projects = legacyProjects || [];
     libraryItems = legacyLibrary || [];
     accountStateReady = true;
-    await persistAccountState();
-    localStorage.removeItem(LEGACY_STORAGE.projects);
-    localStorage.removeItem(LEGACY_STORAGE.library);
+    if (await persistAccountState()) {
+      localStorage.removeItem(LEGACY_STORAGE.projects);
+      localStorage.removeItem(LEGACY_STORAGE.library);
+    }
   }
   accountStateReady = true;
 }
@@ -341,6 +355,7 @@ function showAuthScreen(message = "") {
   selectedAgentTier = "free";
   projects = [];
   libraryItems = [];
+  accountStateSavedSnapshot = "";
   activeProject = null;
   generatedImages = [];
   closeAccountMenu();
