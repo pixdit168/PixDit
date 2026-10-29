@@ -208,7 +208,7 @@ function bindEvents() {
     closeAgentMenu();
   });
 
-  ["#new-project-side", "#new-project-main", "#quick-create"].forEach((selector) => $(selector)?.addEventListener("click", openProjectModal));
+  ["#new-project-side", "#new-project-main", "#quick-create", "#dashboard-empty-create"].forEach((selector) => $(selector)?.addEventListener("click", openProjectModal));
   $$('[data-close-modal]').forEach((button) => button.addEventListener("click", closeProjectModal));
   $("#project-modal").addEventListener("click", (event) => {
     if (event.target === event.currentTarget) closeProjectModal();

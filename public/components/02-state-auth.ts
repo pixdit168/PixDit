@@ -271,7 +271,7 @@ function updateUserInterface() {
   $("#account-menu-name").textContent = currentUser.displayName;
   $("#account-menu-current-name").textContent = currentUser.displayName;
   $("#account-menu-email").textContent = currentUser.email;
-  $("#welcome-title").textContent = `Selamat Datang, ${firstName}.`;
+  $("#welcome-title").textContent = `Selamat datang, ${firstName}.`;
 }
 
 function setAuthError(message = "") {

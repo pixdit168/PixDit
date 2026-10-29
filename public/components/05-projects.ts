@@ -102,6 +102,8 @@ function renderProjectCards(grid, projectList, options = {}) {
 function renderProjects() {
   $("#project-count").textContent = `${projects.length} proyek`;
   renderProjectCards($("#project-grid"), projects.slice(0, 6));
+  $("#dashboard-empty").classList.toggle("is-hidden", projects.length > 0);
+  $("#project-grid").classList.toggle("is-hidden", projects.length === 0);
 }
 
 function renderAllProjects() {
