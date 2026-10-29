@@ -1750,6 +1750,49 @@ input:focus-visible,textarea:focus-visible,select:focus-visible { outline:2px so
   .selection-bar button { font-size:10px; padding:8px; min-width:0; }
 }
 
+/* Slightly larger text throughout the generation form, from heading to status. */
+.prompt-panel .prompt-panel-head h2 { font-size:21px; }
+.prompt-panel .prompt-panel-head p { font-size:13px; }
+.prompt-panel .step-count { font-size:12px; }
+.prompt-panel > label,
+.prompt-panel .source-logo-section > label,
+.prompt-panel .source-upload-title,
+.prompt-panel .form-row label,
+.prompt-panel .quality-control label,
+.prompt-panel .control-title > span { font-size:14px; }
+.prompt-panel .control-title { flex-wrap:wrap; }
+.prompt-panel .control-title small,
+.prompt-panel .optional-label,
+.prompt-panel .creation-mode-option small,
+.prompt-panel .generation-count-option small,
+.prompt-panel .source-logo-note,
+.prompt-panel .product-model-notice,
+.prompt-panel .generation-count-section > p,
+.prompt-panel .agent-trigger small,
+.prompt-panel .agent-option small,
+.prompt-panel .quality-control small,
+.prompt-panel .generate-button small,
+.prompt-panel .private-note { font-size:12px; }
+.prompt-panel .creation-mode-option strong,
+.prompt-panel .generation-count-option strong,
+.prompt-panel .source-upload-tile strong,
+.prompt-panel .source-image-card > span { font-size:13px; }
+.prompt-panel .prompt-box textarea,
+.prompt-panel .agent-trigger strong,
+.prompt-panel .agent-option strong,
+.prompt-panel .form-row select,
+.prompt-panel .quality-control select,
+.prompt-panel .generate-button strong { font-size:14px; }
+.prompt-panel .prompt-meta button { font-size:12px; }
+.prompt-panel .prompt-meta > span,
+.prompt-panel .prompt-suggestions span,
+.prompt-panel .prompt-suggestions button { font-size:11px; }
+.prompt-panel .generation-count-option strong,
+.prompt-panel .generation-count-option small { white-space:normal; overflow-wrap:anywhere; }
+.prompt-panel .generation-count-option > b { font-size:16px; }
+.prompt-panel .generation-count-option > i,
+.prompt-panel .agent-option > i { font-size:9px; }
+
 /* Readable project names and details in Proyek Saya and its full project list. */
 .project-card-body h3 { font-size:17px; line-height:1.4; }
 .project-meta, .project-card-actions > span { font-size:13px; line-height:1.6; }
