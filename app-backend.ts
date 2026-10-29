@@ -296,7 +296,7 @@ function getPeriod(plan) {
   if (plan === "premium") {
     const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const reset = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    return { start, reset, creditLimit: -1, period: "monthly" };
+    return { start, reset, creditLimit: 200, period: "monthly" };
   }
   const daysSinceMonday = (now.getUTCDay() + 6) % 7;
   const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceMonday));
@@ -311,7 +311,7 @@ function getUsageStatus(userId) {
   const generationUsed = events.filter((event) => event.eventType === "generate").length;
   const refinementUsed = events.filter((event) => event.eventType === "refine").length;
   const creditsUsed = events.reduce((total, event) => total + Math.max(0, Number(event.creditCost) || 0), 0);
-  const creditsRemaining = isPremium ? -1 : Math.max(0, period.creditLimit - creditsUsed);
+  const creditsRemaining = Math.max(0, period.creditLimit - creditsUsed);
   const brand = store.data.accountBrands[userId] || null;
   return {
     plan,
@@ -321,20 +321,20 @@ function getUsageStatus(userId) {
     allowedImageCounts: isPremium ? [1, 10] : [1],
     maxImagesPerGeneration: isPremium ? 10 : 1,
     allowedQualities: isPremium ? ["1mp", "2mp", "4mp"] : ["1mp"],
-    credits: { limit: period.creditLimit, used: creditsUsed, remaining: creditsRemaining, unlimited: isPremium, period: period.period, resetAt: period.reset.toISOString() },
+    credits: { limit: period.creditLimit, used: creditsUsed, remaining: creditsRemaining, unlimited: false, period: period.period, resetAt: period.reset.toISOString() },
     brand: { limit: isPremium ? -1 : 1, used: brand ? 1 : 0, name: brand?.displayName || "" },
     generation: {
       limit: isPremium ? -1 : 1,
       used: generationUsed,
       remaining: isPremium ? -1 : Math.max(0, 1 - generationUsed),
-      exhausted: !isPremium && (generationUsed >= 1 || creditsRemaining < 2),
+      exhausted: creditsRemaining < 2 || (!isPremium && generationUsed >= 1),
       resetAt: period.reset.toISOString(),
     },
     refinement: {
       limit: isPremium ? -1 : 3,
       used: refinementUsed,
       remaining: isPremium ? -1 : Math.max(0, 3 - refinementUsed),
-      exhausted: !isPremium && (refinementUsed >= 3 || creditsRemaining < 3),
+      exhausted: creditsRemaining < 3 || (!isPremium && refinementUsed >= 3),
       resetAt: period.reset.toISOString(),
     },
   };
@@ -347,7 +347,6 @@ function generationCreditCost(quality, count = 1) {
 
 function creditAllowed(userId, eventType, creditCost) {
   const usage = getUsageStatus(userId);
-  if (usage.isPremium) return { allowed: true, usage };
   if (creditCost > usage.credits.remaining) return { allowed: false, usage };
   if (eventType === "generate" && usage.generation.exhausted) return { allowed: false, usage };
   if (eventType === "refine" && usage.refinement.exhausted) return { allowed: false, usage };
@@ -378,7 +377,9 @@ function quotaExceeded(response, userId, eventType, requiredCredits) {
   const usage = getUsageStatus(userId);
   const resetDate = new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: "Asia/Jakarta" }).format(new Date(usage.credits.resetAt));
   const action = eventType === "generate" ? "1 gambar gratis" : "3 edit gratis";
-  const message = `Kuota ${action} minggu ini sudah habis. Kuota diperbarui pada ${resetDate}.\n\nUpgrade ke Pixgin Pro untuk membuat dan mengedit gambar tanpa batas seharga Rp139.000/bulan.`;
+  const message = usage.isPremium
+    ? `Kredit bulan ini tidak cukup. Tersisa ${usage.credits.remaining} dari 200 kredit; tindakan ini memerlukan ${requiredCredits} kredit. Kredit diperbarui pada ${resetDate}.`
+    : `Kuota ${action} minggu ini sudah habis. Kuota diperbarui pada ${resetDate}.\n\nUpgrade ke Pixgin Pro untuk mendapatkan 200 kredit per bulan seharga Rp139.000/bulan.`;
   sendJson(response, 429, { ok: false, error: "quota_exhausted", quotaType: eventType, requiredCredits, upgradeRequired: !usage.isPremium, upgradeLabel: "Upgrade ke Pro - Rp139.000/bln", message, usage });
 }
 

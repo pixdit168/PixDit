@@ -12,9 +12,9 @@ if (process.env.PIXGIN_USAGE_FIXTURE === "1") {
     for (const user of Object.values(this.data.users)) {
       if (seeded.has(user.id)) continue;
       seeded.add(user.id);
-      if (user.email === "pro-quota@example.test") {
+      if (["pro-quota@example.test", "pro-exhausted@example.test"].includes(user.email)) {
         user.plan = "premium";
-        this.data.usageEvents.push({ userId:user.id, eventType:"generate", creditCost:240, createdAt:new Date().toISOString() });
+        this.data.usageEvents.push({ userId:user.id, eventType:"generate", creditCost:240, createdAt:(user.email === "pro-quota@example.test" ? new Date(Date.UTC(new Date().getUTCFullYear(),new Date().getUTCMonth(),0)) : new Date()).toISOString() });
       } else if (user.email === "free-quota@example.test") {
         for (const eventType of ["generate", "refine", "refine", "refine"])
           this.data.usageEvents.push({ userId:user.id, eventType, creditCost:eventType === "generate" ? 2 : 3, createdAt:new Date(Date.now()-8*24*60*60*1000).toISOString() });

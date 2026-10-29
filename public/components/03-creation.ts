@@ -328,9 +328,9 @@ function openUpgradeModal(message = "") {
     $("#upgrade-modal-message").textContent = message;
   } else if (exhausted && usageState?.generation?.resetAt) {
     const resetDate = new Intl.DateTimeFormat("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" }).format(new Date(usageState.generation.resetAt));
-    $("#upgrade-modal-message").textContent = `Paket Gratis menyediakan 1 gambar dan 3 edit setiap minggu. Kuota berikutnya hadir pada ${resetDate}.\n\nUpgrade ke Pixgin Pro untuk membuat dan mengedit gambar tanpa batas seharga Rp139.000/bulan.`;
+    $("#upgrade-modal-message").textContent = `Paket Gratis menyediakan 1 gambar dan 3 edit setiap minggu. Kuota berikutnya hadir pada ${resetDate}.\n\nUpgrade ke Pixgin Pro untuk mendapatkan 200 kredit per bulan seharga Rp139.000/bulan.`;
   } else {
-    $("#upgrade-modal-message").textContent = "Paket Gratis: 1 gambar dan 3 edit setiap minggu. Pixgin Pro: buat dan edit gambar tanpa batas, Agent Pro, semua kualitas, dan hingga 10 variasi sekaligus seharga Rp139.000/bulan.";
+    $("#upgrade-modal-message").textContent = "Paket Gratis: 1 gambar dan 3 edit setiap minggu. Pixgin Pro: 200 kredit per bulan untuk membuat dan mengedit gambar, Agent Pro, semua kualitas, dan hingga 10 variasi sekaligus seharga Rp139.000/bulan.";
   }
   $("#upgrade-modal").classList.remove("is-hidden");
   $("#upgrade-modal").setAttribute("aria-hidden", "false");

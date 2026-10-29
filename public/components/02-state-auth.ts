@@ -186,11 +186,12 @@ function updatePlanInterface() {
   const planLabel = usageState?.planLabel || (subscriber ? "Pixgin Pro" : "Paket Gratis");
   $("#sidebar-plan-name").textContent = planLabel;
   $("#account-menu-plan").textContent = planLabel;
-  const generationsRemaining = usageState?.generation?.remaining ?? 1;
-  const editsRemaining = usageState?.refinement?.remaining ?? 3;
-  $("#sidebar-plan-usage").textContent = subscriber ? "Buat & edit gambar tanpa batas" : `${generationsRemaining} gambar · ${editsRemaining} edit tersisa minggu ini`;
+  const credits = usageState?.credits;
+  const creditLimit = credits?.limit ?? (subscriber ? 200 : 11);
+  const creditsRemaining = credits?.remaining ?? creditLimit;
+  $("#sidebar-plan-usage").textContent = `${creditsRemaining} dari ${creditLimit} kredit tersisa`;
   const progress = $("#plan-card .plan-progress i");
-  if (progress) progress.style.width = `${subscriber ? 100 : Math.max(0, Math.min(100, ((generationsRemaining + editsRemaining) / 4) * 100))}%`;
+  if (progress) progress.style.width = `${Math.max(0, Math.min(100, (creditsRemaining / Math.max(1, creditLimit)) * 100))}%`;
   if (!subscriber && selectedGenerationCount === 10) selectedGenerationCount = 1;
   if (!subscriber && selectedAgentTier === "pro") selectedAgentTier = "free";
   const qualitySelect = $("#quality-select");
@@ -213,7 +214,8 @@ function updateGenerationControls() {
   const note = $("#generation-cost-note");
   if (!note) return;
   const qualityLabel = { "1mp": "Standar", "2mp": "Detail", "4mp": "Maksimal" }[quality] || "Standar";
-  note.textContent = subscriber ? `${qualityLabel} · tanpa batas` : `Standar · ${usageState?.generation?.remaining ?? 1} gambar dan ${usageState?.refinement?.remaining ?? 3} edit gratis tersisa minggu ini`;
+  const creditCost = ({ "1mp": 2, "2mp": 4, "4mp": 8 }[quality] || 2) * count;
+  note.textContent = subscriber ? `${qualityLabel} · ${creditCost} kredit · ${usageState?.credits?.remaining ?? 200} tersisa` : `Standar · ${usageState?.generation?.remaining ?? 1} gambar dan ${usageState?.refinement?.remaining ?? 3} edit gratis tersisa minggu ini`;
 }
 
 function showToast(title, message, icon = "✓") {

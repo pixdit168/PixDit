@@ -60,15 +60,17 @@ test("website always generates direct posters, including previously opted-in pro
   assert.equal(vm.runInContext("selectedGenerationMode()",context),"poster");
 });
 
-test("usage UI shows weekly image/edit allowances and unlimited Pro without credit costs", async () => {
+test("usage UI shows remaining credits and Pro generation costs", async () => {
   const { context, node, startup } = await authStartupContext(async () => authResponse(401, {message:"Signed out"}));
   await startup;
   vm.runInContext(`currentUser={plan:"free"};usageState={plan:"free",generation:{remaining:0},refinement:{remaining:3}};updatePlanInterface();`, context);
-  assert.match(node("#sidebar-plan-usage").textContent, /0 gambar.*3 edit/);
+  assert.match(node("#sidebar-plan-usage").textContent, /11 dari 11 kredit tersisa/);
   assert.match(node("#generation-cost-note").textContent, /0 gambar dan 3 edit/);
-  vm.runInContext(`currentUser={plan:"premium"};usageState={plan:"premium",isPremium:true,credits:{limit:-1,remaining:-1,unlimited:true}};updatePlanInterface();openUpgradeModal();`, context);
-  assert.match(node("#sidebar-plan-usage").textContent, /tanpa batas/);
-  assert.match(node("#generation-cost-note").textContent, /tanpa batas/);
+  vm.runInContext(`currentUser={plan:"premium"};usageState={plan:"premium",isPremium:true,credits:{limit:200,remaining:146,used:54,unlimited:false}};updatePlanInterface();openUpgradeModal();`, context);
+  assert.equal(node("#sidebar-plan-usage").textContent, "146 dari 200 kredit tersisa");
+  assert.equal(node("#plan-card .plan-progress i").style.width,"73%");
+  assert.match(node("#generation-cost-note").textContent, /2 kredit.*146 tersisa/);
+  assert.match(node("#upgrade-modal-message").textContent, /200 kredit per bulan/);
   assert.doesNotMatch(node("#upgrade-modal-title").textContent, /habis/);
   assert.match(node("#upgrade-modal-message").textContent, /Rp139\.000\/bulan/);
 });

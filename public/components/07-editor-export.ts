@@ -44,7 +44,7 @@ async function regenerateSelected() {
     return;
   }
   if (!isSubscriber() && usageState?.refinement?.exhausted) {
-    openUpgradeModal("Kuota 3 edit gratis minggu ini sudah habis. Upgrade ke Pixgin Pro untuk membuat dan mengedit gambar tanpa batas.");
+    openUpgradeModal("Kuota 3 edit gratis minggu ini sudah habis. Upgrade ke Pixgin Pro untuk mendapatkan 200 kredit per bulan.");
     return;
   }
   if (window.location.protocol === "file:") {

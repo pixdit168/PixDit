@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import sharp from "sharp";
 
-test("Free renews weekly with one image and three edits; Pro bypasses the former credit cap", { timeout: 30_000 }, async (context) => {
+test("Free renews weekly; Pro renews monthly and enforces the 200-credit cap", { timeout: 30_000 }, async (context) => {
   const base = `http://127.0.0.1:${28000 + Math.floor(Math.random() * 1000)}`;
   let output = "";
   const child = spawn(process.execPath, ["--import", "./tests/design-provider-fixture.js", "app-backend.js"], {
@@ -67,9 +67,11 @@ test("Free renews weekly with one image and three edits; Pro bypasses the former
   const pro=client();
   await signIn(pro,"pro-quota@example.test");
   const before=(await pro("/api/usage")).data.usage;
-  assert.equal(before.credits.used,240);
-  assert.equal(before.credits.unlimited,true);
-  assert.equal(before.credits.remaining,-1);
+  assert.equal(before.credits.used,0,"last month must not consume this month?s 200 credits");
+  assert.equal(before.credits.limit,200);
+  assert.equal(new Date(before.credits.resetAt).getUTCDate(),1);
+  assert.equal(before.credits.unlimited,false);
+  assert.equal(before.credits.remaining,200);
   assert.equal(before.generation.exhausted,false);
   assert.equal(before.refinement.exhausted,false);
   let proImage;
@@ -81,11 +83,29 @@ test("Free renews weekly with one image and three edits; Pro bypasses the former
   }
   for(let i=0;i<4;i++) assert.equal((await pro("/api/refine",{sourceUrl:proImage.url,agentTier:"pro",refinement:"Ganti latar menjadi biru"})).status,200);
   const after=(await pro("/api/usage")).data.usage;
-  assert.ok(after.credits.used>400);
-  assert.equal(after.generation.remaining,-1);
-  assert.equal(after.refinement.remaining,-1);
-  assert.equal(after.generation.exhausted,false);
-  assert.equal(after.refinement.exhausted,false);
+  assert.equal(after.credits.used,172);
+  assert.equal(after.credits.remaining,28);
+  const tooExpensive=await pro("/api/generate",{...input,imageCount:10,quality:"4mp",agentTier:"pro"});
+  assert.equal(tooExpensive.status,429);
+  assert.equal(tooExpensive.data.requiredCredits,80);
+  assert.equal(tooExpensive.data.upgradeRequired,false);
+  assert.match(tooExpensive.data.message,/200 kredit/);
+  assert.equal((await pro("/api/usage")).data.usage.credits.remaining,28);
+  for(let i=0;i<3;i++) assert.equal((await pro("/api/generate",{...input,quality:"4mp",agentTier:"pro"})).status,200);
+  assert.equal((await pro("/api/generate",{...input,quality:"2mp",agentTier:"pro"})).status,200);
+  const exhausted=(await pro("/api/usage")).data.usage;
+  assert.equal(exhausted.credits.used,200);
+  assert.equal(exhausted.credits.remaining,0);
+  assert.equal(exhausted.generation.exhausted,true);
+  assert.equal(exhausted.refinement.exhausted,true);
+  assert.equal((await pro("/api/generate",input)).status,429);
+  assert.equal((await pro("/api/refine",{sourceUrl:proImage.url,refinement:"Ganti latar menjadi biru"})).status,429);
+  const historical=client();
+  await signIn(historical,"pro-exhausted@example.test");
+  const historicalUsage=(await historical("/api/usage")).data.usage;
+  assert.equal(historicalUsage.credits.used,240);
+  assert.equal(historicalUsage.credits.remaining,0,"existing usage must count without returning negative credits");
+  assert.equal((await historical("/api/generate",input)).status,429);
 });
 
 test(
