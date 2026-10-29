@@ -379,8 +379,8 @@
 .pixgin-design-editor button.design-close-button {
   display:inline-flex; align-items:center; justify-content:center;
   width:34px; min-width:34px; height:38px; min-height:38px; padding:8px 11px;
-  border:1px solid #ff9a9a; border-radius:8px; background:#b91c1c; color:#fff;
+  border:0; border-radius:0; box-shadow:none; background:transparent; color:#b91c1c;
   font-size:14px; font-weight:600; line-height:1.5; flex:0 0 34px;
 }
-.pixgin-design-editor button.design-close-button:hover { background:#991b1b; border-color:#ff9a9a; }
+.pixgin-design-editor button.design-close-button:hover { color:#991b1b; background:transparent; border-color:transparent; }
 .pixgin-design-editor button.design-close-button:focus-visible { outline:3px solid #ffb4b4; outline-offset:3px; }
