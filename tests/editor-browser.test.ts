@@ -13,7 +13,7 @@ import { createDecoration, layerEntries } from "../shared/design-layers.js";
 const pause = (ms = 100) => new Promise((resolve) => setTimeout(resolve, ms));
 test(
   "desktop and mobile editor preserve independent elements, exports and failed/conflicting drafts",
-  { timeout: 90_000 },
+  { timeout: 120_000 },
   async (context) => {
     const chromePath =
       process.env.CHROME_PATH ||
@@ -186,19 +186,55 @@ test(
     await until(
       "typeof loadDesignEditor==='function' && document.documentElement.dataset.appReady==='true'",
     );
+    const closeAudit: { name:string; viewport:string; image:Buffer }[] = [];
+    const auditCloseButton = async (name:string, selector:string, open:string, closed:string) => {
+      await send("Input.dispatchMouseEvent", {type:"mouseMoved", x:0, y:0});
+      await evaluate(open);
+      await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center',inline:'center'})`);
+      await pause(300);
+      const control = await evaluate(`(()=>{
+        const button=document.querySelector(${JSON.stringify(selector)}), rect=button.getBoundingClientRect(), style=getComputedStyle(button);
+        const hit=document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height/2);
+        return {x:rect.x,y:rect.y,width:rect.width,height:rect.height,color:style.backgroundColor,foreground:style.color,visible:button.checkVisibility(),clickable:hit===button||button.contains(hit),viewport:innerWidth+'px',screenWidth:innerWidth,screenHeight:innerHeight};
+      })()`);
+      assert.ok(control.visible && control.clickable, `${name}: not visible/reachable: ${JSON.stringify(control)}`);
+      assert.ok(control.width>=44 && control.height>=44, `${name}: ${JSON.stringify(control)}`);
+      assert.ok(control.x>=0 && control.y>=0 && control.x+control.width<=control.screenWidth+1 && control.y+control.height<=control.screenHeight+1, `${name}: button clipped by viewport: ${JSON.stringify(control)}`);
+      assert.equal(control.color,"rgb(255, 0, 0)",`${name}: normal background`);
+      assert.equal(control.foreground,"rgb(255, 255, 255)",`${name}: white close symbol`);
+      const shot=await send("Page.captureScreenshot",{format:"png"});
+      const image=await sharp(Buffer.from(shot.data,"base64")).extract({left:Math.max(0,Math.min(control.screenWidth-300,Math.round(control.x-220))),top:Math.max(0,Math.min(control.screenHeight-112,Math.round(control.y-24))),width:300,height:112}).png().toBuffer();
+      closeAudit.push({name,viewport:control.viewport,image});
+      const x=control.x+control.width/2, y=control.y+control.height/2;
+      await send("Input.dispatchMouseEvent",{type:"mouseMoved",x,y});
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),"rgb(230, 0, 0)",`${name}: hover background`);
+      await send("Input.dispatchMouseEvent",{type:"mouseMoved",x:0,y:0});
+      await evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),"rgb(255, 0, 0)",`${name}: focused background`);
+      await send("Input.dispatchMouseEvent",{type:"mousePressed",x,y,button:"left",buttons:1,clickCount:1});
+      await send("Input.dispatchMouseEvent",{type:"mouseReleased",x,y,button:"left",buttons:0,clickCount:1});
+      await until(closed);
+      console.info(`Close audit PASS: ${control.viewport} / ${name} / bright red / 44px / hover / focus / click`);
+    };
     const checkCloseButtons = async () => {
+      await send("Input.dispatchMouseEvent", {type:"mouseMoved",x:0,y:0});
       const controls = await evaluate(`Array.from(document.querySelectorAll('.close-button,.design-close-button')).map(button=>{const style=getComputedStyle(button);return {name:button.getAttribute('aria-label'),width:parseFloat(style.width),height:parseFloat(style.height),color:style.backgroundColor};})`);
       assert.ok(controls.length >= 12, JSON.stringify(controls));
       for (const button of controls) {
         assert.ok(button.width >= 44 && button.height >= 44, JSON.stringify(button));
-        assert.equal(button.color, "rgb(185, 28, 28)", button.name);
+        assert.equal(button.color, "rgb(255, 0, 0)", button.name);
       }
     };
     await checkCloseButtons();
+    for (const mode of ["login","register","verify"])
+      await auditCloseButton(`auth-${mode}`,"#auth-panel-close",`openAuthPanel('${mode}')`,`document.querySelector('#auth-panel').classList.contains('is-hidden')`);
     await evaluate("openAuthPanel('login')");
     await screenshot("login-close-desktop");
     await send("Emulation.setDeviceMetricsOverride", {width:390,height:844,deviceScaleFactor:1,mobile:true});
     await checkCloseButtons();
+    for (const mode of ["login","register","verify"])
+      await auditCloseButton(`auth-${mode}`,"#auth-panel-close",`openAuthPanel('${mode}')`,`document.querySelector('#auth-panel').classList.contains('is-hidden')`);
+    await evaluate("openAuthPanel('login')");
     await screenshot("login-close-mobile");
     await evaluate("closeAuthPanel()");
     await send("Emulation.setDeviceMetricsOverride", {width:1440,height:1000,deviceScaleFactor:1,mobile:false});
@@ -221,6 +257,40 @@ test(
     await until("document.querySelector('.design-artboard canvas') && !document.querySelector('.design-loading')");
     await evaluate("window.PixginDesignEditor.close(true)");
     await until("!document.querySelector('.pixgin-design-editor')");
+    for (const width of [1440,390]) {
+      await send("Emulation.setDeviceMetricsOverride",{width,height:width===390?844:1000,deviceScaleFactor:1,mobile:width===390});
+      const modalCases = [
+        ["new-project","#project-modal .modal-close","openProjectModal()","#project-modal"],
+        ["all-projects","#all-projects-close","openAllProjectsModal()","#all-projects-modal"],
+        ["help","#help-modal-close","openHelpModal()","#help-modal"],
+        ["delete-project","#delete-project-close","openDeleteProjectModal('direct-project')","#delete-project-modal"],
+        ["delete-library","#delete-library-close","toggleLibrarySelection(libraryItems[0].id,true);openDeleteLibraryModal()","#delete-library-modal"],
+        ["account-profile","#account-modal-close","openAccountModal('profile')","#account-modal"],
+        ["account-preferences","#account-modal-close","openAccountModal('preferences')","#account-modal"],
+        ["account-security","#account-modal-close","openAccountModal('security')","#account-modal"],
+        ["library-preview","#library-preview-close","openLibraryPreview(libraryItems[0].id)","#library-preview-modal"],
+        ["upgrade-plan","#upgrade-modal-close","openUpgradeModal()","#upgrade-modal"],
+      ];
+      for (const [name,selector,open,panel] of modalCases)
+        await auditCloseButton(name,selector,open,`document.querySelector('${panel}').classList.contains('is-hidden')`);
+      await auditCloseButton("refine-drawer","#close-drawer","openRefineDrawer(libraryItems[0].id)","!document.querySelector('#refine-drawer').classList.contains('open')");
+      await auditCloseButton("result-selection","#clear-selection","showView('workspace');selectConcept(0)","document.querySelector('#selection-bar').classList.contains('is-hidden')");
+      await auditCloseButton("product-upload","[data-remove-product-image]",`showView('workspace');selectCreationMode('product');activeProject.productImages=[${JSON.stringify(upload)}];renderProductImagePreview()`,"getProductImages(activeProject).length===0");
+      await auditCloseButton("logo-upload","[data-remove-brand-logo]",`activeProject.brandLogos=[${JSON.stringify(upload)}];renderBrandLogoPreview()`,"getBrandLogos(activeProject).length===0");
+      const tip=await evaluate("document.querySelector('.tips-strip').outerHTML");
+      await auditCloseButton("dashboard-tip","#dismiss-tip","showView('dashboard')","!document.querySelector('#dismiss-tip')");
+      await evaluate(`document.querySelector('#dashboard-view').insertAdjacentHTML('beforeend',${JSON.stringify(tip)});document.querySelector('#dismiss-tip').addEventListener('click',()=>document.querySelector('.tips-strip').remove())`);
+      await auditCloseButton("design-editor",".design-close-button","openDesignForItem(libraryItems[0].id)","!document.querySelector('.pixgin-design-editor')");
+    }
+    await send("Emulation.setDeviceMetricsOverride",{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+    const columns=4,tileWidth=312,tileHeight=152;
+    const auditSheet=path.join(path.resolve(import.meta.dirname,".."),"preview-close-buttons.png");
+    await sharp({create:{width:columns*tileWidth,height:Math.ceil(closeAudit.length/columns)*tileHeight,channels:3,background:"#100d23"}}).composite(closeAudit.flatMap((entry,index)=>{
+      const left=(index%columns)*tileWidth,top=Math.floor(index/columns)*tileHeight;
+      const label=Buffer.from(`<svg width="300" height="28"><text x="5" y="19" fill="white" font-family="Arial" font-size="13">${entry.viewport} / ${entry.name}</text></svg>`);
+      return [{input:label,left:left+6,top:top+6},{input:entry.image,left:left+6,top:top+34}];
+    })).png().toFile(auditSheet);
+    console.info(`Close audit evidence: ${auditSheet} (${closeAudit.length} visible checks)`);
     await evaluate("(async()=>{clearTimeout(accountStateTimer);await persistAccountState();await requestJson('/api/auth/logout',{method:'POST'});showAuthScreen();})()");
     await evaluate(`(async()=>{
     await requestJson('/api/auth/register',{method:'POST',body:JSON.stringify({displayName:'Browser Test',email:'browser@example.test',password:'test-password-123',deviceId:'browser-device'})});
