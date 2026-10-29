@@ -198,31 +198,30 @@ test(
         return {x:rect.x,y:rect.y,width:rect.width,height:rect.height,color:style.backgroundColor,foreground:style.color,visible:button.checkVisibility(),clickable:hit===button||button.contains(hit),viewport:innerWidth+'px',screenWidth:innerWidth,screenHeight:innerHeight};
       })()`);
       assert.ok(control.visible && control.clickable, `${name}: not visible/reachable: ${JSON.stringify(control)}`);
-      assert.ok(control.width>=44 && control.height>=44, `${name}: ${JSON.stringify(control)}`);
+      assert.ok(control.width>=10 && control.width<=40 && control.height>=14 && control.height<=40, `${name}: ${JSON.stringify(control)}`);
       assert.ok(control.x>=0 && control.y>=0 && control.x+control.width<=control.screenWidth+1 && control.y+control.height<=control.screenHeight+1, `${name}: button clipped by viewport: ${JSON.stringify(control)}`);
-      assert.equal(control.color,"rgb(255, 0, 0)",`${name}: normal background`);
+      assert.equal(control.color,"rgb(185, 28, 28)",`${name}: normal background`);
       assert.equal(control.foreground,"rgb(255, 255, 255)",`${name}: white close symbol`);
       const shot=await send("Page.captureScreenshot",{format:"png"});
       const image=await sharp(Buffer.from(shot.data,"base64")).extract({left:Math.max(0,Math.min(control.screenWidth-300,Math.round(control.x-220))),top:Math.max(0,Math.min(control.screenHeight-112,Math.round(control.y-24))),width:300,height:112}).png().toBuffer();
       closeAudit.push({name,viewport:control.viewport,image});
       const x=control.x+control.width/2, y=control.y+control.height/2;
       await send("Input.dispatchMouseEvent",{type:"mouseMoved",x,y});
-      assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),"rgb(230, 0, 0)",`${name}: hover background`);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),"rgb(153, 27, 27)",`${name}: hover background`);
       await send("Input.dispatchMouseEvent",{type:"mouseMoved",x:0,y:0});
       await evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
-      assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),"rgb(255, 0, 0)",`${name}: focused background`);
+      assert.equal(await evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor`),"rgb(185, 28, 28)",`${name}: focused background`);
       await send("Input.dispatchMouseEvent",{type:"mousePressed",x,y,button:"left",buttons:1,clickCount:1});
       await send("Input.dispatchMouseEvent",{type:"mouseReleased",x,y,button:"left",buttons:0,clickCount:1});
       await until(closed);
-      console.info(`Close audit PASS: ${control.viewport} / ${name} / bright red / 44px / hover / focus / click`);
+      console.info(`Close audit PASS: ${control.viewport} / ${name} / dark red / original size / hover / focus / click`);
     };
     const checkCloseButtons = async () => {
       await send("Input.dispatchMouseEvent", {type:"mouseMoved",x:0,y:0});
       const controls = await evaluate(`Array.from(document.querySelectorAll('.close-button,.design-close-button')).map(button=>{const style=getComputedStyle(button);return {name:button.getAttribute('aria-label'),width:parseFloat(style.width),height:parseFloat(style.height),color:style.backgroundColor};})`);
       assert.ok(controls.length >= 12, JSON.stringify(controls));
       for (const button of controls) {
-        assert.ok(button.width >= 44 && button.height >= 44, JSON.stringify(button));
-        assert.equal(button.color, "rgb(255, 0, 0)", button.name);
+        assert.equal(button.color, "rgb(185, 28, 28)", button.name);
       }
     };
     await checkCloseButtons();
